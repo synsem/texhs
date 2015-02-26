@@ -1,0 +1,7 @@
+# cabal
+.cabal-sandbox
+cabal.sandbox.config
+dist
+# interface and object files
+*.hi
+*.o
