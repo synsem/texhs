@@ -19,6 +19,7 @@ module Text.TeX.Lexer
   ) where
 
 import Control.Applicative ((<*), (<*>), (*>), (<$), (<$>))
+import Control.Monad (void)
 import Data.Char (isOctDigit, isDigit, isHexDigit)
 import Numeric (readOct, readDec, readHex)
 import Text.Parsec
@@ -115,9 +116,9 @@ def = do
   -- parse the macro definition
   (CtrlSeq name active) <- ctrlseqNoexpand <?> "macro name"
   context <- macroContextDefinition <?> "macro context definition"
-  bgroup <?> "begin of macro body"
+  void bgroup <?> "begin of macro body"
   body <- tokens <?> "macro body"
-  egroup <?> "end of macro body"
+  void egroup <?> "end of macro body"
   -- register the new macro and restore the original expansion mode
   s1 <- getState -- get current state again, it might have changed
   putState (s1 { allowExpand = expandMode })
@@ -258,7 +259,7 @@ ctrlseqC :: Parser Token
 ctrlseqC = do
   -- Note: we are using plain char parsers here
   -- because parsed tokens cannot compose to a 'CtrlSeq'.
-  charccC Escape
+  void $ charccC Escape
   cs <- (many1 (charccC Letter) <* skipSpace)
         <|> count 1 anyChar
         <?> "control sequence"
@@ -271,7 +272,7 @@ ctrlseqEqC :: String -> Bool -> Parser Token
 ctrlseqEqC name True = let c = head name -- for active chars @length name == 1@
                        in char c Active *> return (CtrlSeq [c] True)
 ctrlseqEqC name False = do
-  charccC Escape
+  void $ charccC Escape
   cs <- string name
   return (CtrlSeq cs False)
 
@@ -371,7 +372,7 @@ charT c i = satisfyToken (isCharEq c i)
 charC :: Char -> Catcode -> Parser Token
 charC c i = do
   s <- getState
-  satisfyChar (\x -> (x==c && hasCatcode i (getCatcodes s) x))
+  void $ satisfyChar (\x -> (x==c && hasCatcode i (getCatcodes s) x))
   return (TeXChar c i)
 
 -- 'string' only accepts letters, i.e. characters with catcode 'Letter'.
