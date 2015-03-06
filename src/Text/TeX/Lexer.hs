@@ -79,8 +79,8 @@ registerMacro m s = let oldMacros = getMacros s
 
 expand :: Token -> Parser [Token]
 expand t@(CtrlSeq name active) = do
-  s <- getState
-  if allowExpand s
+  expandMode <- allowExpand <$> getState
+  if expandMode
     then expandMacro name active
     else return [t]
 expand _ = error "Trying to expand non-CtrlSeq."
@@ -141,8 +141,7 @@ macroContextDefinition = concat <$> many (paramTokens <|> plainTokens)
 -- matching user-defined macro in the current parser state.
 lookupUserMacro :: String -> Bool -> Parser [Token]
 lookupUserMacro name active = do
-  s <- getState
-  let ms = getMacros s
+  ms <- getMacros <$> getState
   case lookup (name, active) ms of
     Just m -> expandUserMacro ((name, active), m)
     Nothing -> return [CtrlSeq name active]
@@ -371,8 +370,8 @@ charT c i = satisfyToken (isCharEq c i)
 -- @char@ for plain characters.
 charC :: Char -> Catcode -> Parser Token
 charC c i = do
-  s <- getState
-  void $ satisfyChar (\x -> (x==c && hasCatcode i (getCatcodes s) x))
+  cctab <- getCatcodes <$> getState
+  void $ satisfyChar (\x -> (x==c && hasCatcode i cctab x))
   return (TeXChar c i)
 
 -- 'string' only accepts letters, i.e. characters with catcode 'Letter'.
@@ -425,8 +424,7 @@ charSatCCsT p ccs = getRawChar <$> satisfyToken
 
 charSatCCsC :: (Char -> Bool) -> [Catcode] -> Parser Char
 charSatCCsC p ccs = do
-  s <- getState
-  let cctab = getCatcodes s
+  cctab <- getCatcodes <$> getState
   satisfyChar (\x -> p x && any (\cc -> hasCatcode cc cctab x) ccs)
 
 -- Parse a character with the provided catcode.
@@ -456,16 +454,15 @@ charccTno i = satisfyToken (not . hasCC i)
 -- and return it as a 'TeXChar'.
 charccC :: Catcode -> Parser Token
 charccC i = do
-  s <- getState
-  c <- satisfyChar (hasCatcode i (getCatcodes s))
+  cctab <- getCatcodes <$> getState
+  c <- satisfyChar (hasCatcode i cctab)
   return (TeXChar c i)
 
 -- Parse a plain character that has not the provided catcode,
 -- and return it as a 'TeXChar'.
 charccCno :: Catcode -> Parser Token
 charccCno i = do
-  s <- getState
-  let cctab = getCatcodes s
+  cctab <- getCatcodes <$> getState
   c <- satisfyChar (not . hasCatcode i cctab)
   return (TeXChar c (catcodeOf c cctab))
 
