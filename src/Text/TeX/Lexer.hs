@@ -340,7 +340,7 @@ equals = skipSpace *> optional (char '=' Other) *> skipSpace
 -------------------- Number parsers
 
 number :: Parser Int
-number = choice [chrnum, hexnum, octnum, decnum]
+number = choice [readcc, chrnum, hexnum, octnum, decnum]
 
 chrnum :: Parser Int
 chrnum = (fromEnum . getRawChar) <$> (tok ordPrefix *> anyCharOptEsc)
@@ -369,6 +369,12 @@ octToInt cs = case readOct cs of
   [(i,[])] -> i
   _ -> error $ "Cannot read oct number: " ++ cs
 
+-- Retrieve the current catcode of a character as an integer.
+readcc :: Parser Int
+readcc = do
+  cctab <- getCatcodes <$> getState
+  ch <- toEnum <$> (ctrlseqEq "catcode" False *> number)
+  return $ fromEnum (catcodeOf ch cctab)
 
 -------------------- Char parsers: adapt "Text.Parsec.Char" for TeX characters
 

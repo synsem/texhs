@@ -73,6 +73,9 @@ testsCatcode = TestLabel "catcode" $ test
   , "allow colon in macro names"
     ~: [(CtrlSeq "hello:world" False), (TeXChar '!' Other)]
     ~=? (parseTeX "" "\\catcode`:=11\\hello:world!")
+  , "copy catcode of another character"
+    ~: [(TeXChar '%' Other)]
+    ~=? (parseTeX "" "\\catcode`%=\\catcode`8%")
   ]
 
 testsCatcodeInMacro :: Test
