@@ -285,7 +285,7 @@ ctrlseqEqC name True = let c = head name -- for active chars @length name == 1@
                        in char c Active *> return (CtrlSeq [c] True)
 ctrlseqEqC name False = do
   void $ charccC Escape
-  cs <- string name
+  cs <- string name <* skipSpace
   return (CtrlSeq cs False)
 
 -------------------- 'Param' Parsers
