@@ -273,6 +273,13 @@ ctrlseqC = do
 activeC :: Parser Token
 activeC = charccC Active >>= \(TeXChar c _) -> return (CtrlSeq [c] True)
 
+-- Parse the control sequence with the provided name.
+ctrlseqEq :: String -> Bool -> Parser Token
+ctrlseqEq cs active = ctrlseqEqT cs active <|> ctrlseqEqC cs active
+
+ctrlseqEqT :: String -> Bool -> Parser Token
+ctrlseqEqT cs active = tok (CtrlSeq cs active)
+
 ctrlseqEqC :: String -> Bool -> Parser Token
 ctrlseqEqC name True = let c = head name -- for active chars @length name == 1@
                        in char c Active *> return (CtrlSeq [c] True)
