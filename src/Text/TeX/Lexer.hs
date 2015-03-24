@@ -90,6 +90,7 @@ expandMacro name active = case (name, active) of
   ("catcode", False) -> catcode
   ("def", False) -> def
   ("char", False) -> count 1 chr
+  ("number", False) -> numbertoks
   _ -> lookupUserMacro name active
 
 ---------- Builtin macros
@@ -98,6 +99,10 @@ expandMacro name active = case (name, active) of
 -- as Tokens with catcode 'Other'.
 chr :: Parser Token
 chr = number >>= \chCode -> return (TeXChar (toEnum chCode) Other)
+
+-- Convert an internal integer to its string representation.
+numbertoks :: Parser [Token]
+numbertoks = (map (\c -> TeXChar c Other) . show) <$> number
 
 -- Parse the body of a @catcode@ command, execute it (by changing the
 -- current catcode table) and remove catcode command from the token stream.

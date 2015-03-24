@@ -110,6 +110,22 @@ testsChar = TestLabel "char command" $ test
     ~=? (parseTeX "" "\\char 92\\char`\\\\")
   ]
 
+testsNumber :: Test
+testsNumber = TestLabel "number command" $ test
+  [ "convert an internal hex number to dec tokens"
+    ~: [(TeXChar '4' Other), (TeXChar '2' Other)]
+    ~=? (parseTeX "" "\\number\"2A")
+  , "print the character code of the percent sign"
+    ~: [(TeXChar '3' Other), (TeXChar '7' Other)]
+    ~=? (parseTeX "" "\\number`\\%")
+  , "print the current catcode of the percent sign"
+    ~: [(TeXChar '1' Other), (TeXChar '4' Other)]
+    ~=? (parseTeX "" "\\number\\catcode 37")
+  , "print the current catcode of the backslash character"
+    ~: [(TeXChar '0' Other)]
+    ~=? (parseTeX "" "\\number\\catcode`\\\\")
+  ]
+
 -- collect all tests
 tests :: Test
 tests = TestList
@@ -119,6 +135,7 @@ tests = TestList
   , testsCatcodeInMacro
   , testsActiveChars
   , testsChar
+  , testsNumber
   ]
 
 -- run tests
