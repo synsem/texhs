@@ -97,6 +97,16 @@ testsActiveChars = TestLabel "active characters" $ test
     ~=? (parseTeX "" "\\catcode`|=13\\def|{a}|||")
   ]
 
+testsChar :: Test
+testsChar = TestLabel "char command" $ test
+  [ "insert percent sign by number"
+    ~: replicate 2 (TeXChar '%' Other)
+    ~=? (parseTeX "" "\\char37\\char `\\%")
+  , "insert backslash by number"
+    ~: replicate 2 (TeXChar '\\' Other)
+    ~=? (parseTeX "" "\\char 92\\char`\\\\")
+  ]
+
 -- collect all tests
 tests :: Test
 tests = TestList
@@ -105,6 +115,7 @@ tests = TestList
   , testsCatcode
   , testsCatcodeInMacro
   , testsActiveChars
+  , testsChar
   ]
 
 -- run tests

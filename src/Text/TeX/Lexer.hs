@@ -89,9 +89,15 @@ expandMacro :: String -> Bool -> Parser [Token]
 expandMacro name active = case (name, active) of
   ("catcode", False) -> catcode
   ("def", False) -> def
+  ("char", False) -> count 1 chr
   _ -> lookupUserMacro name active
 
 ---------- Builtin macros
+
+-- Parse a character by its number. We are treating these characters
+-- as Tokens with catcode 'Other'.
+chr :: Parser Token
+chr = number >>= \chCode -> return (TeXChar (toEnum chCode) Other)
 
 -- Parse the body of a @catcode@ command, execute it (by changing the
 -- current catcode table) and remove catcode command from the token stream.
