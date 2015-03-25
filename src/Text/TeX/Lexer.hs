@@ -25,7 +25,7 @@ import Numeric (readOct, readDec, readHex)
 import Text.Parsec
   (Parsec, tokenPrim, runParser,
    getState, putState, modifyState, getInput, setInput,
-   (<|>), many, many1, manyTill, choice, optional, count, eof,
+   (<|>), many, many1, manyTill, choice, option, optional, count, eof,
    (<?>), unexpected)
 import Text.Parsec.Pos (updatePosChar)
 
@@ -144,6 +144,7 @@ macroContextDefinition = concat <$> many (paramTokens <|> plainTokens)
     paramTokens = count 1 param
     plainTokens = count 1 ctrlseqNoexpand
                   <|> comment
+                  <|> count 1 eolpar
                   <|> count 1 someChar
 
 ---------- User-defined macros
@@ -194,7 +195,7 @@ macroContextInstance (t1:t2:ts) = case (t1,t2) of
 
 -- This parser is applied directly to TeX documents.
 mainParser :: Parser [Token]
-mainParser = tokens <* eof
+mainParser = skipSpace *> tokens <* eof
 
 tokens :: Parser [Token]
 tokens = concat <$> many token
@@ -207,6 +208,7 @@ token :: Parser [Token]
 token = ctrlseq
         <|> block
         <|> comment
+        <|> count 1 eolpar
         <|> count 1 param
         <|> count 1 someChar
 
@@ -217,6 +219,12 @@ bgroup = charcc Bgroup
 
 egroup :: Parser Token
 egroup = charcc Egroup
+
+space :: Parser Token
+space = charcc Space
+
+eol :: Parser Token
+eol = charcc Eol
 
 
 -- Parse any 'TeXChar' if its catcode is in the provided list.
@@ -326,18 +334,33 @@ block = do
               , getMacros = activeMacros })
   return ([b] ++ toks ++ [e])
 
--- All chars between 'Comment' and 'Eol' are treated as literal chars,
--- including 'Escape' characters (e.g. we must not interpret @\catcode@
--- commands within comments).
+-------------------- Linebreak parsers
+
+-- Parse an 'Eol' char or, if followed by an empty line, a par token.
+-- This also drops leading space from the following line.
+eolpar :: Parser Token
+eolpar = do
+  eoltok <- eol <* skipSpace
+  option eoltok par
+
+-- Parse a paragraph break after an 'Eol' character.
+par :: Parser Token
+par = CtrlSeq "par" False <$ (eol *> skipWhite)
+
+-- Drop a comment including the trailing 'Eol'.
+-- If followed by empty lines, return a par token.
 comment :: Parser [Token]
-comment = (:) <$> charcc Comment <*>
-          ((++) <$> many (charccno Eol) <*>
-           count 1 (charcc Eol))
+comment = charcc Comment *> many (charccno Eol) *> eol
+          *> skipSpace *> option [] (count 1 par)
 
 -------------------- Unit parsers
 
 skipSpace :: Parser ()
-skipSpace = many (charcc Space) *> return ()
+skipSpace = void $ many space
+
+-- Skip all whitespace, that is: all 'Space' and 'Eol' chars.
+skipWhite :: Parser ()
+skipWhite = void $ many (space <|> eol)
 
 equals :: Parser ()
 equals = skipSpace *> optional (char '=' Other) *> skipSpace

@@ -28,6 +28,45 @@ testsBasic = TestLabel "basic" $ test
     ~=? (parseTeX "" "\\@a\\73")
   ]
 
+testsWhitespace :: Test
+testsWhitespace = TestLabel "whitespace" $ test
+  [ "drop whitespace after control words"
+    ~: [(CtrlSeq "hello" False), (TeXChar 'w' Letter)]
+    ~=? (parseTeX "" "\\hello  w")
+  , "do not drop whitespace after control symbols"
+    ~: [(CtrlSeq "%" False), (TeXChar ' ' Space), (TeXChar 'a' Letter)]
+    ~=? (parseTeX "" "\\% a")
+  , "drop leading whitespace from every line"
+    ~: [(TeXChar 'a' Letter), (TeXChar ' ' Space), (TeXChar '\n' Eol),
+        (TeXChar 'b' Letter), (TeXChar ' ' Space)]
+    ~=? (parseTeX "" "     a \n    b ")
+  , "parse single empty line as par"
+    ~: [(TeXChar 'a' Letter), (CtrlSeq "par" False), (TeXChar 'b' Letter)]
+    ~=? (parseTeX "" "a\n\nb")
+  , "parse two empty lines as par"
+    ~: [(TeXChar 'a' Letter), (CtrlSeq "par" False), (TeXChar 'b' Letter)]
+    ~=? (parseTeX "" "a\n\n\nb")
+  , "parse empty line with some whitespace as par"
+    ~: [(TeXChar 'a' Letter), (CtrlSeq "par" False), (TeXChar 'b' Letter)]
+    ~=? (parseTeX "" "a\n   \n   b")
+  , "parse two empty lines with some whitespace as par"
+    ~: [(TeXChar 'a' Letter), (CtrlSeq "par" False), (TeXChar 'b' Letter)]
+    ~=? (parseTeX "" "a\n \n   \n   b")
+  ]
+
+testsComments :: Test
+testsComments = TestLabel "comments" $ test
+  [ "remove comment including linebreak from stream"
+    ~: [(CtrlSeq "hello" False), (TeXChar 'w' Letter)]
+    ~=? (parseTeX "" "\\hello% undefined macro\nw")
+  , "parse empty line after comment as par"
+    ~: [(TeXChar 'a' Letter), (CtrlSeq "par" False), (TeXChar '8' Other)]
+    ~=? (parseTeX "" "a% some comment\n  \n8")
+  , "drop leading whitespace from lines following a comment"
+    ~: [(TeXChar 'a' Letter), (TeXChar '8' Other)]
+    ~=? (parseTeX "" "a% some comment\n  8")
+  ]
+
 testsMacros :: Test
 testsMacros = TestLabel "macros" $ test
   [ "macro definitions disappear in the token stream"
@@ -130,6 +169,8 @@ testsNumber = TestLabel "number command" $ test
 tests :: Test
 tests = TestList
   [ testsBasic
+  , testsWhitespace
+  , testsComments
   , testsMacros
   , testsCatcode
   , testsCatcodeInMacro

@@ -92,21 +92,22 @@ catcodesNonescaped :: [Catcode]
 catcodesNonescaped =
   catcodesPassive ++
   [Bgroup, Egroup,
-   ParamPrefix, Active, Comment]
+   Eol, ParamPrefix,
+   Active, Comment]
 
 -- | /Passive/ catcodes are catcodes that are treated as literal characters
 -- by the lexer. These are all catcodes except:
 --
 -- (1) those that have dedicated parsers in "Text.TeX.Lexer"
---     ('Escape', 'Bgroup', 'Egroup', 'ParamPrefix', 'Active',
---     'Comment'), and
+--     ('Escape', 'Bgroup', 'Egroup', 'Eol', 'ParamPrefix',
+--     'Active', 'Comment'), and
 --
 -- (2) those that are ignored by TeX
 --     ('Ignored', 'Invalid').
 catcodesPassive :: [Catcode]
 catcodesPassive =
   [Letter, Other,
-   Mathshift, AlignTab, Eol,
+   Mathshift, AlignTab,
    Supscript, Subscript, Space]
 
 ---------- Catcode table lookup (read)
