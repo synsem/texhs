@@ -136,7 +136,7 @@ def = do
   modifyState (registerMacro ((name, active), (context, body)))
   return []
 
--- Parse a macro context definition. Similar to 'pTokens', but
+-- Parse a macro context definition. Similar to 'tokens', but
 -- must not contain 'Bgroup' (so do not include 'pBlock' parser).
 macroContextDefinition :: Parser [Token]
 macroContextDefinition = concat <$> many (paramTokens <|> plainTokens)
