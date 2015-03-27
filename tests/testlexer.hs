@@ -40,6 +40,18 @@ testsWhitespace = TestLabel "whitespace" $ test
     ~: [(TeXChar 'a' Letter), (TeXChar ' ' Space), (TeXChar '\n' Eol),
         (TeXChar 'b' Letter), (TeXChar ' ' Space)]
     ~=? (parseTeX "" "     a \n    b ")
+  , "do not drop leading whitespace if linebreak is escaped"
+    ~: [(TeXChar 'a' Letter), (CtrlSeq "\n" False), (TeXChar ' ' Space),
+        (TeXChar 'b' Letter)]
+    ~=? (parseTeX "" " a\\\n b")
+  , "detect linebreaks within a paragraph"
+    ~: [(TeXChar 'a' Letter), (TeXChar '\n' Eol), (TeXChar 'b' Letter),
+        (TeXChar 'c' Letter), (TeXChar ' ' Space), (TeXChar '\n' Eol),
+        (TeXChar 'd' Letter)]
+    ~=? (parseTeX "" "a\n  b%\n  c \nd")
+  , "parse trailing empty lines as par"
+    ~: [(TeXChar 'a' Letter), (CtrlSeq "par" False)]
+    ~=? (parseTeX "" "a\n  \n\n  ")
   , "parse single empty line as par"
     ~: [(TeXChar 'a' Letter), (CtrlSeq "par" False), (TeXChar 'b' Letter)]
     ~=? (parseTeX "" "a\n\nb")
