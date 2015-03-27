@@ -358,9 +358,9 @@ comment = charcc Comment *> many (charccno Eol) *> eol
 skipSpace :: Parser ()
 skipSpace = void $ many space
 
--- Skip all whitespace, that is: all 'Space' and 'Eol' chars.
+-- Skip all whitespace ('Space' and 'Eol' chars) and comments.
 skipWhite :: Parser ()
-skipWhite = void $ many (space <|> eol)
+skipWhite = void $ many (count 1 (space <|> eol) <|> comment)
 
 equals :: Parser ()
 equals = skipSpace *> optional (char '=' Other) *> skipSpace

@@ -64,6 +64,9 @@ testsWhitespace = TestLabel "whitespace" $ test
   , "parse two empty lines with some whitespace as par"
     ~: [(TeXChar 'a' Letter), (CtrlSeq "par" False), (TeXChar 'b' Letter)]
     ~=? (parseTeX "" "a\n \n   \n   b")
+  , "parse multiple empty lines with interrupting comments as a single par"
+    ~: [(TeXChar 'a' Letter), (CtrlSeq "par" False), (TeXChar 'b' Letter)]
+    ~=? (parseTeX "" "a\n \n % comment! \n  \n  b")
   ]
 
 testsComments :: Test
