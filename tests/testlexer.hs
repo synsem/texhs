@@ -71,6 +71,12 @@ testsComments = TestLabel "comments" $ test
   [ "remove comment including linebreak from stream"
     ~: [(CtrlSeq "hello" False), (TeXChar 'w' Letter)]
     ~=? (parseTeX "" "\\hello% undefined macro\nw")
+  , "remove multi-line comments from stream"
+    ~: [(TeXChar 'a' Letter), (TeXChar 'b' Letter)]
+    ~=? (parseTeX "" "  a% some comment \n   %\n%\n   %\n%hi\nb")
+  , "remove comment with special characters"
+    ~: [(TeXChar 'a' Letter), (TeXChar 'b' Letter)]
+    ~=? (parseTeX "" "a% special chars: \\ } { $ & # ^ _ ~ %%\\!##\\\n b")
   , "parse empty line after comment as par"
     ~: [(TeXChar 'a' Letter), (CtrlSeq "par" False), (TeXChar '8' Other)]
     ~=? (parseTeX "" "a% some comment\n  \n8")
