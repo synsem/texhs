@@ -19,7 +19,7 @@ module Text.TeX.Lexer
   ) where
 
 import Control.Applicative ((<*), (<*>), (*>), (<$), (<$>))
-import Control.Monad (void)
+import Control.Monad (void, when)
 import Data.Char (isOctDigit, isDigit, isHexDigit)
 import Numeric (readOct, readDec, readHex)
 import Text.Parsec
@@ -278,7 +278,7 @@ ctrlseqC = do
   -- Note: we are using plain char parsers here
   -- because parsed tokens cannot compose to a 'CtrlSeq'.
   void $ charccC Escape
-  cs <- (many1 (charccC Letter) <* skipSpace)
+  cs <- (many1 (charccC Letter) <* skipSpaceEol)
         <|> count 1 anyChar
         <?> "control sequence"
   return (CtrlSeq (map getRawChar cs) False)
@@ -298,7 +298,7 @@ ctrlseqEqC name True = let c = head name -- for active chars @length name == 1@
                        in char c Active *> return (CtrlSeq [c] True)
 ctrlseqEqC name False = do
   void $ charccC Escape
-  cs <- string name <* skipSpace
+  cs <- string name <* skipSpaceEol
   return (CtrlSeq cs False)
 
 -------------------- 'Param' Parsers
@@ -355,8 +355,18 @@ comment = charcc Comment *> many (charccno Eol) *> eol
 
 -------------------- Unit parsers
 
+-- Skip 'Space' chars.
 skipSpace :: Parser ()
 skipSpace = void $ many space
+
+-- Skip an optional 'Eol' character and surrounding space.
+-- If followed by an empty line, push a par token onto the stream.
+-- This parser is used to skip whitespace after control words.
+skipSpaceEol :: Parser ()
+skipSpaceEol = do
+  t <- skipSpace *> option (TeXChar '\n' Eol) eolpar
+  when (isCtrlSeq t) -- true iff par token
+    ((Right t:) <$> getInput >>= setInput)
 
 -- Skip all whitespace ('Space' and 'Eol' chars) and comments.
 skipWhite :: Parser ()

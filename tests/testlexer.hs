@@ -36,6 +36,13 @@ testsWhitespace = TestLabel "whitespace" $ test
   , "do not drop whitespace after control symbols"
     ~: [(CtrlSeq "%" False), (TeXChar ' ' Space), (TeXChar 'a' Letter)]
     ~=? (parseTeX "" "\\% a")
+  , "drop linebreak after control words"
+    ~: [(TeXChar 'b' Letter), (TeXChar '.' Other), (TeXChar 'c' Letter)]
+    ~=? (parseTeX "" "\\def\\a#1{#1.}\\a \n  bc")
+  , "do not drop par after control words"
+    ~: [(CtrlSeq "par" False), (TeXChar '.' Other), (TeXChar 'b' Letter),
+        (TeXChar 'c' Letter)]
+    ~=? (parseTeX "" "\\def\\a#1{#1.}\\a \n \n  bc")
   , "drop leading whitespace from every line"
     ~: [(TeXChar 'a' Letter), (TeXChar ' ' Space), (TeXChar '\n' Eol),
         (TeXChar 'b' Letter), (TeXChar ' ' Space)]
