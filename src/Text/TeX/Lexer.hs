@@ -195,7 +195,7 @@ macroContextInstance (t1:t2:ts) = case (t1,t2) of
 
 -- This parser is applied directly to TeX documents.
 mainParser :: Parser [Token]
-mainParser = skipSpace *> tokens <* eof
+mainParser = skipWhite *> tokens <* eof
 
 tokens :: Parser [Token]
 tokens = concat <$> many token
