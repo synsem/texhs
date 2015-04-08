@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 ----------------------------------------------------------------------
 -- |
 -- Module      :  Text.TeX.Lexer
@@ -18,7 +19,11 @@ module Text.TeX.Lexer
   , replParseTeX
   ) where
 
+#if MIN_VERSION_base(4,8,0)
+-- Prelude exports all required operators from Control.Applicative
+#else
 import Control.Applicative ((<*), (<*>), (*>), (<$), (<$>))
+#endif
 import Control.Monad (void, when)
 import Data.Char (isOctDigit, isDigit, isHexDigit)
 import Numeric (readOct, readDec, readHex)
