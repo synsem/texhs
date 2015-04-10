@@ -142,7 +142,7 @@ def = do
   return []
 
 -- Parse a macro context definition. Similar to 'tokens', but
--- must not contain 'Bgroup' (so do not include 'pBlock' parser).
+-- must not contain 'Bgroup' (so do not include 'block' parser).
 macroContextDefinition :: Parser [Token]
 macroContextDefinition = concat <$> many (paramTokens <|> plainTokens)
   where
