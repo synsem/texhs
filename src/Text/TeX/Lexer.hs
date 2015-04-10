@@ -45,7 +45,9 @@ import Text.TeX.Lexer.Token
    isCharEq, isCharSat, hasCC, stripBraces)
 
 
--------------------- TeX constants: number prefixes
+-------------------- TeX constants
+
+---------- Number prefixes
 
 hexPrefix :: Token
 hexPrefix = TeXChar '"' Other
@@ -55,6 +57,12 @@ octPrefix = TeXChar '\'' Other
 
 ordPrefix :: Token
 ordPrefix = TeXChar '`' Other
+
+---------- Primitive control sequences
+
+parTok :: Token
+parTok = CtrlSeq "par" False
+
 
 -------------------- Parser state
 
@@ -144,13 +152,9 @@ def = do
 -- Parse a macro context definition. Similar to 'tokens', but
 -- must not contain 'Bgroup' (so do not include 'block' parser).
 macroContextDefinition :: Parser [Token]
-macroContextDefinition = concat <$> many (paramTokens <|> plainTokens)
-  where
-    paramTokens = count 1 param
-    plainTokens = count 1 ctrlseqNoexpand
-                  <|> comment
-                  <|> count 1 eolpar
-                  <|> count 1 someChar
+macroContextDefinition =
+  concat <$> many (skipOptCommentsPAR *> count 1
+                   (param <|> ctrlseqNoexpand <|> eolpar <|> someChar))
 
 ---------- User-defined macros
 
@@ -200,7 +204,7 @@ macroContextInstance (t1:t2:ts) = case (t1,t2) of
 
 -- This parser is applied directly to TeX documents.
 mainParser :: Parser [Token]
-mainParser = skipWhite *> tokens <* eof
+mainParser = skipOptWhite *> tokens <* eof
 
 tokens :: Parser [Token]
 tokens = concat <$> many token
@@ -210,12 +214,10 @@ tokens = concat <$> many token
 -- as little structure as possible. Still we need to recognize blocks
 -- because many lexer-level commands have block scope (e.g. @\catcode@).
 token :: Parser [Token]
-token = ctrlseq
-        <|> block
-        <|> comment
-        <|> count 1 eolpar
-        <|> count 1 param
-        <|> count 1 someChar
+token = skipOptCommentsPAR *>
+        (ctrlseq
+         <|> block
+         <|> count 1 (eolpar <|> param <|> someChar))
 
 -------------------- 'TeXChar' Parsers
 
@@ -283,7 +285,7 @@ ctrlseqC = do
   -- Note: we are using plain char parsers here
   -- because parsed tokens cannot compose to a 'CtrlSeq'.
   void $ charccC Escape
-  cs <- (many1 (charccC Letter) <* skipSpaceEol)
+  cs <- (many1 (charccC Letter) <* skipSpacePAR)
         <|> count 1 anyChar
         <?> "control sequence"
   return (CtrlSeq (map getRawChar cs) False)
@@ -303,7 +305,7 @@ ctrlseqEqC name True = let c = head name -- for active chars @length name == 1@
                        in char c Active *> return (CtrlSeq [c] True)
 ctrlseqEqC name False = do
   void $ charccC Escape
-  cs <- string name <* skipSpaceEol
+  cs <- string name <* skipSpacePAR
   return (CtrlSeq cs False)
 
 -------------------- 'Param' Parsers
@@ -342,43 +344,61 @@ block = do
 -------------------- Linebreak parsers
 
 -- Parse an 'Eol' char or, if followed by an empty line, a par token.
--- This also drops leading space from the following line.
+-- This also skips leading space on the following line.
 eolpar :: Parser Token
-eolpar = do
-  eoltok <- eol <* skipSpace
-  option eoltok par
+eolpar = parT <|> ((eol <* skipOptSpace) >>= flip option par)
 
--- Parse a paragraph break after an 'Eol' character.
+-- Parse a paragraph break (via a 'parTok' token or via an empty line
+-- after a previously seen 'Eol' character).
 par :: Parser Token
-par = CtrlSeq "par" False <$ (eol *> skipWhite)
+par = parT <|> (parTok <$ (eol <* skipOptWhite))
 
--- Drop a comment including the trailing 'Eol'.
--- If followed by empty lines, return a par token.
-comment :: Parser [Token]
-comment = charcc Comment *> many (charccno Eol) *> eol
-          *> skipSpace *> option [] (count 1 par)
+-- Parse a par token (and skip all subsequent whitespace).
+parT :: Parser Token
+parT = tokT parTok <* skipOptWhite
 
 -------------------- Unit parsers
 
--- Skip 'Space' chars.
-skipSpace :: Parser ()
-skipSpace = void $ many space
+-- Skip optional 'Space' chars.
+skipOptSpace :: Parser ()
+skipOptSpace = void $ many space
+
+-- Skip a single comment, including the trailing 'Eol' and any leading
+-- space on the following line.
+skipSingleComment :: Parser ()
+skipSingleComment = charcc Comment *> many (charccno Eol) *> eol *> skipOptSpace
+
+-- Skip at least one comment.
+skipComments :: Parser ()
+skipComments = void $ many1 skipSingleComment
+
+-- Skip at least one comment.
+-- NOTE: If followed by an empty line, push a par token onto the stream.
+skipCommentsPAR :: Parser ()
+skipCommentsPAR = do
+  t <- many1 skipSingleComment *> option (TeXChar '\n' Eol) par
+  when (isCtrlSeq t) -- true iff par token
+    ((Right t:) <$> getInput >>= setInput)
+
+-- Skip optional comments, based on 'skipCommentsPAR'.
+-- NOTE: If followed by an empty line, push a par token onto the stream.
+skipOptCommentsPAR :: Parser ()
+skipOptCommentsPAR = option () skipCommentsPAR
 
 -- Skip an optional 'Eol' character and surrounding space.
--- If followed by an empty line, push a par token onto the stream.
--- This parser is used to skip whitespace after control words.
-skipSpaceEol :: Parser ()
-skipSpaceEol = do
-  t <- skipSpace *> option (TeXChar '\n' Eol) eolpar
+-- NOTE: If followed by an empty line, push a par token onto the stream.
+skipSpacePAR :: Parser ()
+skipSpacePAR = do
+  t <- skipOptSpace *> option (TeXChar '\n' Eol) eolpar
   when (isCtrlSeq t) -- true iff par token
     ((Right t:) <$> getInput >>= setInput)
 
 -- Skip all whitespace ('Space' and 'Eol' chars) and comments.
-skipWhite :: Parser ()
-skipWhite = void $ many (count 1 (space <|> eol) <|> comment)
+skipOptWhite :: Parser ()
+skipOptWhite = void $ many (void (space <|> eol) <|> skipComments)
 
 equals :: Parser ()
-equals = skipSpace *> optional (char '=' Other) *> skipSpace
+equals = skipOptSpace *> optional (char '=' Other) *> skipOptSpace
 
 -------------------- Number parsers
 

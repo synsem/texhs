@@ -87,6 +87,15 @@ testsComments = TestLabel "comments" $ test
   , "remove comment with special characters"
     ~: [(TeXChar 'a' Letter), (TeXChar 'b' Letter)]
     ~=? (parseTeX "" "a% special chars: \\ } { $ & # ^ _ ~ %%\\!##\\\n b")
+  , "ignore comments when parsing macro arguments: single argument"
+    ~: [(TeXChar '.' Other), (TeXChar 'a' Letter), (TeXChar '8' Other),
+        (TeXChar '.' Other)]
+    ~=? (parseTeX "" "\\def\\ab#1{.#1.}\\ab % comment!\n  {a8}")
+  , "ignore comments when parsing macro arguments: two arguments"
+    ~: [(TeXChar '.' Other), (TeXChar 'h' Letter), (TeXChar ':' Other),
+        (TeXChar 'a' Letter), (TeXChar '8' Other), (TeXChar '.' Other),
+        (TeXChar 'i' Letter)]
+    ~=? (parseTeX "" "\\def\\ab#1#2{.#2:#1.}\\ab % comment!\n  {a8}% \n  hi")
   , "parse empty line after comment as par"
     ~: [(TeXChar 'a' Letter), (CtrlSeq "par" False), (TeXChar '8' Other)]
     ~=? (parseTeX "" "a% some comment\n  \n8")
