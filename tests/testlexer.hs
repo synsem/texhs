@@ -132,6 +132,11 @@ testsMacros = TestLabel "macros" $ test
   , "macro call with leaking macro definition"
     ~: [(CtrlSeq "b" False), (TeXChar 'b' Letter), (TeXChar 'b' Letter)]
     ~=? (parseTeX "" "\\def\\a{\\def\\b{b}\\b}\\b\\a\\b")
+  , "macro bodies are tokenized at definition time"
+    ~: [(CtrlSeq "hi" False), (TeXChar 'h' Letter), (TeXChar 'i' Letter),
+        (TeXChar '@' Other)]
+    ~=? (parseTeX "" ("\\catcode`@=0\\def\\defhi{\\def@hi{hi}}\\catcode`\\@=12"
+                      ++ "\\hi\\defhi\\hi@"))
   ]
 
 testsCatcode :: Test
@@ -146,6 +151,16 @@ testsCatcode = TestLabel "catcode" $ test
   , "add new escape character"
     ~: [(CtrlSeq "hello" False), (CtrlSeq "world" False), (TeXChar '!' Other)]
     ~=? (parseTeX "" "\\catcode`@=0\\hello@world!")
+  , "add new block-local egroup character"
+    ~: [(TeXChar '{' Bgroup), (TeXChar '{' Bgroup), (TeXChar '{' Bgroup),
+        (TeXChar ')' Egroup), (TeXChar ')' Other), (TeXChar '}' Egroup),
+        (TeXChar '}' Egroup)]
+    ~=? (parseTeX "" "{{{\\catcode`)2))}}")
+  , "add new group delimiters"
+    ~: [(TeXChar '{' Bgroup), (TeXChar 'a' Letter), (TeXChar '<' Bgroup),
+        (TeXChar '}' Egroup), (TeXChar '{' Bgroup), (TeXChar '>' Egroup),
+        (TeXChar 'b' Letter), (TeXChar '>' Egroup), (TeXChar '>' Other)]
+    ~=? (parseTeX "" "{\\catcode`>=2\\catcode`<1a<}{>b>>")
   , "allow colon in macro names"
     ~: [(CtrlSeq "hello:world" False), (TeXChar '!' Other)]
     ~=? (parseTeX "" "\\catcode`:=11\\hello:world!")
