@@ -210,9 +210,10 @@ tokens :: Parser [Token]
 tokens = concat <$> many token
 
 -- Parse a /logical unit/ of tokens. This is either a single 'Token'
--- ('TeXChar', 'CtrlSeq', 'Param') or a block or a comment. We try to parse
--- as little structure as possible. Still we need to recognize blocks
--- because many lexer-level commands have block scope (e.g. @\catcode@).
+-- ('TeXChar', 'CtrlSeq', 'Param') or a block or a possibly empty list
+-- of tokens resulting from macro expansion. We try to parse as little
+-- structure as possible. Still we need to recognize blocks because
+-- many lexer-level commands have block scope (e.g. @\catcode@).
 token :: Parser [Token]
 token = skipOptCommentsPAR *>
         (ctrlseq
