@@ -181,16 +181,14 @@ def = do
   -- parse the macro definition
   (CtrlSeq name active) <- ctrlseqNoexpand <?> "macro name"
   context <- macroContextDefinition <?> "macro context definition"
-  void bgroup <?> "begin of macro body"
-  body <- tokens <?> "macro body"
-  void egroup <?> "end of macro body"
+  body <- bgroup *> tokens <* egroup
   -- restore original expansion mode and register the new macro
   modifyState (setExpandMode expandMode)
   modifyState (registerLocalMacro ((name, active), (context, body)))
   return []
 
 -- Parse a macro context definition. Similar to 'tokens', but
--- must not contain 'Bgroup' (so do not include 'block' parser).
+-- must not contain 'Bgroup' (so do not include 'group' parser).
 macroContextDefinition :: Parser [Token]
 macroContextDefinition =
   concat <$> many (skipOptCommentsPAR *> count 1
@@ -247,23 +245,22 @@ tokens :: Parser [Token]
 tokens = concat <$> many token
 
 -- Parse a /logical unit/ of tokens. This is either a single 'Token'
--- ('TeXChar', 'CtrlSeq', 'Param') or a block or a possibly empty list
+-- ('TeXChar', 'CtrlSeq', 'Param') or a group or a possibly empty list
 -- of tokens resulting from macro expansion. We try to parse as little
--- structure as possible. Still we need to recognize blocks because
--- many lexer-level commands have block scope (e.g. @\catcode@).
+-- structure as possible. Still we need to recognize groups because
+-- many lexer-level commands have group scope (e.g. @\catcode@).
 token :: Parser [Token]
 token = skipOptCommentsPAR *>
-        (ctrlseq
-         <|> block
-         <|> count 1 (eolpar <|> param <|> someChar))
+        (ctrlseq <|> group <|> count 1
+         (eolpar <|> param <|> someChar))
 
 -------------------- 'TeXChar' Parsers
 
 bgroup :: Parser Token
-bgroup = charcc Bgroup
+bgroup = charcc Bgroup <* modifyState pushEmptyState
 
 egroup :: Parser Token
-egroup = charcc Egroup
+egroup = charcc Egroup <* modifyState popState
 
 space :: Parser Token
 space = charcc Space
@@ -364,15 +361,9 @@ paramC = do
 
 -------------------- Multi-token parsers
 
--- Parse a TeX block as a flat token list including the delimiters.
-block :: Parser [Token]
-block = do
-  b <- charcc Bgroup <?> "begin of group"
-  modifyState pushEmptyState
-  toks <- tokens <?> "group body"
-  e <- charcc Egroup <?> "end of group"
-  modifyState popState
-  return ([b] ++ toks ++ [e])
+-- Parse a balanced TeX group as a flat token list including delimiters.
+group :: Parser [Token]
+group = (fmap (++) . (:)) <$> bgroup <*> tokens <*> count 1 egroup
 
 -------------------- Linebreak parsers
 
