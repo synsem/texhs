@@ -125,36 +125,8 @@ catcodeOf ch t = fromMaybe
 hasCatcode :: Catcode -> CatcodeTable -> Char -> Bool
 hasCatcode cc t ch = catcodeOf ch t == cc
 
--- Test whether catcode table @t@ contains an explicit mapping for
--- character @ch@. (Like @member@ from @Data.Map@.)
-contains :: CatcodeTable -> Char -> Bool
-contains t ch = case lookup ch t of
-  Just _ -> True
-  Nothing -> False
-
 ---------- Catcode table modifications (write)
 
 -- | Add a @(Char, Catcode)@ mapping to a 'CatcodeTable'.
-updateCatcodeTable :: CatcodeTable -> (Char, Catcode) -> CatcodeTable
-updateCatcodeTable t (ch,cc) = if t `contains` ch
-                               then modMapping t (ch,cc)
-                               else addMapping t (ch,cc)
-
--- Add an additional mapping to the catcode table.
-addMapping :: CatcodeTable -> (Char, Catcode) -> CatcodeTable
-addMapping t (ch,cc) = if (cc == Other && not (isAlpha ch)) ||
-                          (cc == Letter && isAlpha ch)
-                       then t
-                       else (ch,cc) : t
-
--- Destructive update: replace existing mapping.
-modMapping :: CatcodeTable -> (Char, Catcode) -> CatcodeTable
-modMapping [] _ = []
-modMapping ((ech,ecc):es) (ch,cc)
-  | ech /= ch
-    = (ech,ecc) : modMapping es (ch,cc)
-  | (cc == Other && not (isAlpha ch)) ||
-    (cc == Letter && isAlpha ch)
-    = modMapping es (ch,cc)
-  | otherwise
-    = (ech,cc) : modMapping es (ch,cc)
+updateCatcodeTable :: (Char, Catcode) -> CatcodeTable -> CatcodeTable
+updateCatcodeTable = (:)

@@ -29,7 +29,7 @@ import Data.Char (isOctDigit, isDigit, isHexDigit)
 import Numeric (readOct, readDec, readHex)
 import Text.Parsec
   (Parsec, tokenPrim, runParser,
-   getState, putState, modifyState, getInput, setInput,
+   getState, modifyState, getInput, setInput,
    (<|>), many, many1, manyTill, choice, option, optional, count, eof,
    (<?>), unexpected)
 import Text.Parsec.Pos (updatePosChar)
@@ -66,33 +66,77 @@ parTok = CtrlSeq "par" False
 
 -------------------- Parser state
 
-type Parser = Parsec [CharOrToken] UserState
+type Parser = Parsec [CharOrToken] LexerStack
 
-data UserState = UserState
-  { getCatcodes :: CatcodeTable
-  , getMacros :: [Macro]
-  , allowExpand :: Bool
+type LexerStack = [LexerState]
+
+data LexerState = LexerState
+  { localCatcodes :: CatcodeTable
+  , localMacros :: [Macro]
+  , localExpandMode :: Bool
   } deriving (Eq, Show)
 
-defaultState :: UserState
-defaultState = UserState
-  { getCatcodes = defaultCatcodeTable
-  , getMacros = []
-  , allowExpand = True
-  }
+-- Create an empty lexer state with the provided expansion mode.
+emptyLexerState :: Bool -> LexerState
+emptyLexerState expandMode = LexerState [] [] expandMode
+
+-- The initial lexer stack consists of a single lexer state
+-- with the default catcode table and no registered macros.
+defaultLexerStack :: LexerStack
+defaultLexerStack = LexerState
+  { localCatcodes = defaultCatcodeTable
+  , localMacros = []
+  , localExpandMode = True
+  } :[]
+
+---------- Stack manipulation
+
+pushEmptyState :: LexerStack -> LexerStack
+pushEmptyState tl@(l:_) = emptyLexerState (localExpandMode l) :tl
+pushEmptyState [] = error "empty lexer stack"
+
+popState :: LexerStack -> LexerStack
+popState (_:ls) = ls
+popState [] = error "empty lexer stack"
+
+---------- Expansion mode
+
+getExpandMode :: LexerStack -> Bool
+getExpandMode (l:_) = localExpandMode l
+getExpandMode [] = error "empty lexer stack"
+
+setExpandMode :: Bool -> LexerStack -> LexerStack
+setExpandMode b (l:ls) = l {localExpandMode = b} :ls
+setExpandMode _ [] = error "empty lexer stack"
+
+---------- Catcode state
+
+getCatcodes :: LexerStack -> CatcodeTable
+getCatcodes = concatMap localCatcodes
+
+addCatcode :: (Char, Catcode) -> LexerStack -> LexerStack
+addCatcode ccpair (l:ls) =
+  let cctab = updateCatcodeTable ccpair (localCatcodes l)
+  in l {localCatcodes = cctab} :ls
+addCatcode _ [] = error "empty lexer stack"
+
+---------- Macro state
+
+getMacros :: LexerStack -> [Macro]
+getMacros = concatMap localMacros
 
 -- Prefix macro to the list of currently active macros.
 -- The new macro will shadow others with the same name,
 -- due to @lookup@'s left bias.
-registerMacro :: Macro -> UserState -> UserState
-registerMacro m s = let oldMacros = getMacros s
-                    in s { getMacros = m:oldMacros }
+registerLocalMacro :: Macro -> LexerStack -> LexerStack
+registerLocalMacro m (l:ls) = l {localMacros = m:(localMacros l)} :ls
+registerLocalMacro _ [] = error "empty lexer stack"
 
 -------------------- Macro expansion
 
 expand :: Token -> Parser [Token]
 expand t@(CtrlSeq name active) = do
-  expandMode <- allowExpand <$> getState
+  expandMode <- getExpandMode <$> getState
   if expandMode
     then expandMacro name active
     else return [t]
@@ -124,9 +168,7 @@ catcode = do
   chCode <- number
   equals
   ccNew <- number -- Note: @toEnum@ will (correctly) fail if not in range 0-15.
-  s <- getState
-  let cctab = updateCatcodeTable (getCatcodes s) (toEnum chCode, toEnum ccNew)
-  putState (s {getCatcodes = cctab})
+  modifyState (addCatcode (toEnum chCode, toEnum ccNew))
   return []
 
 -- Parse a macro definition, execute it (by updating the list of
@@ -134,19 +176,17 @@ catcode = do
 def :: Parser [Token]
 def = do
   -- preparation: disallow expansion of embedded macros
-  s0 <- getState
-  let expandMode = allowExpand s0
-  putState (s0 { allowExpand = False })
+  expandMode <- getExpandMode <$> getState
+  modifyState (setExpandMode False)
   -- parse the macro definition
   (CtrlSeq name active) <- ctrlseqNoexpand <?> "macro name"
   context <- macroContextDefinition <?> "macro context definition"
   void bgroup <?> "begin of macro body"
   body <- tokens <?> "macro body"
   void egroup <?> "end of macro body"
-  -- register the new macro and restore the original expansion mode
-  s1 <- getState -- get current state again, it might have changed
-  putState (s1 { allowExpand = expandMode })
-  modifyState (registerMacro ((name, active), (context, body)))
+  -- restore original expansion mode and register the new macro
+  modifyState (setExpandMode expandMode)
+  modifyState (registerLocalMacro ((name, active), (context, body)))
   return []
 
 -- Parse a macro context definition. Similar to 'tokens', but
@@ -171,18 +211,15 @@ lookupUserMacro name active = do
 expandUserMacro :: Macro -> Parser [Token]
 expandUserMacro m = do
   -- preparation: disallow expansion of embedded macros in arguments
-  s0 <- getState
-  let expandMode = allowExpand s0
-  putState (s0 { allowExpand = False })
+  expandMode <- getExpandMode <$> getState
+  modifyState (setExpandMode False)
   -- read arguments
   args <- macroContextInstance (macroContext m)
   -- restore expansion mode
-  s1 <- getState
-  putState (s1 { allowExpand = expandMode })
+  modifyState (setExpandMode expandMode)
   -- apply macro to arguments and push the result back into the input stream
   let toks = applyMacro (macroBody m) args
-  oldInput <- getInput
-  setInput $ (map Right toks) ++ oldInput
+  ((map Right toks)++) <$> getInput >>= setInput
   return []
 
 -- Parse an instance of a macro context, i.e. the actual arguments of a macro call.
@@ -331,15 +368,10 @@ paramC = do
 block :: Parser [Token]
 block = do
   b <- charcc Bgroup <?> "begin of group"
-  -- store catcode table and macros
-  s <- getState
-  let cctab = getCatcodes s
-      activeMacros = getMacros s
+  modifyState pushEmptyState
   toks <- tokens <?> "group body"
   e <- charcc Egroup <?> "end of group"
-  -- restore catcode table and macros
-  putState (s { getCatcodes = cctab
-              , getMacros = activeMacros })
+  modifyState popState
   return ([b] ++ toks ++ [e])
 
 -------------------- Linebreak parsers
@@ -575,13 +607,13 @@ satisfy p = tokenPrim showToken nextpos test
 -- (The resulting 'Token' stream is restricted to 'TeXChar' and
 -- 'CtrlSeq' elements, i.e. no 'Param' elements.) Exit on failure.
 parseTeX :: String -> String -> [Token]
-parseTeX name input = case runParser mainParser defaultState name (map Left input) of
+parseTeX name input = case runParser mainParser defaultLexerStack name (map Left input) of
   Left l  -> error (show l)
   Right r -> r
 
 -- | Run TeX lexer on input string and return all results and errors as strings.
 replParseTeX :: String -> String
-replParseTeX input = case runParser mainParser defaultState "" (map Left input) of
+replParseTeX input = case runParser mainParser defaultLexerStack "" (map Left input) of
   Left err  -> "ERROR " ++ show err
   Right ans -> show ans
 
