@@ -122,11 +122,15 @@ testsGrouping = TestLabel "grouping" $ test
     ~=? (parseTeX "" "\\begin{z}\\def\\ab{cd}\\ab\\end{z}\\ab")
   ]
 
-testsMacros :: Test
-testsMacros = TestLabel "macros" $ test
+testsMacrosDef :: Test
+testsMacrosDef = TestLabel "def macro definitions" $ test
   [ "macro definitions disappear in the token stream"
     ~: []
     ~=? (parseTeX "" "\\def\\hello{invisible string}")
+  , "local scope"
+    ~: [(TeXChar '{' Bgroup), (TeXChar 'a' Letter), (TeXChar '}' Egroup),
+        (CtrlSeq "a" False)]
+    ~=? (parseTeX "" "{\\def\\a{a}\\a}\\a")
   , "nested macro call: expand user-defined macro recursively"
     ~: replicate 3 (TeXChar 'a' Letter)
     ~=? (parseTeX "" "\\def\\a{a}\\def\\b{\\a\\a\\a}\\b")
@@ -155,6 +159,34 @@ testsMacros = TestLabel "macros" $ test
         (TeXChar '@' Other)]
     ~=? (parseTeX "" ("\\catcode`@=0\\def\\defhi{\\def@hi{hi}}\\catcode`\\@=12"
                       ++ "\\hi\\defhi\\hi@"))
+  ]
+
+testsMacrosXparse :: Test
+testsMacrosXparse = TestLabel "xparse macro definitions" $ test
+  [ "macro definitions disappear in the token stream"
+    ~: []
+    ~=? (parseTeX "" "\\DeclareDocumentCommand\\hello{}{invisible}")
+  , "no args"
+    ~: [(TeXChar 'B' Letter), (TeXChar 'A' Letter), (TeXChar '.' Other),
+        (TeXChar '{' Bgroup), (TeXChar 'b' Letter), (TeXChar '}' Egroup)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand\\a{ }{A.}"
+                      ++ "B\\a{b}"))
+  , "one mandatory arg"
+    ~: [(TeXChar '4' Other), (TeXChar '+' Other), (TeXChar '4' Other),
+        (TeXChar '!' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\add}{m}{#1+#1}"
+                      ++ "\\add4!"))
+  , "two mandatory args"
+    ~: [(TeXChar '(' Other), (TeXChar 'b' Letter), (TeXChar ':' Other),
+        (TeXChar 'a' Letter), (TeXChar ')' Other), (TeXChar 'e' Letter)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand\\pair{ m m }{(#2:#1)}"
+                      ++ "\\pair{a}{b}e"))
+  , "global scope"
+    ~: [(CtrlSeq "bgroup" False), (TeXChar '{' Bgroup), (TeXChar '}' Egroup),
+        (CtrlSeq "egroup" False), (TeXChar '2' Other), (TeXChar '.' Other),
+        (TeXChar '4' Other)]
+    ~=? (parseTeX "" ("\\bgroup{\\DeclareDocumentCommand{\\a}{mm}{#2.}}\\egroup"
+                      ++ "\\a {one}24"))
   ]
 
 testsCatcode :: Test
@@ -242,7 +274,8 @@ tests = TestList
   , testsWhitespace
   , testsComments
   , testsGrouping
-  , testsMacros
+  , testsMacrosDef
+  , testsMacrosXparse
   , testsCatcode
   , testsCatcodeInMacro
   , testsActiveChars

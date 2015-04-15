@@ -30,7 +30,7 @@ import Numeric (readOct, readDec, readHex)
 import Text.Parsec
   (Parsec, tokenPrim, runParser,
    getState, modifyState, getInput, setInput,
-   (<|>), many, many1, manyTill, choice, option, optional, count, eof,
+   (<|>), many, many1, between, choice, option, optional, count, eof,
    (<?>), unexpected)
 import Text.Parsec.Pos (updatePosChar)
 
@@ -39,7 +39,8 @@ import Text.TeX.Lexer.Catcode
    CatcodeTable, defaultCatcodeTable, updateCatcodeTable,
    catcodesAllowed, catcodesPassive, catcodesNonescaped)
 import Text.TeX.Lexer.Macro
-  (Macro, macroContext, macroBody, applyMacro)
+  (Macro, macroContext, macroBody, applyMacro,
+   ArgSpec, ArgType(..))
 import Text.TeX.Lexer.Token
   (Token(..), CharOrToken, isCtrlSeq, isParam,
    isCharEq, isCharSat, hasCC, stripBraces)
@@ -132,6 +133,14 @@ registerLocalMacro :: Macro -> LexerStack -> LexerStack
 registerLocalMacro m (l:ls) = l {localMacros = m:(localMacros l)} :ls
 registerLocalMacro _ [] = error "empty lexer stack"
 
+-- Add macro to the global environment.
+registerGlobalMacro :: Macro -> LexerStack -> LexerStack
+registerGlobalMacro m ls@(_:_) =
+  let (g:tl) = reverse ls
+  in reverse (g {localMacros = m:(localMacros g)} :tl)
+registerGlobalMacro _ [] = error "empty lexer stack"
+
+
 -------------------- Macro expansion
 
 expand :: Token -> Parser [Token]
@@ -148,6 +157,7 @@ expandMacro name active = case (name, active) of
   ("def", False) -> def
   ("char", False) -> count 1 chr
   ("number", False) -> numbertoks
+  ("DeclareDocumentCommand", False) -> declareDocumentCommand
   _ -> lookupUserMacro name active
 
 ---------- Builtin macros
@@ -181,10 +191,11 @@ def = do
   -- parse the macro definition
   (CtrlSeq name active) <- ctrlseqNoexpand <?> "macro name"
   context <- macroContextDefinition <?> "macro context definition"
-  body <- bgroup *> tokens <* egroup
+  body <- grouped tokens
   -- restore original expansion mode and register the new macro
   modifyState (setExpandMode expandMode)
-  modifyState (registerLocalMacro ((name, active), (context, body)))
+  modifyState (registerLocalMacro
+               ((name, active), (def2xparse context, body)))
   return []
 
 -- Parse a macro context definition. Similar to 'tokens', but
@@ -212,7 +223,7 @@ expandUserMacro m = do
   expandMode <- getExpandMode <$> getState
   modifyState (setExpandMode False)
   -- read arguments
-  args <- macroContextInstance (macroContext m)
+  args <- parseArgspec (macroContext m)
   -- restore expansion mode
   modifyState (setExpandMode expandMode)
   -- apply macro to arguments and push the result back into the input stream
@@ -220,20 +231,102 @@ expandUserMacro m = do
   ((map Right toks)++) <$> getInput >>= setInput
   return []
 
--- Parse an instance of a macro context, i.e. the actual arguments of a macro call.
--- Note: The number of tokens mapped to a parameter depends on its successor.
+-- Convert def-style macro context to an xparse argspec.
+--
+-- The number of tokens mapped to a parameter depends on its successor.
 --   * single token if followed by another 'Param' or nil, or
 --   * list of tokens if followed by a literal token ('CtrlSeq' or 'TeXChar').
-macroContextInstance :: [Token] -> Parser [[Token]]
-macroContextInstance [] = return []
-macroContextInstance [t] = case t of
-  (Param _ _) -> token >>= \ts -> return [stripBraces ts]
-  _ -> tok t *> return []
-macroContextInstance (t1:t2:ts) = case (t1,t2) of
-  ((Param _ _), (Param _ _)) -> ((:) . stripBraces) <$> token <*> macroContextInstance (t2:ts)
-  ((Param _ _), _) -> ((:) . stripBraces) <$> (concat <$> manyTill token (tok t2)) <*> macroContextInstance ts
-  (_,_) -> tok t1 *> macroContextInstance (t2:ts)
+def2xparse :: [Token] -> ArgSpec
+def2xparse [] = []
+def2xparse (Param _ _:[]) = [Mandatory]
+def2xparse (t:[]) = [LiteralToken t]
+def2xparse (Param _ _:ts@(Param _ _:_)) = Mandatory : def2xparse ts
+def2xparse (Param _ _:t2:ts) = Until [t2] : def2xparse ts
+def2xparse (t1:ts@(_:_)) = LiteralToken t1 : def2xparse ts
 
+
+---------- xparse macros
+
+parseArgspec :: ArgSpec -> Parser [[Token]]
+parseArgspec = mapM parseArgtype
+
+parseArgtype :: ArgType -> Parser [Token]
+parseArgtype Mandatory = stripBraces <$> token
+parseArgtype as@(Until ts) =
+  ([] <$ mapM_ tok ts) <|> ((++) <$> token <*> (parseArgtype as))
+parseArgtype as@(UntilCC cc) =
+  ([] <$ charcc cc) <|> ((++) <$> token <*> (parseArgtype as))
+parseArgtype (Delimited open close (Just defval)) =
+  option defval (tok open *> parseArgtype (Until [close]))
+parseArgtype (Delimited open close Nothing) =
+  option [] (tok open *> parseArgtype (Until [close]))
+parseArgtype (OptionalGroup open close (Just defval)) =
+  option defval (tok open *> parseArgtype (Until [close]))
+parseArgtype (OptionalGroup open close Nothing) =
+  option [] (tok open *> parseArgtype (Until [close]))
+parseArgtype (OptionalGroupCC open close (Just defval)) =
+  option defval (charcc open *> parseArgtype (UntilCC close))
+parseArgtype (OptionalGroupCC open close Nothing) =
+  option [] (charcc open *> parseArgtype (UntilCC close))
+parseArgtype (OptionalToken t) =
+  option [] (count 1 (tok t))
+parseArgtype (LiteralToken t) =
+  count 1 (tok t)
+
+-- Parse and register an xparse macro definition.
+declareDocumentCommand :: Parser [Token]
+declareDocumentCommand = do
+  -- preparation: disallow expansion of embedded macros
+  expandMode <- getExpandMode <$> getState
+  modifyState (setExpandMode False)
+  -- parse the macro definition
+  (CtrlSeq name active) <- optGrouped ctrlseqNoexpand <?> "macro name"
+  context <- argspec <?> "macro argspec"
+  body <- grouped tokens
+  -- restore original expansion mode and register the new macro globally
+  modifyState (setExpandMode expandMode)
+  modifyState (registerGlobalMacro ((name, active), (context, body)))
+  return []
+
+-- Parse a full xparse-style argument specification.
+argspec :: Parser ArgSpec
+argspec = grouped (skipOptSpace *> many argtype)
+
+-- Parse a single xparse-style argument type.
+--
+-- Not yet implemented: 'v' (verb), '+' (long), '>' (process).
+argtype :: Parser ArgType
+argtype = choice
+          [ Mandatory <$ letter 'm'
+          , Until <$> (letter 'u' *> grouped tokens)
+          , UntilCC Bgroup <$ (letter 'l')
+          , Delimited <$>
+            (letter 'r' *> singleToken) <*>
+            singleToken <*> return Nothing
+          , Delimited <$>
+            (letter 'R' *> singleToken) <*>
+            singleToken <*> (Just <$> grouped tokens)
+          , OptionalGroup
+            (TeXChar '[' Other) (TeXChar ']' Other)
+            Nothing <$ letter 'o'
+          , OptionalGroup <$>
+            (letter 'd' *> singleToken) <*>
+            singleToken <*> return Nothing
+          , OptionalGroup
+            (TeXChar '[' Other) (TeXChar ']' Other)
+            <$> (letter 'O' *> (Just <$> grouped tokens))
+          , OptionalGroup <$>
+            (letter 'D' *> singleToken) <*>
+            singleToken <*> (Just <$> grouped tokens)
+          , OptionalGroupCC Bgroup Egroup Nothing <$
+            letter 'g'
+          , OptionalGroupCC Bgroup Egroup <$>
+            (letter 'G' *> (Just <$> grouped tokens))
+          , OptionalToken
+            (TeXChar '*' Other) <$ letter 's'
+          , OptionalToken
+            <$> (letter 't' *> singleToken)
+          ] <* skipOptSpace
 
 -------------------- Main parsers
 
@@ -253,6 +346,14 @@ token :: Parser [Token]
 token = skipOptCommentsPAR *>
         (group <|> ctrlseq <|> count 1
          (eolpar <|> param <|> someChar))
+
+-- Parse a single token.
+--
+-- Does not accept a group and will not expand macros.
+singleToken :: Parser Token
+singleToken = skipOptCommentsPAR *>
+              (ctrlseqNoexpand <|>
+               (eolpar <|> param <|> someChar))
 
 -------------------- 'TeXChar' Parsers
 
@@ -371,6 +472,13 @@ paramC = do
 group :: Parser [Token]
 group = (fmap (++) . (:)) <$> bgroup <*> tokens <*> count 1 egroup
 
+grouped :: Parser a -> Parser a
+grouped = between bgroup egroup
+
+optGrouped :: Parser a -> Parser a
+optGrouped p = grouped p <|> p
+
+
 -------------------- Linebreak parsers
 
 -- Parse an 'Eol' char or, if followed by an empty line, a par token.
@@ -486,11 +594,15 @@ charC c i = do
   void $ satisfyChar (\x -> (x==c && hasCatcode i cctab x))
   return (TeXChar c i)
 
--- 'string' only accepts letters, i.e. characters with catcode 'Letter'.
+-- Parse a character with catcode 'Letter'.
+letter :: Char -> Parser Token
+letter = flip char Letter
+
+-- 'string' only accepts characters with catcode 'Letter'.
 string :: String -> Parser String
 string = foldr op (return "")
   where op = \c -> (<*>) ((:) <$> (plainLetter c))
-        plainLetter = \c -> (c <$ char c Letter)
+        plainLetter = \c -> (c <$ letter c)
 
 -- Octal digits.
 octDigit :: Parser Char

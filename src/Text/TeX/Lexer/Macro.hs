@@ -17,11 +17,42 @@ module Text.TeX.Lexer.Macro
     Macro
   , macroContext
   , macroBody
+  , ArgSpec
+  , ArgType(..)
     -- * Macro expansion
   , applyMacro
   ) where
 
 import Text.TeX.Lexer.Token (Token(..))
+import Text.TeX.Lexer.Catcode (Catcode)
+
+-------------------- Argument Specification
+
+type ArgSpec = [ArgType]
+
+data ArgType = Mandatory        -- ^ For 'm' args
+             | Until            -- ^ For 'u' args
+               [Token]
+             | UntilCC          -- ^ For 'l' args
+               Catcode
+             | Delimited        -- ^ For 'r' args
+               Token            -- ^ Opening delimiter
+               Token            -- ^ Closing delimiter
+               (Maybe [Token])  -- ^ Default value
+             | OptionalGroup    -- ^ For 'o' and 'd' args
+               Token            -- ^ Opening delimiter
+               Token            -- ^ Closing delimiter
+               (Maybe [Token])  -- ^ Default value
+             | OptionalGroupCC  -- ^ For 'g' args
+               Catcode          -- ^ Opening delimiter
+               Catcode          -- ^ Closing delimiter
+               (Maybe [Token])  -- ^ Default value
+             | OptionalToken    -- ^ For 's' and 't' args
+               Token
+             | LiteralToken     -- ^ Literal token
+               Token            -- (for translating from def-style macros)
+             deriving (Eq, Show)
+
 
 -------------------- Macro types
 
@@ -35,10 +66,10 @@ import Text.TeX.Lexer.Token (Token(..))
 -- Fields: @((name, active), (context, body))@.
 -- | A Macro maps a name (and a flag for active characters) to a macro
 -- context and a macro body.
-type Macro = ((String, Bool), ([Token], [Token]))
+type Macro = ((String, Bool), (ArgSpec, [Token]))
 
 -- | Extract context from a macro.
-macroContext :: Macro -> [Token]
+macroContext :: Macro -> ArgSpec
 macroContext = fst . snd
 
 -- | Extract body from a macro.
