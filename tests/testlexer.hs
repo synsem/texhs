@@ -104,6 +104,24 @@ testsComments = TestLabel "comments" $ test
     ~=? (parseTeX "" "a% some comment\n  8")
   ]
 
+testsGrouping :: Test
+testsGrouping = TestLabel "grouping" $ test
+  [ "'bgroup' and 'egroup' control sequences induce grouping"
+    ~: [(CtrlSeq "bgroup" False), (TeXChar 'c' Letter), (TeXChar 'd' Letter),
+        (CtrlSeq "egroup" False), (CtrlSeq "ab" False)]
+    ~=? (parseTeX "" "\\bgroup\\def\\ab{cd}\\ab\\egroup\\ab")
+  , "'begingroup' and 'endgroup' control sequences induce grouping"
+    ~: [(CtrlSeq "begingroup" False), (TeXChar 'c' Letter), (TeXChar 'd' Letter),
+        (CtrlSeq "endgroup" False), (CtrlSeq "ab" False)]
+    ~=? (parseTeX "" "\\begingroup\\def\\ab{cd}\\ab\\endgroup\\ab")
+  , "'begin' and 'end' control sequences induce grouping"
+    ~: [(CtrlSeq "begin" False), (TeXChar '{' Bgroup), (TeXChar 'z' Letter),
+        (TeXChar '}' Egroup), (TeXChar 'c' Letter), (TeXChar 'd' Letter),
+        (CtrlSeq "end" False), (TeXChar '{' Bgroup), (TeXChar 'z' Letter),
+        (TeXChar '}' Egroup), (CtrlSeq "ab" False)]
+    ~=? (parseTeX "" "\\begin{z}\\def\\ab{cd}\\ab\\end{z}\\ab")
+  ]
+
 testsMacros :: Test
 testsMacros = TestLabel "macros" $ test
   [ "macro definitions disappear in the token stream"
@@ -223,6 +241,7 @@ tests = TestList
   [ testsBasic
   , testsWhitespace
   , testsComments
+  , testsGrouping
   , testsMacros
   , testsCatcode
   , testsCatcodeInMacro

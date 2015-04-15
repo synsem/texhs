@@ -251,7 +251,7 @@ tokens = concat <$> many token
 -- many lexer-level commands have group scope (e.g. @\catcode@).
 token :: Parser [Token]
 token = skipOptCommentsPAR *>
-        (ctrlseq <|> group <|> count 1
+        (group <|> ctrlseq <|> count 1
          (eolpar <|> param <|> someChar))
 
 -------------------- 'TeXChar' Parsers
@@ -307,7 +307,13 @@ anyEscapedChar = do
 -------------------- 'CtrlSeq' Parsers
 
 ctrlseq :: Parser [Token]
-ctrlseq = ctrlseqNoexpand >>= expand
+ctrlseq = do
+  c@(CtrlSeq name _) <- ctrlseqNoexpand
+  when (name `elem` ["begingroup", "bgroup", "begin"])
+    (modifyState pushEmptyState)
+  when (name `elem` ["endgroup", "egroup", "end"])
+    (modifyState popState)
+  expand c
 
 ctrlseqNoexpand :: Parser Token
 ctrlseqNoexpand = ctrlseqT <|> ctrlseqC <|> activeC
