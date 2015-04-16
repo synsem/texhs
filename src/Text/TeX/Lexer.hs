@@ -254,8 +254,7 @@ parseArgtype :: ArgType -> Parser [Token]
 parseArgtype Mandatory = stripBraces <$> token
 parseArgtype as@(Until ts) =
   ([] <$ mapM_ tok ts) <|> ((++) <$> token <*> (parseArgtype as))
-parseArgtype as@(UntilCC cc) =
-  ([] <$ charcc cc) <|> ((++) <$> token <*> (parseArgtype as))
+parseArgtype (UntilCC cc) = many (charccno cc)
 parseArgtype (Delimited open close (Just defval)) =
   option defval (tok open *> parseArgtype (Until [close]))
 parseArgtype (Delimited open close Nothing) =
@@ -265,9 +264,9 @@ parseArgtype (OptionalGroup open close (Just defval)) =
 parseArgtype (OptionalGroup open close Nothing) =
   option [] (tok open *> parseArgtype (Until [close]))
 parseArgtype (OptionalGroupCC open close (Just defval)) =
-  option defval (charcc open *> parseArgtype (UntilCC close))
+  option defval (charcc open *> many (charccno close) <* charcc close)
 parseArgtype (OptionalGroupCC open close Nothing) =
-  option [] (charcc open *> parseArgtype (UntilCC close))
+  option [] (charcc open *> many (charccno close) <* charcc close)
 parseArgtype (OptionalToken t) =
   option [] (count 1 (tok t))
 parseArgtype (LiteralToken t) =
