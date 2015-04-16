@@ -181,6 +181,10 @@ testsMacrosXparse = TestLabel "xparse macro definitions" $ test
         (TeXChar 'a' Letter), (TeXChar ')' Other), (TeXChar 'e' Letter)]
     ~=? (parseTeX "" ("\\DeclareDocumentCommand\\pair{ m m }{(#2:#1)}"
                       ++ "\\pair{a}{b}e"))
+  , "ignore '+' (long) flags"
+    ~: [(TeXChar 'c' Letter), (TeXChar ':' Other), (TeXChar 'b' Letter)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand\\a{ +m+m +m}{#2:#1}"
+                      ++ "\\a{b}{c}{d}"))
   , "global scope"
     ~: [(CtrlSeq "bgroup" False), (TeXChar '{' Bgroup), (TeXChar '}' Egroup),
         (CtrlSeq "egroup" False), (TeXChar '2' Other), (TeXChar '.' Other),

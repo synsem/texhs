@@ -294,9 +294,9 @@ argspec = grouped (skipOptSpace *> many argtype)
 
 -- Parse a single xparse-style argument type.
 --
--- Not yet implemented: 'v' (verb), '+' (long), '>' (process).
+-- Not implemented: 'v' (verbatim), '>' (argument processor).
 argtype :: Parser ArgType
-argtype = choice
+argtype = optional (char '+' Other) *> choice
           [ Mandatory <$ letter 'm'
           , Until <$> (letter 'u' *> grouped tokens)
           , UntilCC Bgroup <$ (letter 'l')
