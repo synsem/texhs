@@ -166,17 +166,17 @@ testsMacrosXparse = TestLabel "xparse macro definitions" $ test
   [ "macro definitions disappear in the token stream"
     ~: []
     ~=? (parseTeX "" "\\DeclareDocumentCommand\\hello{}{invisible}")
-  , "no args"
+  , "no arguments in argspec"
     ~: [(TeXChar 'B' Letter), (TeXChar 'A' Letter), (TeXChar '.' Other),
         (TeXChar '{' Bgroup), (TeXChar 'b' Letter), (TeXChar '}' Egroup)]
     ~=? (parseTeX "" ("\\DeclareDocumentCommand\\a{ }{A.}"
                       ++ "B\\a{b}"))
-  , "one mandatory arg"
+  , "one mandatory argument with 'm'"
     ~: [(TeXChar '4' Other), (TeXChar '+' Other), (TeXChar '4' Other),
         (TeXChar '!' Other)]
     ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\add}{m}{#1+#1}"
                       ++ "\\add4!"))
-  , "two mandatory args"
+  , "two mandatory arguments with 'm'"
     ~: [(TeXChar '(' Other), (TeXChar 'b' Letter), (TeXChar ':' Other),
         (TeXChar 'a' Letter), (TeXChar ')' Other), (TeXChar 'e' Letter)]
     ~=? (parseTeX "" ("\\DeclareDocumentCommand\\pair{ m m }{(#2:#1)}"
@@ -185,6 +185,83 @@ testsMacrosXparse = TestLabel "xparse macro definitions" $ test
     ~: [(TeXChar 'c' Letter), (TeXChar ':' Other), (TeXChar 'b' Letter)]
     ~=? (parseTeX "" ("\\DeclareDocumentCommand\\a{ +m+m +m}{#2:#1}"
                       ++ "\\a{b}{c}{d}"))
+  , "required delimited argument with 'r'"
+    ~: [(TeXChar '(' Other), (TeXChar '8' Other), (TeXChar '|' Other),
+        (TeXChar '9' Other), (TeXChar ')' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{r.:m}{(#2|#1)}"
+                      ++ "\\a.9:8"))
+  , "required delimited argument with 'R'"
+    ~: [(TeXChar '[' Other), (TeXChar '8' Other), (TeXChar ':' Other),
+        (TeXChar '9' Other), (TeXChar ']' Other), (TeXChar '[' Other),
+        (TeXChar '5' Other), (TeXChar ':' Other), (TeXChar '7' Other),
+        (TeXChar '6' Other), (TeXChar ']' Other), (TeXChar '4' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{R(){76}m}{[#2:#1]}"
+                      ++ "\\a(9)8\\a54"))
+  , "optional argument with 'o'"
+    ~: [(TeXChar '(' Other), (TeXChar 'b' Letter), (TeXChar ')' Other),
+        (TeXChar '.' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{o}{(#1)}"
+                      ++ "\\a[b]."))
+  , "optional argument with 'O'"
+    ~: [(TeXChar '(' Other), (TeXChar 'z' Letter), (TeXChar ')' Other),
+        (TeXChar '(' Other), (TeXChar 'b' Letter), (TeXChar ')' Other),
+        (TeXChar '.' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{O{z}}{(#1)}"
+                      ++ "\\a\\a[b]."))
+  , "optional argument with 'd'"
+    ~: [(TeXChar '(' Other), (TeXChar 'b' Letter), (TeXChar 'c' Letter),
+        (TeXChar ')' Other), (TeXChar '.' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{d?!}{(#1)}"
+                      ++ "\\a?bc!."))
+  , "optional argument with 'D'"
+    ~: [(TeXChar '(' Other), (TeXChar 'z' Letter), (TeXChar ')' Other),
+        (TeXChar '[' Other), (TeXChar ']' Other),  (TeXChar '(' Other),
+        (TeXChar 'b' Letter), (TeXChar ')' Other), (TeXChar '.' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{D(){z}}{(#1)}"
+                      ++ "\\a[]\\a(b)."))
+  , "optional argument with 'g'"
+    ~: [(TeXChar '(' Other), (TeXChar 'b' Letter), (TeXChar 'c' Letter),
+        (TeXChar ')' Other), (TeXChar '.' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{g}{(#1)}"
+                      ++ "\\a{bc}."))
+  , "optional argument with 'G'"
+    ~: [(TeXChar '(' Other), (TeXChar 'z' Letter), (TeXChar ')' Other),
+        (TeXChar '3' Other), (TeXChar '(' Other), (TeXChar 'b' Letter),
+        (TeXChar 'c' Letter), (TeXChar ')' Other), (TeXChar '.' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{G{z}}{(#1)}"
+                      ++ "\\a3\\a{bc}."))
+  , "optional star with 's'"
+    ~: [(TeXChar '(' Other), (TeXChar '3' Other), (TeXChar ')' Other),
+        (TeXChar '4' Other), (TeXChar '.' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{sm}{(#2)}"
+                      ++ "\\a*34."))
+  , "optional token with 't'"
+    ~: [(TeXChar '(' Other), (TeXChar '3' Other), (TeXChar ')' Other),
+        (TeXChar '4' Other), (TeXChar '.' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{t|m}{(#2)}"
+                      ++ "\\a|34."))
+  , "required 'until' argument with 'u' (single token)"
+    ~: [(TeXChar '(' Other), (TeXChar 'h' Letter), (TeXChar 'i' Letter),
+        (TeXChar ')' Other), (TeXChar '4' Other), (TeXChar '.' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{u|}{(#1)}"
+                      ++ "\\a hi|4."))
+  , "required 'until' argument with 'u' (grouped)"
+    ~: [(TeXChar '(' Other), (TeXChar 'h' Letter), (TeXChar 'i' Letter),
+        (TeXChar ')' Other), (TeXChar '4' Other), (TeXChar '.' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{u{|k}}{(#1)}"
+                      ++ "\\a hi|k4."))
+  , "required 'u' and 'm' arguments"
+    ~: [(TeXChar '(' Other), (TeXChar '4' Other), (TeXChar ':' Other),
+        (TeXChar 'h' Letter), (TeXChar 'i' Letter), (TeXChar ')' Other),
+        (TeXChar '5' Other), (TeXChar '.' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{u|m}{(#2:#1)}"
+                      ++ "\\a hi|45."))
+  , "required 'until' argument with 'l'"
+    ~: [(TeXChar '(' Other), (TeXChar '3' Other), (TeXChar 'b' Letter),
+        (TeXChar ')' Other), (TeXChar '{' Bgroup), (TeXChar '4' Other),
+        (TeXChar '}' Egroup), (TeXChar '.' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{l}{(#1)}"
+                      ++ "\\a3b{4}."))
   , "global scope"
     ~: [(CtrlSeq "bgroup" False), (TeXChar '{' Bgroup), (TeXChar '}' Egroup),
         (CtrlSeq "egroup" False), (TeXChar '2' Other), (TeXChar '.' Other),
