@@ -298,7 +298,9 @@ argspec = grouped (skipOptSpace *> many argtype)
 argtype :: Parser ArgType
 argtype = optional (char '+' Other) *> choice
           [ Mandatory <$ letter 'm'
-          , Until <$> (letter 'u' *> grouped tokens)
+          , Until <$>
+            (letter 'u' *>
+             (grouped tokens <|> count 1 singleToken))
           , UntilCC Bgroup <$ (letter 'l')
           , Delimited <$>
             (letter 'r' *> singleToken) <*>
