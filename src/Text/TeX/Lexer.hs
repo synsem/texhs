@@ -39,7 +39,7 @@ import Text.TeX.Lexer.Catcode
    CatcodeTable, defaultCatcodeTable, updateCatcodeTable,
    catcodesAllowed, catcodesPassive, catcodesNonescaped)
 import Text.TeX.Lexer.Macro
-  (Macro, macroContext, macroBody, applyMacro,
+  (Macro, MacroKey, macroName, macroContext, macroBody, applyMacro,
    ArgSpec, ArgType(..))
 import Text.TeX.Lexer.Token
   (Token(..), CharOrToken, isCtrlSeq, isParam,
@@ -123,6 +123,8 @@ addCatcode _ [] = error "empty lexer stack"
 
 ---------- Macro state
 
+data MacroDefinitionMode = MacroNew | MacroRenew | MacroProvide | MacroDeclare
+
 getMacros :: LexerStack -> [Macro]
 getMacros = concatMap localMacros
 
@@ -139,6 +141,24 @@ registerGlobalMacro m ls@(_:_) =
   let (g:tl) = reverse ls
   in reverse (g {localMacros = m:(localMacros g)} :tl)
 registerGlobalMacro _ [] = error "empty lexer stack"
+
+-- Return whether a macro with the given key is already defined.
+macroIsDefined :: MacroKey -> LexerStack -> Bool
+macroIsDefined m ls = elem m (map fst (getMacros ls))
+
+-- Depending on 'MacroDefinitionMode' there are three possible actions
+-- when requesting to register a macro: register, error, pass (ignore).
+macroDefinitionAction :: MacroDefinitionMode -> Bool ->
+                         Macro -> LexerStack -> LexerStack
+macroDefinitionAction MacroDeclare _ = registerGlobalMacro
+macroDefinitionAction MacroNew True =
+  error . (++) "macro already defined: " . show . macroName
+macroDefinitionAction MacroNew False = registerGlobalMacro
+macroDefinitionAction MacroRenew True = registerGlobalMacro
+macroDefinitionAction MacroRenew False =
+  error . (++) "cannot redefine undefined macro: " . show . macroName
+macroDefinitionAction MacroProvide True = flip const . id
+macroDefinitionAction MacroProvide False = registerGlobalMacro
 
 
 -------------------- Macro expansion
@@ -157,7 +177,10 @@ expandMacro name active = case (name, active) of
   ("def", False) -> def
   ("char", False) -> count 1 chr
   ("number", False) -> numbertoks
-  ("DeclareDocumentCommand", False) -> declareDocumentCommand
+  ("NewDocumentCommand", False) -> declareDocumentCommand MacroNew
+  ("RenewDocumentCommand", False) -> declareDocumentCommand MacroRenew
+  ("ProvideDocumentCommand", False) -> declareDocumentCommand MacroProvide
+  ("DeclareDocumentCommand", False) -> declareDocumentCommand MacroDeclare
   _ -> lookupUserMacro name active
 
 ---------- Builtin macros
@@ -273,8 +296,8 @@ parseArgtype (LiteralToken t) =
   count 1 (tok t)
 
 -- Parse and register an xparse macro definition.
-declareDocumentCommand :: Parser [Token]
-declareDocumentCommand = do
+declareDocumentCommand :: MacroDefinitionMode -> Parser [Token]
+declareDocumentCommand defMode = do
   -- preparation: disallow expansion of embedded macros
   expandMode <- getExpandMode <$> getState
   modifyState (setExpandMode False)
@@ -283,8 +306,10 @@ declareDocumentCommand = do
   context <- argspec <?> "macro argspec"
   body <- grouped tokens
   -- restore original expansion mode and register the new macro globally
+  isDefined <- macroIsDefined (name, active) <$> getState
   modifyState (setExpandMode expandMode)
-  modifyState (registerGlobalMacro ((name, active), (context, body)))
+  modifyState $ macroDefinitionAction defMode isDefined
+    ((name, active), (context, body))
   return []
 
 -- Parse a full xparse-style argument specification.

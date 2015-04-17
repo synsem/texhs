@@ -268,6 +268,35 @@ testsMacrosXparse = TestLabel "xparse macro definitions" $ test
         (TeXChar '4' Other)]
     ~=? (parseTeX "" ("\\bgroup{\\DeclareDocumentCommand{\\a}{mm}{#2.}}\\egroup"
                       ++ "\\a {one}24"))
+  , "redefine an existing macro"
+    ~: [(TeXChar '2' Other)]
+    ~=? (parseTeX "" ("\\NewDocumentCommand{\\a}{}{1}"
+                      ++ "\\RenewDocumentCommand{\\a}{}{2}" ++ "\\a"))
+  , "declaring a macro will overwrite existing ones"
+    ~: [(TeXChar '2' Other)]
+    ~=? (parseTeX "" ("\\NewDocumentCommand{\\a}{}{1}"
+                      ++ "\\DeclareDocumentCommand{\\a}{}{2}" ++ "\\a"))
+  , "providing a macro does not overwrite existing ones"
+    ~: [(TeXChar '1' Other)]
+    ~=? (parseTeX "" ("\\NewDocumentCommand{\\a}{}{1}"
+                      ++ "\\ProvideDocumentCommand{\\a}{}{2}" ++ "\\a"))
+  , "provide a new macro"
+    ~: [(TeXChar '1' Other)]
+    ~=? (parseTeX "" ("\\ProvideDocumentCommand{\\a}{}{1}"
+                      ++ "\\ProvideDocumentCommand{\\a}{}{2}" ++ "\\a"))
+  , "redefine a provided macro"
+    ~: [(TeXChar '2' Other)]
+    ~=? (parseTeX "" ("\\ProvideDocumentCommand{\\a}{}{1}"
+                      ++ "\\RenewDocumentCommand{\\a}{}{2}" ++ "\\a"))
+  , "redefining a macro has global effects: renew in group"
+    ~: [(TeXChar '{' Bgroup), (TeXChar '}' Egroup), (TeXChar '2' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{}{1}"
+                      ++ "{\\RenewDocumentCommand{\\a}{}{2}}" ++ "\\a"))
+  , "redefining a macro has global effects: renew in 'begingroup'/'endgroup'"
+    ~: [(CtrlSeq "begingroup" False), (CtrlSeq "endgroup" False), (TeXChar '2' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{}{1}"
+                      ++ "\\begingroup\\RenewDocumentCommand{\\a}{}{2}\\endgroup"
+                      ++ "\\a"))
   ]
 
 testsCatcode :: Test

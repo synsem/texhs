@@ -15,6 +15,8 @@
 module Text.TeX.Lexer.Macro
   ( -- * Macro types
     Macro
+  , MacroKey
+  , macroName
   , macroContext
   , macroBody
   , ArgSpec
@@ -56,17 +58,20 @@ data ArgType = Mandatory        -- ^ For 'm' args
 
 -------------------- Macro types
 
--- Legacy synonyms.
---type MacroName = String
---type MacroContext = [Token]
---type MacroBody = [Token]
+-- Fields: @(name, active)@.
+-- | Key for macro lookup.
+type MacroKey = (String, Bool)
 
 -- For now we use a simple type synonym rather than a full data type
 -- so we can use @lookup@ in @[Macro]@ without any unwrapping.
 -- Fields: @((name, active), (context, body))@.
 -- | A Macro maps a name (and a flag for active characters) to a macro
 -- context and a macro body.
-type Macro = ((String, Bool), (ArgSpec, [Token]))
+type Macro = (MacroKey, (ArgSpec, [Token]))
+
+-- | Extract name of a macro.
+macroName :: Macro -> String
+macroName = fst . fst
 
 -- | Extract context from a macro.
 macroContext :: Macro -> ArgSpec
