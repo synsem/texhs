@@ -299,6 +299,40 @@ testsMacrosXparse = TestLabel "xparse macro definitions" $ test
                       ++ "\\a"))
   ]
 
+testsMacrosNewcommand :: Test
+testsMacrosNewcommand = TestLabel "newcommand macro definitions" $ test
+  [ "macro definitions disappear in the token stream"
+    ~: []
+    ~=? (parseTeX "" "\\newcommand{\\a}{z}")
+  , "no arguments"
+    ~: [(TeXChar 'z' Letter)]
+    ~=? (parseTeX "" "\\newcommand{\\a}{z}\\a")
+  , "single mandatory argument"
+    ~: [(TeXChar '(' Other), (TeXChar '7' Other), (TeXChar ')' Other)]
+    ~=? (parseTeX "" "\\newcommand{\\a}[1]{(#1)}\\a7")
+  , "optional argument with empty default"
+    ~: [(TeXChar '(' Other), (TeXChar '7' Other), (TeXChar ')' Other),
+        (TeXChar '(' Other), (TeXChar ')' Other)]
+    ~=? (parseTeX "" "\\newcommand{\\a}[1][]{(#1)}\\a[7]\\a")
+  , "optional argument with non-empty default"
+    ~: [(TeXChar '(' Other), (TeXChar 'h' Letter), (TeXChar 'i' Letter),
+        (TeXChar ')' Other), (TeXChar '(' Other), (TeXChar '7' Other),
+        (TeXChar ')' Other)]
+    ~=? (parseTeX "" "\\newcommand{\\a}[1][hi]{(#1)}\\a\\a[7]")
+  , "mandatory and optional argument"
+    ~: [(TeXChar '(' Other), (TeXChar 'i' Letter), (TeXChar ':' Other),
+        (TeXChar 'z' Letter), (TeXChar ')' Other), (TeXChar '(' Other),
+        (TeXChar 'o' Letter), (TeXChar ':' Other), (TeXChar 'l' Letter),
+        (TeXChar ')' Other),  (TeXChar '(' Other), (TeXChar ':' Other),
+        (TeXChar ')' Other)]
+    ~=? (parseTeX "" ("\\newcommand{\\a}[2][z]{(#2:#1)}"
+                      ++ "\\a{i}\\a[l]{o}\\a[]{}"))
+  , "two mandatory arguments, starred"
+    ~: [(TeXChar '(' Other), (TeXChar 'x' Letter), (TeXChar 'o' Letter),
+        (TeXChar 'r' Letter), (TeXChar ')' Other)]
+    ~=? (parseTeX "" "\\newcommand*{\\a}[2]{(#2#1)}\\a{r}{xo}")
+  ]
+
 testsCatcode :: Test
 testsCatcode = TestLabel "catcode" $ test
   [ "global catcode change"
@@ -386,6 +420,7 @@ tests = TestList
   , testsGrouping
   , testsMacrosDef
   , testsMacrosXparse
+  , testsMacrosNewcommand
   , testsCatcode
   , testsCatcodeInMacro
   , testsActiveChars

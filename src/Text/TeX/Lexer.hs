@@ -30,7 +30,8 @@ import Numeric (readOct, readDec, readHex)
 import Text.Parsec
   (Parsec, tokenPrim, runParser,
    getState, modifyState, getInput, setInput,
-   (<|>), many, many1, between, choice, option, optional, count, eof,
+   (<|>), many, many1, between, choice, option, optionMaybe,
+   optional, count, eof,
    (<?>), unexpected)
 import Text.Parsec.Pos (updatePosChar)
 
@@ -181,6 +182,7 @@ expandMacro name active = case (name, active) of
   ("RenewDocumentCommand", False) -> declareDocumentCommand MacroRenew
   ("ProvideDocumentCommand", False) -> declareDocumentCommand MacroProvide
   ("DeclareDocumentCommand", False) -> declareDocumentCommand MacroDeclare
+  ("newcommand", False) -> newcommand MacroNew
   _ -> lookupUserMacro name active
 
 ---------- Builtin macros
@@ -311,6 +313,30 @@ declareDocumentCommand defMode = do
   modifyState $ macroDefinitionAction defMode isDefined
     ((name, active), (context, body))
   return []
+
+-- Parse and register a LaTeX2e macro definition.
+newcommand :: MacroDefinitionMode -> Parser [Token]
+newcommand defMode = do
+  -- preparation: disallow expansion of embedded macros
+  expandMode <- getExpandMode <$> getState
+  modifyState (setExpandMode False)
+  -- parse the macro definition
+  optional (char '*' Other)
+  (CtrlSeq name active) <- optGrouped ctrlseqNoexpand <?> "macro name"
+  numArgs <- option 0 (decToInt <$> bracketed (count 1 digit))
+  optArg <- optionMaybe (char '[' Other *> parseArgtype (Until [TeXChar ']' Other]))
+  let context = case optArg of
+        Just d -> OptionalGroup (TeXChar '[' Other) (TeXChar ']' Other) (Just d) :
+                  replicate (numArgs-1) Mandatory
+        Nothing -> replicate numArgs Mandatory
+  body <- grouped tokens <|> count 1 singleToken
+  -- restore original expansion mode and register the new macro globally
+  isDefined <- macroIsDefined (name, active) <$> getState
+  modifyState (setExpandMode expandMode)
+  modifyState $ macroDefinitionAction defMode isDefined
+    ((name, active), (context, body))
+  return []
+
 
 -- Parse a full xparse-style argument specification.
 argspec :: Parser ArgSpec
@@ -503,6 +529,9 @@ grouped = between bgroup egroup
 
 optGrouped :: Parser a -> Parser a
 optGrouped p = grouped p <|> p
+
+bracketed :: Parser a -> Parser a
+bracketed = between (char '[' Other) (char ']' Other)
 
 
 -------------------- Linebreak parsers
