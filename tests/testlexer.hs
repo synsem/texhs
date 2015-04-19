@@ -331,6 +331,36 @@ testsMacrosNewcommand = TestLabel "newcommand macro definitions" $ test
     ~: [(TeXChar '(' Other), (TeXChar 'x' Letter), (TeXChar 'o' Letter),
         (TeXChar 'r' Letter), (TeXChar ')' Other)]
     ~=? (parseTeX "" "\\newcommand*{\\a}[2]{(#2#1)}\\a{r}{xo}")
+  , "global scope"
+    ~: [(CtrlSeq "bgroup" False), (TeXChar '{' Bgroup), (TeXChar '}' Egroup),
+        (CtrlSeq "egroup" False), (TeXChar '2' Other), (TeXChar '.' Other),
+        (TeXChar '4' Other)]
+    ~=? (parseTeX "" ("\\bgroup{\\newcommand{\\a}[2]{#2.}}\\egroup"
+                      ++ "\\a {one}24"))
+  , "redefine an existing macro"
+    ~: [(TeXChar '2' Other)]
+    ~=? (parseTeX "" ("\\newcommand*{\\a}{1}"
+                      ++ "\\renewcommand{\\a}{2}" ++ "\\a"))
+  , "declaring a macro will overwrite existing ones"
+    ~: [(TeXChar '2' Other)]
+    ~=? (parseTeX "" ("\\newcommand{\\a}{1}"
+                      ++ "\\DeclareRobustCommand{\\a}{2}" ++ "\\a"))
+  , "providing a macro does not overwrite existing ones"
+    ~: [(TeXChar '1' Other)]
+    ~=? (parseTeX "" ("\\newcommand{\\a}{1}"
+                      ++ "\\providecommand{\\a}{2}" ++ "\\a"))
+  , "provide a new macro"
+    ~: [(TeXChar '1' Other)]
+    ~=? (parseTeX "" ("\\providecommand{\\a}{1}"
+                      ++ "\\providecommand{\\a}{2}" ++ "\\a"))
+  , "redefine a provided macro"
+    ~: [(TeXChar '2' Other)]
+    ~=? (parseTeX "" ("\\providecommand{\\a}{1}"
+                      ++ "\\renewcommand{\\a}{2}" ++ "\\a"))
+  , "redefining a macro has global effects: renew in group"
+    ~: [(TeXChar '{' Bgroup), (TeXChar '}' Egroup), (TeXChar '2' Other)]
+    ~=? (parseTeX "" ("\\newcommand{\\a}{1}"
+                      ++ "{\\renewcommand{\\a}{2}}" ++ "\\a"))
   ]
 
 testsCatcode :: Test

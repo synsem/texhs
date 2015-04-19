@@ -183,6 +183,9 @@ expandMacro name active = case (name, active) of
   ("ProvideDocumentCommand", False) -> declareDocumentCommand MacroProvide
   ("DeclareDocumentCommand", False) -> declareDocumentCommand MacroDeclare
   ("newcommand", False) -> newcommand MacroNew
+  ("renewcommand", False) -> newcommand MacroRenew
+  ("providecommand", False) -> newcommand MacroProvide
+  ("DeclareRobustCommand", False) -> newcommand MacroDeclare
   _ -> lookupUserMacro name active
 
 ---------- Builtin macros
