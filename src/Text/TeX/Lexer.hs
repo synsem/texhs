@@ -280,21 +280,20 @@ parseArgspec = mapM parseArgtype
 
 parseArgtype :: ArgType -> Parser [Token]
 parseArgtype Mandatory = stripBraces <$> token
-parseArgtype as@(Until ts) =
-  ([] <$ mapM_ tok ts) <|> ((++) <$> token <*> (parseArgtype as))
+parseArgtype (Until ts) = untilToks ts
 parseArgtype (UntilCC cc) = many (charccno cc)
 parseArgtype (Delimited open close (Just defval)) =
-  option defval (tok open *> parseArgtype (Until [close]))
+  option defval (balanced open close)
 parseArgtype (Delimited open close Nothing) =
-  option [] (tok open *> parseArgtype (Until [close]))
+  option [] (balanced open close)
 parseArgtype (OptionalGroup open close (Just defval)) =
-  option defval (tok open *> parseArgtype (Until [close]))
+  option defval (balanced open close)
 parseArgtype (OptionalGroup open close Nothing) =
-  option [] (tok open *> parseArgtype (Until [close]))
+  option [] (balanced open close)
 parseArgtype (OptionalGroupCC open close (Just defval)) =
-  option defval (charcc open *> many (charccno close) <* charcc close)
+  option defval (balancedCC open close)
 parseArgtype (OptionalGroupCC open close Nothing) =
-  option [] (charcc open *> many (charccno close) <* charcc close)
+  option [] (balancedCC open close)
 parseArgtype (OptionalToken t) =
   option [] (count 1 (tok t))
 parseArgtype (LiteralToken t) =
@@ -535,6 +534,59 @@ optGrouped p = grouped p <|> p
 
 bracketed :: Parser a -> Parser a
 bracketed = between (char '[' Other) (char ']' Other)
+
+untilToks :: [Token] -> Parser [Token]
+untilToks ts =
+  ([] <$ mapM_ tok ts) <|>
+  ((++) <$> token <*> untilToks ts)
+
+-- skip delimiters
+balanced :: Token -> Token -> Parser [Token]
+balanced open close =
+  tok open *> balancedEnd open close
+
+-- skip delimiters
+balancedEnd :: Token -> Token -> Parser [Token]
+balancedEnd open close =
+  ([] <$ tok close) <|>
+  ((++) <$> (balancedInner open close <|> token)
+   <*> balancedEnd open close)
+
+-- keep delimiters
+balancedInner :: Token -> Token -> Parser [Token]
+balancedInner open close =
+  (:) <$> tok open <*> balancedInnerEnd open close
+
+-- keep delimiters
+balancedInnerEnd :: Token -> Token -> Parser [Token]
+balancedInnerEnd open close =
+  count 1 (tok close) <|>
+  ((++) <$> (balancedInner open close <|> token)
+   <*> balancedInnerEnd open close)
+
+-- skip delimiters
+balancedCC :: Catcode -> Catcode -> Parser [Token]
+balancedCC open close =
+  charcc open *> balancedCCEnd open close
+
+-- skip delimiters
+balancedCCEnd :: Catcode -> Catcode -> Parser [Token]
+balancedCCEnd open close =
+  ([] <$ charcc close) <|>
+  ((++) <$> (balancedCCInner open close <|> token)
+   <*> balancedCCEnd open close)
+
+-- keep delimiters
+balancedCCInner :: Catcode -> Catcode -> Parser [Token]
+balancedCCInner open close =
+  (:) <$> charcc open <*> balancedCCInnerEnd open close
+
+-- keep delimiters
+balancedCCInnerEnd :: Catcode -> Catcode -> Parser [Token]
+balancedCCInnerEnd open close =
+  count 1 (charcc close) <|>
+  ((++) <$> (balancedCCInner open close <|> token)
+   <*> balancedCCInnerEnd open close)
 
 
 -------------------- Linebreak parsers

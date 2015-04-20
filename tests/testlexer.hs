@@ -262,6 +262,28 @@ testsMacrosXparse = TestLabel "xparse macro definitions" $ test
         (TeXChar '}' Egroup), (TeXChar '.' Other)]
     ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{l}{(#1)}"
                       ++ "\\a3b{4}."))
+  , "optional argument in call may contain closing delimiter if properly nested"
+    ~: [(TeXChar '(' Other), (CtrlSeq "b" False), (TeXChar '[' Other),
+        (TeXChar 'b' Letter), (TeXChar 'o' Letter), (TeXChar ']' Other),
+        (TeXChar '{' Bgroup),(TeXChar 'b' Letter), (TeXChar 'm' Letter),
+        (TeXChar '}' Egroup), (TeXChar ':' Other), (TeXChar '.' Other),
+        (TeXChar ')' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{om}{(#1:#2)}"
+                      ++ "\\a[\\b[bo]{bm}]."))
+  , "optional argument in call may contain closing delimiters if properly nested"
+    ~: [(TeXChar '(' Other), (TeXChar '[' Other), (TeXChar '[' Other),
+        (TeXChar '[' Other), (TeXChar '!' Other), (TeXChar ']' Other),
+        (TeXChar ']' Other), (TeXChar ']' Other), (TeXChar ')' Other),
+        (TeXChar '.' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{o}{(#1)}"
+                      ++ "\\a[[[[!]]]]."))
+  , "optional argument in call may be unbalanced if in group"
+    ~: [(TeXChar '(' Other), (TeXChar '{' Bgroup), (TeXChar ']' Other),
+        (TeXChar ']' Other), (TeXChar '!' Other),  (TeXChar '[' Other),
+        (TeXChar '[' Other), (TeXChar '}' Egroup), (TeXChar ')' Other),
+        (TeXChar '.' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{o}{(#1)}"
+                      ++ "\\a[{]]![[}]."))
   , "global scope"
     ~: [(CtrlSeq "bgroup" False), (TeXChar '{' Bgroup), (TeXChar '}' Egroup),
         (CtrlSeq "egroup" False), (TeXChar '2' Other), (TeXChar '.' Other),
@@ -331,6 +353,11 @@ testsMacrosNewcommand = TestLabel "newcommand macro definitions" $ test
     ~: [(TeXChar '(' Other), (TeXChar 'x' Letter), (TeXChar 'o' Letter),
         (TeXChar 'r' Letter), (TeXChar ')' Other)]
     ~=? (parseTeX "" "\\newcommand*{\\a}[2]{(#2#1)}\\a{r}{xo}")
+  , "optional argument in call may contain closing bracket in group braces"
+    ~: [(TeXChar '(' Other), (TeXChar '{' Bgroup), (TeXChar ']' Other),
+        (TeXChar '}' Egroup), (TeXChar ')' Other), (TeXChar '(' Other),
+        (TeXChar 'z' Letter), (TeXChar ')' Other)]
+    ~=? (parseTeX "" "\\newcommand{\\a}[1][z]{(#1)}\\a[{]}]\\a")
   , "global scope"
     ~: [(CtrlSeq "bgroup" False), (TeXChar '{' Bgroup), (TeXChar '}' Egroup),
         (CtrlSeq "egroup" False), (TeXChar '2' Other), (TeXChar '.' Other),
