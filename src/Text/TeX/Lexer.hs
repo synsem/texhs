@@ -30,8 +30,8 @@ import Numeric (readOct, readDec, readHex)
 import Text.Parsec
   (Parsec, tokenPrim, runParser,
    getState, modifyState, getInput, setInput,
-   (<|>), many, many1, between, choice, option, optionMaybe,
-   optional, count, eof,
+   (<|>), many, many1, manyTill, between, choice,
+   try, option, optionMaybe, optional, count, eof,
    (<?>), unexpected)
 import Text.Parsec.Pos (updatePosChar)
 
@@ -280,6 +280,7 @@ parseArgspec = mapM parseArgtype
 
 parseArgtype :: ArgType -> Parser [Token]
 parseArgtype Mandatory = stripBraces <$> token
+parseArgtype (Until [t]) = untilTok t
 parseArgtype (Until ts) = untilToks ts
 parseArgtype (UntilCC cc) = many (charccno cc)
 parseArgtype (Delimited open close (Just defval)) =
@@ -537,10 +538,15 @@ optGrouped p = grouped p <|> p
 bracketed :: Parser a -> Parser a
 bracketed = between (char '[' Other) (char ']' Other)
 
+-- Parse tokens until you hit the specified delimiter.
+-- The delimiter is not included in the result.
+untilTok :: Token -> Parser [Token]
+untilTok t = concat <$> manyTill token (tok t)
+
+-- Parse tokens until you hit the specified token sequence.
+-- The delimiting sequence is not included in the result.
 untilToks :: [Token] -> Parser [Token]
-untilToks ts =
-  ([] <$ mapM_ tok ts) <|>
-  ((++) <$> token <*> untilToks ts)
+untilToks ts = concat <$> manyTill token (try (mapM_ tok ts))
 
 -- skip delimiters
 balanced :: Token -> Token -> Parser [Token]
