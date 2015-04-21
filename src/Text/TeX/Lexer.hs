@@ -326,9 +326,11 @@ newcommand defMode = do
   optional (char '*' Other)
   (CtrlSeq name active) <- optGrouped ctrlseqNoexpand <?> "macro name"
   numArgs <- option 0 (decToInt <$> bracketed (count 1 digit))
-  optArg <- optionMaybe (char '[' Other *> parseArgtype (Until [TeXChar ']' Other]))
+  let open = TeXChar '[' Other
+      close = TeXChar ']' Other
+  optArg <- optionMaybe (balanced open close)
   let context = case optArg of
-        Just d -> OptionalGroup (TeXChar '[' Other) (TeXChar ']' Other) (Just d) :
+        Just d -> OptionalGroup open close (Just d) :
                   replicate (numArgs-1) Mandatory
         Nothing -> replicate numArgs Mandatory
   body <- grouped tokens <|> count 1 singleToken
