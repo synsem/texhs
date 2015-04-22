@@ -26,6 +26,7 @@ import Control.Applicative ((<*), (<*>), (*>), (<$), (<$>))
 #endif
 import Control.Monad (void, when)
 import Data.Char (isOctDigit, isDigit, isHexDigit)
+import Data.Maybe (fromMaybe)
 import Numeric (readOct, readDec, readHex)
 import Text.Parsec
   (Parsec, tokenPrim, runParser,
@@ -275,30 +276,24 @@ def2xparse (t1:ts@(_:_)) = LiteralToken t1 : def2xparse ts
 
 ---------- xparse macros
 
+-- Parse the arguments in a macro call.
 parseArgspec :: ArgSpec -> Parser [[Token]]
 parseArgspec = mapM parseArgtype
 
+-- Parse a single argument in a macro call.
 parseArgtype :: ArgType -> Parser [Token]
 parseArgtype Mandatory = stripBraces <$> token
 parseArgtype (Until [t]) = untilTok t
 parseArgtype (Until ts) = untilToks ts
 parseArgtype (UntilCC cc) = many (charccno cc)
-parseArgtype (Delimited open close (Just defval)) =
-  option defval (balanced open close)
-parseArgtype (Delimited open close Nothing) =
-  option [] (balanced open close)
-parseArgtype (OptionalGroup open close (Just defval)) =
-  option defval (balanced open close)
-parseArgtype (OptionalGroup open close Nothing) =
-  option [] (balanced open close)
-parseArgtype (OptionalGroupCC open close (Just defval)) =
-  option defval (balancedCC open close)
-parseArgtype (OptionalGroupCC open close Nothing) =
-  option [] (balancedCC open close)
-parseArgtype (OptionalToken t) =
-  option [] (count 1 (tok t))
-parseArgtype (LiteralToken t) =
-  count 1 (tok t)
+parseArgtype (Delimited open close defval) =
+  option (fromMaybe [] defval) (balanced open close)
+parseArgtype (OptionalGroup open close defval) =
+  option (fromMaybe [] defval) (balanced open close)
+parseArgtype (OptionalGroupCC open close defval) =
+  option (fromMaybe [] defval) (balancedCC open close)
+parseArgtype (OptionalToken t) = option [] (count 1 (tok t))
+parseArgtype (LiteralToken t) = count 1 (tok t)
 
 -- Parse and register an xparse macro definition.
 declareDocumentCommand :: MacroDefinitionMode -> Parser [Token]
