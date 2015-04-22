@@ -187,9 +187,11 @@ testsMacrosXparse = TestLabel "xparse macro definitions" $ test
                       ++ "\\a{b}{c}{d}"))
   , "required delimited argument with 'r'"
     ~: [(TeXChar '(' Other), (TeXChar '8' Other), (TeXChar '|' Other),
-        (TeXChar '9' Other), (TeXChar ')' Other)]
+        (TeXChar '9' Other), (TeXChar ')' Other), (TeXChar '(' Other),
+        (TeXChar '7' Other), (TeXChar '|' Other), (CtrlSeq "NoValue" False),
+        (TeXChar ')' Other)]
     ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{r.:m}{(#2|#1)}"
-                      ++ "\\a.9:8"))
+                      ++ "\\a.9:8\\a7"))
   , "required delimited argument with 'R'"
     ~: [(TeXChar '[' Other), (TeXChar '8' Other), (TeXChar ':' Other),
         (TeXChar '9' Other), (TeXChar ']' Other), (TeXChar '[' Other),
@@ -199,9 +201,10 @@ testsMacrosXparse = TestLabel "xparse macro definitions" $ test
                       ++ "\\a(9)8\\a54"))
   , "optional argument with 'o'"
     ~: [(TeXChar '(' Other), (TeXChar 'b' Letter), (TeXChar ')' Other),
-        (TeXChar '.' Other)]
+        (TeXChar '.' Other), (TeXChar '(' Other), (CtrlSeq "NoValue" False),
+        (TeXChar ')' Other)]
     ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{o}{(#1)}"
-                      ++ "\\a[b]."))
+                      ++ "\\a[b].\\a"))
   , "optional argument with 'O'"
     ~: [(TeXChar '(' Other), (TeXChar 'z' Letter), (TeXChar ')' Other),
         (TeXChar '(' Other), (TeXChar 'b' Letter), (TeXChar ')' Other),
@@ -210,9 +213,10 @@ testsMacrosXparse = TestLabel "xparse macro definitions" $ test
                       ++ "\\a\\a[b]."))
   , "optional argument with 'd'"
     ~: [(TeXChar '(' Other), (TeXChar 'b' Letter), (TeXChar 'c' Letter),
-        (TeXChar ')' Other), (TeXChar '.' Other)]
+        (TeXChar ')' Other), (TeXChar '.' Other), (TeXChar '(' Other),
+        (CtrlSeq "NoValue" False), (TeXChar ')' Other)]
     ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{d?!}{(#1)}"
-                      ++ "\\a?bc!."))
+                      ++ "\\a?bc!.\\a"))
   , "optional argument with 'D'"
     ~: [(TeXChar '(' Other), (TeXChar 'z' Letter), (TeXChar ')' Other),
         (TeXChar '[' Other), (TeXChar ']' Other),  (TeXChar '(' Other),
@@ -262,6 +266,18 @@ testsMacrosXparse = TestLabel "xparse macro definitions" $ test
         (TeXChar '}' Egroup), (TeXChar '.' Other)]
     ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{l}{(#1)}"
                       ++ "\\a3b{4}."))
+  , "values of 's' arguments"
+    ~: [(CtrlSeq "BooleanTrue" False), (TeXChar '.' Other),
+        (CtrlSeq "BooleanFalse" False), (TeXChar '.' Other),
+        (TeXChar '*' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{s}{#1}"
+                      ++ "\\a*.\\a.*"))
+  , "values of 't' arguments"
+    ~: [(CtrlSeq "BooleanTrue" False), (TeXChar '.' Other),
+        (CtrlSeq "BooleanFalse" False), (TeXChar '*' Other),
+        (TeXChar '/' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{t/}{#1}"
+                      ++ "\\a/.\\a*/"))
   , "optional argument in call may contain closing delimiter if properly nested"
     ~: [(TeXChar '(' Other), (CtrlSeq "b" False), (TeXChar '[' Other),
         (TeXChar 'b' Letter), (TeXChar 'o' Letter), (TeXChar ']' Other),

@@ -63,8 +63,21 @@ ordPrefix = TeXChar '`' Other
 
 ---------- Primitive control sequences
 
+-- TeX paragraph break.
 parTok :: Token
 parTok = CtrlSeq "par" False
+
+-- Used by xparse, printed as uppercase delta.
+trueTok :: Token
+trueTok = CtrlSeq "BooleanTrue" False
+
+-- Used by xparse, printed as uppercase gamma.
+falseTok :: Token
+falseTok = CtrlSeq "BooleanFalse" False
+
+-- Used by xparse, printed as "-NoValue-".
+noValueTok :: Token
+noValueTok = CtrlSeq "NoValue" False
 
 
 -------------------- Parser state
@@ -287,12 +300,13 @@ parseArgtype (Until [t]) = untilTok t
 parseArgtype (Until ts) = untilToks ts
 parseArgtype (UntilCC cc) = many (charccno cc)
 parseArgtype (Delimited open close defval) =
-  option (fromMaybe [] defval) (balanced open close)
+  option (fromMaybe [noValueTok] defval) (balanced open close)
 parseArgtype (OptionalGroup open close defval) =
-  option (fromMaybe [] defval) (balanced open close)
+  option (fromMaybe [noValueTok] defval) (balanced open close)
 parseArgtype (OptionalGroupCC open close defval) =
-  option (fromMaybe [] defval) (balancedCC open close)
-parseArgtype (OptionalToken t) = option [] (count 1 (tok t))
+  option (fromMaybe [noValueTok] defval) (balancedCC open close)
+parseArgtype (OptionalToken t) =
+  option [falseTok] ([trueTok] <$ tok t)
 parseArgtype (LiteralToken t) = count 1 (tok t)
 
 -- Parse and register an xparse macro definition.
