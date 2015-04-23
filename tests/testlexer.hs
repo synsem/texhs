@@ -122,6 +122,57 @@ testsGrouping = TestLabel "grouping" $ test
     ~=? (parseTeX "" "\\begin{z}\\def\\ab{cd}\\ab\\end{z}\\ab")
   ]
 
+testsConditionals :: Test
+testsConditionals = TestLabel "conditionals" $ test
+  [ "'iftrue' expands first branch, no 'else' branch"
+    ~: [(TeXChar 't' Letter), (TeXChar '.' Other)]
+    ~=? (parseTeX "" "\\iftrue t\\fi .")
+  , "'iftrue' expands first branch, ignoring 'else' branch"
+    ~: [(TeXChar 't' Letter), (TeXChar '.' Other)]
+    ~=? (parseTeX "" "\\iftrue t\\else f\\fi .")
+  , "'iffalse' expands second branch, case without 'else' branch"
+    ~: [(TeXChar '.' Other)]
+    ~=? (parseTeX "" "\\iffalse t\\fi .")
+  , "'iffalse' expands second branch, case with 'else' branch"
+    ~: [(TeXChar 'f' Letter), (TeXChar '.' Other)]
+    ~=? (parseTeX "" "\\iffalse t\\else f\\fi .")
+  , "a conditional can produce an incomplete group: left brace"
+    ~: [(TeXChar '{' Bgroup), (TeXChar '}' Egroup)]
+    ~=? (parseTeX "" ("\\def\\leftbrace{\\iftrue{\\else}\\fi}"
+                      ++ "\\leftbrace}"))
+  , "a conditional can produce an incomplete group: right brace"
+    ~: [(TeXChar '{' Bgroup), (TeXChar '}' Egroup)]
+    ~=? (parseTeX "" ("\\def\\rightbrace{\\iffalse{\\else}\\fi}"
+                      ++ "{\\rightbrace"))
+  , "ending a conditional via macro expansion, with 'else' branch"
+    ~: [(TeXChar 'y' Letter)]
+    ~=? (parseTeX "" ("\\def\\elsepart{\\else false!\\fi}"
+                      ++ "\\iftrue y\\elsepart"))
+  , "ending a conditional via macro expansion, without 'else' branch"
+    ~: [(TeXChar 'y' Letter), (TeXChar 'x' Letter)]
+    ~=? (parseTeX "" ("\\def\\fipart{x\\fi}"
+                      ++ "\\iftrue y\\fipart"))
+  , "nested conditionals: T(-)(F(-)(-))"
+    ~: [(TeXChar 'a' Letter)]
+    ~=? (parseTeX "" ("\\iftrue a\\else z\\iffalse y\\else b\\fi\\fi"))
+  , "nested conditionals: T(F(-)(-))(-)"
+    ~: [(TeXChar 'a' Letter), (TeXChar 'b' Letter)]
+    ~=? (parseTeX "" ("\\iftrue a\\iffalse y\\else b\\fi\\else z\\fi"))
+  , "nested conditionals: F(F(-)(-))(T(F(-)(-))(-))"
+    ~: [(TeXChar '{' Bgroup), (TeXChar 'a' Letter), (TeXChar 'b' Letter),
+        (TeXChar 'c' Letter), (TeXChar '}' Egroup)]
+    ~=? (parseTeX "" ("{\\iffalse z\\iffalse y\\else x\\fi\\else a"
+                     ++ "\\iftrue b\\iffalse w\\else c\\fi\\fi\\fi}"))
+  , "no macro expansion in dead branch"
+    ~: [(CtrlSeq "hi" False)]
+    ~=? (parseTeX "" ("\\def\\mkhi{\\def\\hi{hi}}"
+                      ++ "\\iftrue\\else\\mkhi\\fi" ++ "\\hi"))
+  , "macro expansion in active branch"
+    ~: [(TeXChar 'h' Letter), (TeXChar 'i' Letter)]
+    ~=? (parseTeX "" ("\\def\\mkhi{\\def\\hi{hi}}"
+                      ++ "\\iftrue\\mkhi\\else\\fi" ++ "\\hi"))
+  ]
+
 testsMacrosDef :: Test
 testsMacrosDef = TestLabel "def macro definitions" $ test
   [ "macro definitions disappear in the token stream"
@@ -491,6 +542,7 @@ tests = TestList
   , testsWhitespace
   , testsComments
   , testsGrouping
+  , testsConditionals
   , testsMacrosDef
   , testsMacrosXparse
   , testsMacrosNewcommand

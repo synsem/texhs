@@ -125,6 +125,20 @@ setExpandMode :: Bool -> LexerStack -> LexerStack
 setExpandMode b (l:ls) = l {localExpandMode = b} :ls
 setExpandMode _ [] = error "empty lexer stack"
 
+-- Run a parser with expansion enabled or disabled,
+-- depending on the provided flag.
+withExpandMode :: Bool -> Parser a -> Parser a
+withExpandMode mode parser = do
+  expandMode <- getExpandMode <$> getState
+  modifyState (setExpandMode mode)
+  result <- parser
+  modifyState (setExpandMode expandMode)
+  return result
+
+-- Run a parser with expansion disabled.
+withoutExpansion :: Parser a -> Parser a
+withoutExpansion = withExpandMode False
+
 ---------- Catcode state
 
 getCatcodes :: LexerStack -> CatcodeTable
@@ -190,6 +204,8 @@ expandMacro :: String -> Bool -> Parser [Token]
 expandMacro name active = case (name, active) of
   ("catcode", False) -> catcode
   ("def", False) -> def
+  ("iftrue", False) -> iftrue
+  ("iffalse", False) -> iffalse
   ("char", False) -> count 1 chr
   ("number", False) -> numbertoks
   ("NewDocumentCommand", False) -> declareDocumentCommand MacroNew
@@ -212,6 +228,77 @@ chr = number >>= \chCode -> return (TeXChar (toEnum chCode) Other)
 -- Convert an internal integer to its string representation.
 numbertoks :: Parser [Token]
 numbertoks = (map (\c -> TeXChar c Other) . show) <$> number
+
+-- Expand a conditional to its left branch.
+iftrue :: Parser [Token]
+iftrue = [] <$ conditionalPush True
+
+-- Expand a conditional to its right branch.
+iffalse :: Parser [Token]
+iffalse = [] <$ conditionalPush False
+
+-- Expand a conditional and push the resulting token list
+-- onto the stream (for group detection).
+conditionalPush :: Bool -> Parser ()
+conditionalPush b =
+  ((++) . map Right <$> conditional b <*> getInput) >>= setInput
+
+-- Parse a conditional and return its left or right branch,
+-- depending on the provided flag.
+--
+-- The flag argument indicates whether the condition is true.
+-- Note: Conditional nesting is independent of grouping,
+-- so groups are not parsed here.
+conditional :: Bool -> Parser [Token]
+conditional b = do
+  (leftToks, rightToks) <- withExpandMode b (condBranches b [])
+  return $ if b then leftToks else rightToks
+
+-- Parse the two branches of a conditional.
+--
+-- The flag argument indicates whether the condition is true.
+condBranches :: Bool -> [Token] -> Parser ([Token], [Token])
+condBranches b ltoks = do
+  t <- tokenCond
+  case t of
+    (CtrlSeq name _:[])
+      | name == "fi" ->
+          return (ltoks, [])
+      | name == "else" ->
+          (withExpandMode (not b) (condRightBranch []) >>=
+           \rtoks -> return (ltoks, rtoks))
+      | name `elem` ["iftrue", "iffalse"] ->
+          -- handle embedded conditional in dead branch
+          (withoutExpansion (condBranches True []) *>
+           condBranches b ltoks)
+      | otherwise ->
+          condBranches b (ltoks ++ t)
+    _ -> condBranches b (ltoks ++ t)
+
+-- Parse the second branch of a conditional.
+condRightBranch :: [Token] -> Parser [Token]
+condRightBranch toks = do
+  t <- tokenCond
+  case t of
+    (CtrlSeq name _:[])
+      | name == "fi" ->
+          return toks
+      | name `elem` ["iftrue", "iffalse"] ->
+        -- handle embedded conditional in dead branch
+        (withoutExpansion (condBranches True []) *>
+         condRightBranch toks)
+      | otherwise ->
+          condRightBranch (toks ++ t)
+    _ -> condRightBranch (toks ++ t)
+
+-- Parse a token in a conditional.
+--
+-- Note: Grouping characters are parsed literally.
+tokenCond :: Parser [Token]
+tokenCond = skipOptCommentsPAR *>
+            (ctrlseq <|> count 1
+             (charcc Bgroup <|> charcc Egroup <|>
+              eolpar <|> param <|> someChar))
 
 -- Parse the body of a @catcode@ command, execute it (by changing the
 -- current catcode table) and remove catcode command from the token stream.
