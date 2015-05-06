@@ -329,6 +329,37 @@ testsMacrosXparse = TestLabel "xparse macro definitions" $ test
         (TeXChar '/' Other)]
     ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{t/}{#1}"
                       ++ "\\a/.\\a*/"))
+  , "test for presence of 'r' argument"
+    ~: [(TeXChar 'B' Letter), (TeXChar '.' Other), (TeXChar 'A' Letter),
+        (TeXChar '.' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{mr()}{\\IfNoValueTF{#2}{A}{B}}"
+                      ++ "\\a{one}(two).\\a{one}."))
+  , "test for presence of 'd' argument"
+    ~: [(TeXChar 'B' Letter), (TeXChar '.' Other), (TeXChar 'A' Letter),
+        (TeXChar '.' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{md()}{\\IfNoValueTF{#2}{A}{B}}"
+                      ++ "\\a{one}(two).\\a{one}."))
+  , "test for presence of 'o' argument"
+    ~: [(TeXChar 'B' Letter), (TeXChar '.' Other), (TeXChar 'A' Letter),
+        (TeXChar '.' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{mo}{\\IfNoValueTF{#2}{A}{B}}"
+                      ++ "\\a{one}[two].\\a{one}."))
+  , "test for presence of 's' argument"
+    ~: [(TeXChar 'B' Letter), (TeXChar '.' Other), (TeXChar '*' Other),
+        (TeXChar 'A' Letter), (TeXChar '.' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{s}{\\IfBooleanTF{#1}{A}{B}}"
+                      ++ "\\a.*\\a*."))
+  , "test for presence of 's' argument, with less explicit grouping"
+    ~: [(TeXChar 'B' Letter), (TeXChar 'C' Letter), (TeXChar '.' Other),
+        (TeXChar '*' Other), (TeXChar 'A' Letter), (TeXChar 'C' Letter),
+        (TeXChar '.' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand \\a {s} {\\IfBooleanTF #1 A  BC}"
+                      ++ "\\a.*\\a*."))
+  , "test for presence of 't' argument"
+    ~: [(TeXChar 'B' Letter), (TeXChar '.' Other), (TeXChar '/' Other),
+        (TeXChar 'A' Letter), (TeXChar '.' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentCommand{\\a}{t/}{\\IfBooleanTF{#1}{A}{B}}"
+                      ++ "\\a./\\a/."))
   , "optional argument in call may contain closing delimiter if properly nested"
     ~: [(TeXChar '(' Other), (CtrlSeq "b" False), (TeXChar '[' Other),
         (TeXChar 'b' Letter), (TeXChar 'o' Letter), (TeXChar ']' Other),

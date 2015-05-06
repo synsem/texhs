@@ -220,6 +220,8 @@ expandMacro name active = case (name, active) of
   ("RenewDocumentCommand", False) -> declareDocumentCommand MacroRenew
   ("ProvideDocumentCommand", False) -> declareDocumentCommand MacroProvide
   ("DeclareDocumentCommand", False) -> declareDocumentCommand MacroDeclare
+  ("IfBooleanTF", False) -> xparseif trueTok
+  ("IfNoValueTF", False) -> xparseif noValueTok
   ("newcommand", False) -> newcommand MacroNew
   ("renewcommand", False) -> newcommand MacroRenew
   ("providecommand", False) -> newcommand MacroProvide
@@ -307,6 +309,16 @@ tokenCond = skipOptCommentsPAR *>
             (ctrlseq <|> count 1
              (charcc Bgroup <|> charcc Egroup <|>
               eolpar <|> param <|> someChar))
+
+-- Evaluate an xparse-style conditional.
+--
+-- Note: In LaTeX3 this is defined via @\\ifx@.
+xparseif :: Token -> Parser [Token]
+xparseif t = do
+  rs <- token <* skipOptSpace
+  stripBraces <$> case stripBraces rs of
+    [r] | r == t -> token <* skipOptSpace <* token
+    _ -> token *> skipOptSpace *> token
 
 -- Parse the body of a @catcode@ command, execute it (by changing the
 -- current catcode table) and remove catcode command from the token stream.
@@ -449,7 +461,7 @@ newcommand defMode = do
 
 -- Parse a full xparse-style argument specification.
 argspec :: Parser ArgSpec
-argspec = grouped (skipOptSpace *> many argtype)
+argspec = grouped (skipOptSpace *> many argtype) <* skipOptSpace
 
 -- Parse a single xparse-style argument type.
 --
