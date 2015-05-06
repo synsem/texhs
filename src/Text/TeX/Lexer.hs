@@ -494,7 +494,7 @@ tokens = concat <$> many token
 -- ('TeXChar', 'CtrlSeq', 'Param') or a group or a possibly empty list
 -- of tokens resulting from macro expansion. We try to parse as little
 -- structure as possible. Still we need to recognize groups because
--- many lexer-level commands have group scope (e.g. @\catcode@).
+-- many lexer-level commands have group scope (e.g. @\\catcode@).
 token :: Parser [Token]
 token = skipOptCommentsPAR *>
         (group <|> ctrlseq <|> count 1
@@ -545,11 +545,11 @@ anyCharOptEsc = anyCharCC catcodesNonescaped <|> anyEscapedChar
 -- If we encounter a multi-character control sequence, TeX fails
 -- with the error message /Improper alphabetic constant/.
 -- Example:
---   \number`\ab              % error because ` cannot be applied to @(CtrlSeq "ab")@
---   \def\a{\number`\ab} \a   % error because ` cannot be applied to @(CtrlSeq "ab")@
+--   \\number`\\ab                 % error because ` cannot be applied to @(CtrlSeq "ab")@
+--   \\def\\a{\\number`\\ab} \\a   % error because ` cannot be applied to @(CtrlSeq "ab")@
 -- By comparison, the following does work:
---   \number`\a b             % => 97b
---   \def\a{\number`\a b} \a  % => 97b
+--   \\number`\\a b               % => 97b
+--   \\def\\a{\\number`\\a b} \\a  % => 97b
 anyEscapedChar :: Parser Token
 anyEscapedChar = do
   (CtrlSeq cs _) <- ctrlseqNoexpand
