@@ -67,13 +67,21 @@ ordPrefix = TeXChar '`' Other
 parTok :: Token
 parTok = CtrlSeq "par" False
 
--- Used by xparse, printed as uppercase delta.
-trueTok :: Token
-trueTok = CtrlSeq "BooleanTrue" False
-
--- Used by xparse, printed as uppercase gamma.
+-- Boolean constant used by xparse.
+--
+-- Note: For clarity we are treating @\\BooleanFalse@ as a primitive,
+-- although it is defined as @\\c_false_bool@ in xparse, which in turn
+-- is defined as @\\char 0@ in l3basics.
 falseTok :: Token
 falseTok = CtrlSeq "BooleanFalse" False
+
+-- Boolean constant used by xparse.
+--
+-- Note: For clarity we are treating @\\BooleanTrue@ as a primitive,
+-- although it is defined as @\\c_true_bool@ in xparse, which in turn
+-- is defined as @\\char 1@ in l3basics.
+trueTok :: Token
+trueTok = CtrlSeq "BooleanTrue" False
 
 -- Used by xparse, printed as "-NoValue-".
 noValueTok :: Token
