@@ -98,11 +98,13 @@ data LexerState = LexerState
   { localCatcodes :: CatcodeTable
   , localMacros :: [Macro]
   , localExpandMode :: Bool
+  , localGroup :: Group
   } deriving (Eq, Show)
 
--- Create an empty lexer state with the provided expansion mode.
-emptyLexerState :: Bool -> LexerState
-emptyLexerState expandMode = LexerState [] [] expandMode
+-- Create an empty lexer state
+-- from a provided expansion mode and group.
+emptyLexerState :: Bool -> Group -> LexerState
+emptyLexerState expandMode g = LexerState [] [] expandMode g
 
 -- The initial lexer stack consists of a single lexer state
 -- with the default catcode table and no registered macros.
@@ -111,17 +113,52 @@ defaultLexerStack = LexerState
   { localCatcodes = defaultCatcodeTable
   , localMacros = []
   , localExpandMode = True
+  , localGroup = AnonymousGroup
   } :[]
 
 ---------- Stack manipulation
 
-pushEmptyState :: LexerStack -> LexerStack
-pushEmptyState tl@(l:_) = emptyLexerState (localExpandMode l) :tl
-pushEmptyState [] = error "empty lexer stack"
+-- Push new group onto stack.
+pushGroup :: Group -> LexerStack -> LexerStack
+pushGroup g tl@(l:_) = emptyLexerState (localExpandMode l) g :tl
+pushGroup _ [] = error "empty lexer stack"
 
-popState :: LexerStack -> LexerStack
-popState (_:ls) = ls
-popState [] = error "empty lexer stack"
+-- Pop group from stack.
+popGroup :: Group -> LexerStack -> LexerStack
+popGroup g tl@(_:ls)
+  | getGroup tl == g = ls
+  | otherwise = error $ "invalid group nesting" ++
+                ": expecting " ++ groupEndString (getGroup tl) ++
+                " but got " ++ groupEndString g
+popGroup _ [] = error "empty lexer stack"
+
+---------- Group
+
+data Group = AnonymousGroup
+             -- ^ Standard TeX group: { .. } or \\bgroup .. \\egroup
+           | NativeGroup
+             -- ^ Balanced TeX group: \\begingroup .. \\endgroup
+           | NamedGroup [Token] [Token] [Token]
+             -- ^ LaTeX Environment: \\begin{name} .. \\end{name}
+             -- Arguments: name before after
+           deriving Show
+
+instance Eq Group where
+  AnonymousGroup == AnonymousGroup = True
+  NativeGroup == NativeGroup = True
+  NamedGroup n _ _ == NamedGroup m _ _ = n == m
+  _ == _ = False
+
+getGroup :: LexerStack -> Group
+getGroup (l:_) = localGroup l
+getGroup [] = error "empty lexer stack"
+
+-- Get string representation of the expected end delimiter for the
+-- current group. Only used for error messages.
+groupEndString :: Group -> String
+groupEndString AnonymousGroup = "}"
+groupEndString NativeGroup = "\\endgroup"
+groupEndString (NamedGroup name _ _) = "\\end{" ++ show name ++ "}"
 
 ---------- Expansion mode
 
@@ -210,6 +247,12 @@ expand _ = error "Trying to expand non-CtrlSeq."
 
 expandMacro :: String -> Bool -> Parser [Token]
 expandMacro name active = case (name, active) of
+  ("begingroup", False) -> [CtrlSeq name active] <$ modifyState (pushGroup NativeGroup)
+  ("endgroup", False) -> [CtrlSeq name active] <$ modifyState (popGroup NativeGroup)
+  ("bgroup", False) -> [CtrlSeq name active] <$ modifyState (pushGroup AnonymousGroup)
+  ("egroup", False) -> [CtrlSeq name active] <$ modifyState (popGroup AnonymousGroup)
+  ("begin", False) -> (CtrlSeq name active:) <$> beginEnvironment
+  ("end", False) -> (CtrlSeq name active:) <$> endEnvironment
   ("catcode", False) -> catcode
   ("def", False) -> def
   ("iftrue", False) -> iftrue
@@ -501,6 +544,26 @@ argtype = optional (char '+' Other) *> choice
             <$> (letter 't' *> singleToken)
           ] <* skipOptSpace
 
+---------- LaTeX environments (aka named groups)
+
+beginEnvironment :: Parser [Token]
+beginEnvironment = do
+  name <- envName
+  modifyState (pushGroup (NamedGroup (stripBraces name) [] []))
+  return name
+
+endEnvironment :: Parser [Token]
+endEnvironment = do
+  name <- envName
+  modifyState (popGroup (NamedGroup (stripBraces name) [] []))
+  return name
+
+-- Parse the name of a LaTeX environment, including group delimiters.
+--
+-- We currently allow arbitrary token lists.
+envName :: Parser [Token]
+envName = group
+
 -------------------- Main parsers
 
 -- This parser is applied directly to TeX documents.
@@ -531,10 +594,10 @@ singleToken = skipOptCommentsPAR *>
 -------------------- 'TeXChar' Parsers
 
 bgroup :: Parser Token
-bgroup = charcc Bgroup <* modifyState pushEmptyState
+bgroup = charcc Bgroup <* modifyState (pushGroup AnonymousGroup)
 
 egroup :: Parser Token
-egroup = charcc Egroup <* modifyState popState
+egroup = charcc Egroup <* modifyState (popGroup AnonymousGroup)
 
 space :: Parser Token
 space = charcc Space
@@ -581,13 +644,7 @@ anyEscapedChar = do
 -------------------- 'CtrlSeq' Parsers
 
 ctrlseq :: Parser [Token]
-ctrlseq = do
-  c@(CtrlSeq name _) <- ctrlseqNoexpand
-  when (name `elem` ["begingroup", "bgroup", "begin"])
-    (modifyState pushEmptyState)
-  when (name `elem` ["endgroup", "egroup", "end"])
-    (modifyState popState)
-  expand c
+ctrlseq = ctrlseqNoexpand >>= expand
 
 ctrlseqNoexpand :: Parser Token
 ctrlseqNoexpand = ctrlseqT <|> ctrlseqC <|> activeC
