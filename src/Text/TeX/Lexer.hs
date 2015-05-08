@@ -159,6 +159,10 @@ getGroup :: LexerStack -> Group
 getGroup (l:_) = localGroup l
 getGroup [] = error "empty lexer stack"
 
+setGroup :: Group -> LexerStack -> LexerStack
+setGroup g (l:ls) = l {localGroup = g} :ls
+setGroup _ [] = error "empty lexer stack"
+
 -- Get string representation of the expected end delimiter for the
 -- current group. Only used for error messages.
 groupEndString :: Group -> String
@@ -630,18 +634,23 @@ expandEnvironment (MacroEnvDef context startCode endCode) = do
 endEnvironment :: Parser [Token]
 endEnvironment = do
   name <- envName
+  let endEnv = CtrlSeq "end" False: name
   grp <- getGroup <$> getState
   case grp of
-    (DefinedGroup _ _ endCode) -> do
-      -- Note: We are popping the group prior to running the
-      -- environment's "end code". This might cause problems
-      -- if the "end code" requires access to local definitions.
-      modifyState (popGroup (DefinedGroup (stripBraces name) [] []))
-      ((map Right endCode)++) <$> getInput >>= setInput
-      return []
+    (DefinedGroup name' _ endCode) ->
+      if (null endCode)
+      then do -- close group
+        modifyState . popGroup $
+          DefinedGroup (stripBraces name) [] []
+        return []
+      else do -- inject end code
+        modifyState . setGroup $
+          DefinedGroup name' [] []
+        ((map Right (endCode++endEnv))++) <$> getInput >>= setInput
+        return []
     _ -> do
       modifyState (popGroup (NamedGroup (stripBraces name)))
-      return (CtrlSeq "end" False: name)
+      return endEnv
 
 -- Parse the name of a LaTeX environment, including group delimiters.
 --

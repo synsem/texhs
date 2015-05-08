@@ -522,6 +522,25 @@ testsMacroEnvsXparse = TestLabel "xparse environment definitions" $ test
     ~=? (parseTeX "" ("\\NewDocumentEnvironment{a}{mm}{-}{|}"
                       ++ "\\DeclareDocumentEnvironment{a}{}{(}{)}"
                       ++ "\\begin{a}B\\end{a}"))
+  , "endCode can access local definitions from startCode"
+    ~: [(TeXChar '(' Other), (TeXChar 'A' Letter), (TeXChar ')' Other),
+        (TeXChar 'X' Letter), (TeXChar ':' Other), (TeXChar '9' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentEnvironment{a}{m}{\\def\\x{X}(}{)\\x:#1}"
+                      ++ "\\begin{a}{9}A\\end{a}"))
+  , "body can access local definitions from startCode"
+    ~: [(TeXChar '(' Other), (TeXChar '[' Other), (TeXChar 'X' Letter),
+        (TeXChar ']' Other), (TeXChar ')' Other), (TeXChar '9' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentEnvironment{a}{m}{\\def\\x{X}(}{)#1}"
+                      ++ "\\begin{a}{9}[\\x]\\end{a}"))
+  , "startCode cannot access local definitions from endCode"
+    ~: [(CtrlSeq "x" False), (TeXChar ':' Other), (TeXChar '9' Other),
+        (TeXChar '(' Other), (TeXChar 'A' Letter), (TeXChar ')' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentEnvironment{a}{m}{\\x:#1(}{)\\def\\x{X}}"
+                      ++ "\\begin{a}{9}A\\end{a}"))
+  , "definitions in environments are group-local"
+    ~: [(CtrlSeq "x" False), (CtrlSeq "y" False), (CtrlSeq "z" False)]
+    ~=? (parseTeX "" ("\\DeclareDocumentEnvironment{a}{m}{\\def\\x{X}}{\\def\\z{Z}}"
+                      ++ "\\begin{a}{9}\\def\\y{Y}\\end{a}\\x\\y\\z"))
   ]
 
 testsCatcode :: Test
