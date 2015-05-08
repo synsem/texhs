@@ -312,6 +312,8 @@ expandMacro name active = case (name, active) of
   ("renewcommand", False) -> newcommand MacroRenew
   ("providecommand", False) -> newcommand MacroProvide
   ("DeclareRobustCommand", False) -> newcommand MacroDeclare
+  ("newenvironment", False) -> newenvironment MacroNew
+  ("renewenvironment", False) -> newenvironment MacroRenew
   _ -> lookupUserMacro name active
 
 ---------- Builtin macros
@@ -561,6 +563,31 @@ newcommand defMode = do
   modifyState (setExpandMode expandMode)
   modifyState $ macroDefinitionAction defMode isDefined
     ((name, active), (context, body))
+  return []
+
+-- Parse and register a LaTeX2e environment definition.
+newenvironment :: MacroDefinitionMode -> Parser [Token]
+newenvironment defMode = do
+  -- preparation: disallow expansion of embedded macros
+  expandMode <- getExpandMode <$> getState
+  modifyState (setExpandMode False)
+  -- parse the macro definition
+  name <- grouped tokens <?> "environment name"
+  numArgs <- option 0 (decToInt <$> bracketed (count 1 digit))
+  let open = TeXChar '[' Other
+      close = TeXChar ']' Other
+  optArg <- optionMaybe (balanced open close)
+  let context = case optArg of
+        Just d -> OptionalGroup open close (Just d) :
+                  replicate (numArgs-1) Mandatory
+        Nothing -> replicate numArgs Mandatory
+  startCode <- grouped tokens <?> "environment start code"
+  endCode <- grouped tokens <?> "environment end code"
+  -- restore original expansion mode and register the new macro globally
+  isDefined <- macroEnvIsDefined name <$> getState
+  modifyState (setExpandMode expandMode)
+  modifyState $ macroEnvDefinitionAction defMode isDefined
+    (name, MacroEnvDef context startCode endCode)
   return []
 
 

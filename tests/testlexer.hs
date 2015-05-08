@@ -419,8 +419,8 @@ testsMacrosXparse = TestLabel "xparse macro definitions" $ test
                       ++ "\\a"))
   ]
 
-testsMacrosNewcommand :: Test
-testsMacrosNewcommand = TestLabel "newcommand macro definitions" $ test
+testsMacrosLaTeX2e :: Test
+testsMacrosLaTeX2e = TestLabel "LaTeX2e macro definitions" $ test
   [ "macro definitions disappear in the token stream"
     ~: []
     ~=? (parseTeX "" "\\newcommand{\\a}{z}")
@@ -543,6 +543,37 @@ testsMacroEnvsXparse = TestLabel "xparse environment definitions" $ test
                       ++ "\\begin{a}{9}\\def\\y{Y}\\end{a}\\x\\y\\z"))
   ]
 
+testsMacroEnvsLaTeX2e :: Test
+testsMacroEnvsLaTeX2e = TestLabel "LaTeX2e environment definitions" $ test
+  [ "environment definitions disappear in the token stream"
+    ~: []
+    ~=? (parseTeX "" "\\newenvironment{hello}{start}{end}")
+  , "no arguments"
+    ~: [(TeXChar 'A' Letter), (TeXChar 'B' Letter), (TeXChar 'C' Letter)]
+    ~=? (parseTeX "" ("\\newenvironment{a}{A}{C}"
+                      ++ "\\begin{a}B\\end{a}"))
+  , "single mandatory argument"
+    ~: [(TeXChar '9' Other), (TeXChar '(' Other), (TeXChar 'A' Letter),
+        (TeXChar ')' Other), (TeXChar '9' Other)]
+    ~=? (parseTeX "" ("\\newenvironment{a}[1]{#1(}{)#1}"
+                      ++ "\\begin{a}{9}A\\end{a}"))
+  , "two mandatory arguments"
+    ~: [(CtrlSeq "two" False), (TeXChar '(' Other), (TeXChar 'A' Letter),
+        (TeXChar ')' Other), (CtrlSeq "one" False)]
+    ~=? (parseTeX "" ("\\newenvironment{a}[2]{#2(}{)#1}"
+                      ++ "\\begin{a}{\\one}{\\two}A\\end{a}"))
+  , "one optional and one mandatory argument"
+    ~: [(CtrlSeq "two" False), (TeXChar '(' Other), (TeXChar 'A' Letter),
+        (TeXChar ')' Other), (CtrlSeq "one" False)]
+    ~=? (parseTeX "" ("\\newenvironment{a}[2][default]{#2(}{)#1}"
+                      ++ "\\begin{a}[\\one]{\\two}A\\end{a}"))
+  , "redefine an existing environment"
+    ~: [(TeXChar '(' Other), (TeXChar 'B' Letter), (TeXChar ')' Other)]
+    ~=? (parseTeX "" ("\\newenvironment{a}[2]{-}{|}"
+                      ++ "\\renewenvironment{a}{(}{)}"
+                      ++ "\\begin{a}B\\end{a}"))
+  ]
+
 testsCatcode :: Test
 testsCatcode = TestLabel "catcode" $ test
   [ "global catcode change"
@@ -631,8 +662,9 @@ tests = TestList
   , testsConditionals
   , testsMacrosDef
   , testsMacrosXparse
-  , testsMacrosNewcommand
+  , testsMacrosLaTeX2e
   , testsMacroEnvsXparse
+  , testsMacroEnvsLaTeX2e
   , testsCatcode
   , testsCatcodeInMacro
   , testsActiveChars
