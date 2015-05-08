@@ -488,6 +488,42 @@ testsMacrosNewcommand = TestLabel "newcommand macro definitions" $ test
                       ++ "{\\renewcommand{\\a}{2}}" ++ "\\a"))
   ]
 
+testsMacroEnvsXparse :: Test
+testsMacroEnvsXparse = TestLabel "xparse environment definitions" $ test
+  [ "environment definitions disappear in the token stream"
+    ~: []
+    ~=? (parseTeX "" "\\DeclareDocumentEnvironment{hello}{}{start}{end}")
+  , "no arguments in argspec"
+    ~: [(TeXChar 'A' Letter), (TeXChar 'B' Letter), (TeXChar 'C' Letter)]
+    ~=? (parseTeX "" ("\\DeclareDocumentEnvironment{a}{}{A}{C}"
+                      ++ "\\begin{a}B\\end{a}"))
+  , "single mandatory argument"
+    ~: [(TeXChar '9' Other), (TeXChar '(' Other), (TeXChar 'A' Letter),
+        (TeXChar ')' Other), (TeXChar '9' Other)]
+    ~=? (parseTeX "" ("\\DeclareDocumentEnvironment{a}{m}{#1(}{)#1}"
+                      ++ "\\begin{a}{9}A\\end{a}"))
+  , "two mandatory arguments"
+    ~: [(CtrlSeq "two" False), (TeXChar '(' Other), (TeXChar 'A' Letter),
+        (TeXChar ')' Other), (CtrlSeq "one" False)]
+    ~=? (parseTeX "" ("\\DeclareDocumentEnvironment{a}{mm}{#2(}{)#1}"
+                      ++ "\\begin{a}{\\one}{\\two}A\\end{a}"))
+  , "one mandatory argument between two optional arguments ('omo')"
+    ~: [(CtrlSeq "two" False), (TeXChar '(' Other), (TeXChar 'A' Letter),
+        (TeXChar ')' Other), (CtrlSeq "one" False)]
+    ~=? (parseTeX "" ("\\DeclareDocumentEnvironment{a}{omo}{#3(}{)#2}"
+                      ++ "\\begin{a}{\\one}[\\two]A\\end{a}"))
+  , "redefine an existing environment"
+    ~: [(TeXChar '(' Other), (TeXChar 'B' Letter), (TeXChar ')' Other)]
+    ~=? (parseTeX "" ("\\NewDocumentEnvironment{a}{mm}{-}{|}"
+                      ++ "\\RenewDocumentEnvironment{a}{}{(}{)}"
+                      ++ "\\begin{a}B\\end{a}"))
+  , "declaring an environment will overwrite existing ones"
+    ~: [(TeXChar '(' Other), (TeXChar 'B' Letter), (TeXChar ')' Other)]
+    ~=? (parseTeX "" ("\\NewDocumentEnvironment{a}{mm}{-}{|}"
+                      ++ "\\DeclareDocumentEnvironment{a}{}{(}{)}"
+                      ++ "\\begin{a}B\\end{a}"))
+  ]
+
 testsCatcode :: Test
 testsCatcode = TestLabel "catcode" $ test
   [ "global catcode change"
@@ -577,6 +613,7 @@ tests = TestList
   , testsMacrosDef
   , testsMacrosXparse
   , testsMacrosNewcommand
+  , testsMacroEnvsXparse
   , testsCatcode
   , testsCatcodeInMacro
   , testsActiveChars

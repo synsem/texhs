@@ -19,6 +19,9 @@ module Text.TeX.Lexer.Macro
   , macroName
   , macroContext
   , macroBody
+  , MacroEnv
+  , MacroEnvKey
+  , MacroEnvDef(..)
   , ArgSpec
   , ArgType(..)
     -- * Macro expansion
@@ -80,6 +83,23 @@ macroContext = fst . snd
 -- | Extract body from a macro.
 macroBody :: Macro -> [Token]
 macroBody = snd . snd
+
+-------------------- MacroEnv types
+
+-- | Key for environment lookup.
+type MacroEnvKey = [Token]
+
+-- | Definition of an environment.
+data MacroEnvDef = MacroEnvDef
+                   { macroEnvContext :: ArgSpec
+                   , macroEnvStart :: [Token]
+                   , macroEnvEnd :: [Token]
+                   } deriving (Eq, Show)
+
+-- | An environment maps a name to a macro context,
+-- a start code (before) and an end code (after).
+type MacroEnv = (MacroEnvKey, MacroEnvDef)
+
 
 -------------------- Macro expansion
 

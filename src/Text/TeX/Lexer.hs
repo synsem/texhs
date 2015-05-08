@@ -42,6 +42,7 @@ import Text.TeX.Lexer.Catcode
    catcodesAllowed, catcodesPassive, catcodesNonescaped)
 import Text.TeX.Lexer.Macro
   (Macro, MacroKey, macroName, macroContext, macroBody, applyMacro,
+   MacroEnv, MacroEnvKey, MacroEnvDef(..),
    ArgSpec, ArgType(..))
 import Text.TeX.Lexer.Token
   (Token(..), CharOrToken, isCtrlSeq, isParam,
@@ -97,6 +98,7 @@ type LexerStack = [LexerState]
 data LexerState = LexerState
   { localCatcodes :: CatcodeTable
   , localMacros :: [Macro]
+  , localMacroEnvs :: [MacroEnv]
   , localExpandMode :: Bool
   , localGroup :: Group
   } deriving (Eq, Show)
@@ -104,7 +106,7 @@ data LexerState = LexerState
 -- Create an empty lexer state
 -- from a provided expansion mode and group.
 emptyLexerState :: Bool -> Group -> LexerState
-emptyLexerState expandMode g = LexerState [] [] expandMode g
+emptyLexerState expandMode g = LexerState [] [] [] expandMode g
 
 -- The initial lexer stack consists of a single lexer state
 -- with the default catcode table and no registered macros.
@@ -112,6 +114,7 @@ defaultLexerStack :: LexerStack
 defaultLexerStack = LexerState
   { localCatcodes = defaultCatcodeTable
   , localMacros = []
+  , localMacroEnvs = []
   , localExpandMode = True
   , localGroup = AnonymousGroup
   } :[]
@@ -138,15 +141,18 @@ data Group = AnonymousGroup
              -- ^ Standard TeX group: { .. } or \\bgroup .. \\egroup
            | NativeGroup
              -- ^ Balanced TeX group: \\begingroup .. \\endgroup
-           | NamedGroup [Token] [Token] [Token]
+           | NamedGroup [Token]
              -- ^ LaTeX Environment: \\begin{name} .. \\end{name}
-             -- Arguments: name before after
+           | DefinedGroup [Token] [Token] [Token]
+             -- ^ LaTeX Environment with known expansion.
+             -- Arguments: name before after.
            deriving Show
 
 instance Eq Group where
   AnonymousGroup == AnonymousGroup = True
   NativeGroup == NativeGroup = True
-  NamedGroup n _ _ == NamedGroup m _ _ = n == m
+  NamedGroup n == NamedGroup m = n == m
+  DefinedGroup n _ _ == DefinedGroup m _ _ = n == m
   _ == _ = False
 
 getGroup :: LexerStack -> Group
@@ -158,7 +164,8 @@ getGroup [] = error "empty lexer stack"
 groupEndString :: Group -> String
 groupEndString AnonymousGroup = "}"
 groupEndString NativeGroup = "\\endgroup"
-groupEndString (NamedGroup name _ _) = "\\end{" ++ show name ++ "}"
+groupEndString (NamedGroup name) = "\\end{" ++ show name ++ "}"
+groupEndString (DefinedGroup name _ _) = "\\end{" ++ show name ++ "}"
 
 ---------- Expansion mode
 
@@ -202,6 +209,9 @@ data MacroDefinitionMode = MacroNew | MacroRenew | MacroProvide | MacroDeclare
 getMacros :: LexerStack -> [Macro]
 getMacros = concatMap localMacros
 
+getMacroEnvs :: LexerStack -> [MacroEnv]
+getMacroEnvs = concatMap localMacroEnvs
+
 -- Prefix macro to the list of currently active macros.
 -- The new macro will shadow others with the same name,
 -- due to @lookup@'s left bias.
@@ -209,16 +219,28 @@ registerLocalMacro :: Macro -> LexerStack -> LexerStack
 registerLocalMacro m (l:ls) = l {localMacros = m:(localMacros l)} :ls
 registerLocalMacro _ [] = error "empty lexer stack"
 
--- Add macro to the global environment.
+-- Add macro definition to the global context.
 registerGlobalMacro :: Macro -> LexerStack -> LexerStack
 registerGlobalMacro m ls@(_:_) =
   let (g:tl) = reverse ls
   in reverse (g {localMacros = m:(localMacros g)} :tl)
 registerGlobalMacro _ [] = error "empty lexer stack"
 
+-- Add environment definition to the global context.
+-- Note: All user-defined environments have global scope.
+registerGlobalMacroEnv :: MacroEnv -> LexerStack -> LexerStack
+registerGlobalMacroEnv m ls@(_:_) =
+  let (g:tl) = reverse ls
+  in reverse (g {localMacroEnvs = m:(localMacroEnvs g)} :tl)
+registerGlobalMacroEnv _ [] = error "empty lexer stack"
+
 -- Return whether a macro with the given key is already defined.
 macroIsDefined :: MacroKey -> LexerStack -> Bool
 macroIsDefined m ls = elem m (map fst (getMacros ls))
+
+-- Return whether an environment with the given key is already defined.
+macroEnvIsDefined :: MacroEnvKey -> LexerStack -> Bool
+macroEnvIsDefined m ls = elem m (map fst (getMacroEnvs ls))
 
 -- Depending on 'MacroDefinitionMode' there are three possible actions
 -- when requesting to register a macro: register, error, pass (ignore).
@@ -233,6 +255,19 @@ macroDefinitionAction MacroRenew False =
   error . (++) "cannot redefine undefined macro: " . show . macroName
 macroDefinitionAction MacroProvide True = flip const . id
 macroDefinitionAction MacroProvide False = registerGlobalMacro
+
+-- Like 'macroDefinitionAction' but for environment definitions.
+macroEnvDefinitionAction :: MacroDefinitionMode -> Bool ->
+                         MacroEnv -> LexerStack -> LexerStack
+macroEnvDefinitionAction MacroDeclare _ = registerGlobalMacroEnv
+macroEnvDefinitionAction MacroNew True =
+  error . (++) "environment already defined: " . show . fst
+macroEnvDefinitionAction MacroNew False = registerGlobalMacroEnv
+macroEnvDefinitionAction MacroRenew True = registerGlobalMacroEnv
+macroEnvDefinitionAction MacroRenew False =
+  error . (++) "cannot redefine undefined environment: " . show . fst
+macroEnvDefinitionAction MacroProvide True = flip const . id
+macroEnvDefinitionAction MacroProvide False = registerGlobalMacroEnv
 
 
 -------------------- Macro expansion
@@ -251,8 +286,8 @@ expandMacro name active = case (name, active) of
   ("endgroup", False) -> [CtrlSeq name active] <$ modifyState (popGroup NativeGroup)
   ("bgroup", False) -> [CtrlSeq name active] <$ modifyState (pushGroup AnonymousGroup)
   ("egroup", False) -> [CtrlSeq name active] <$ modifyState (popGroup AnonymousGroup)
-  ("begin", False) -> (CtrlSeq name active:) <$> beginEnvironment
-  ("end", False) -> (CtrlSeq name active:) <$> endEnvironment
+  ("begin", False) -> beginEnvironment
+  ("end", False) -> endEnvironment
   ("catcode", False) -> catcode
   ("def", False) -> def
   ("iftrue", False) -> iftrue
@@ -263,6 +298,10 @@ expandMacro name active = case (name, active) of
   ("RenewDocumentCommand", False) -> declareDocumentCommand MacroRenew
   ("ProvideDocumentCommand", False) -> declareDocumentCommand MacroProvide
   ("DeclareDocumentCommand", False) -> declareDocumentCommand MacroDeclare
+  ("NewDocumentEnvironment", False) -> declareDocumentEnvironment MacroNew
+  ("RenewDocumentEnvironment", False) -> declareDocumentEnvironment MacroRenew
+  ("ProvideDocumentEnvironment", False) -> declareDocumentEnvironment MacroProvide
+  ("DeclareDocumentEnvironment", False) -> declareDocumentEnvironment MacroDeclare
   ("IfBooleanTF", False) -> xparseif trueTok
   ("IfNoValueTF", False) -> xparseif noValueTok
   ("newcommand", False) -> newcommand MacroNew
@@ -476,6 +515,25 @@ declareDocumentCommand defMode = do
     ((name, active), (context, body))
   return []
 
+-- Parse and register an xparse environment definition.
+declareDocumentEnvironment :: MacroDefinitionMode -> Parser [Token]
+declareDocumentEnvironment defMode = do
+  -- preparation: disallow expansion of embedded macros
+  expandMode <- getExpandMode <$> getState
+  modifyState (setExpandMode False)
+  -- parse the macro definition
+  name <- grouped tokens <?> "environment name"
+  context <- argspec <?> "environment argspec"
+  startCode <- grouped tokens <?> "environment start code"
+  endCode <- grouped tokens <?> "environment end code"
+  -- restore original expansion mode and register the new environment globally
+  isDefined <- macroEnvIsDefined name <$> getState
+  modifyState (setExpandMode expandMode)
+  modifyState $ macroEnvDefinitionAction defMode isDefined
+    (name, MacroEnvDef context startCode endCode)
+  return []
+
+
 -- Parse and register a LaTeX2e macro definition.
 newcommand :: MacroDefinitionMode -> Parser [Token]
 newcommand defMode = do
@@ -549,14 +607,41 @@ argtype = optional (char '+' Other) *> choice
 beginEnvironment :: Parser [Token]
 beginEnvironment = do
   name <- envName
-  modifyState (pushGroup (NamedGroup (stripBraces name) [] []))
-  return name
+  -- Note: expansion must be enabled because we are expanding 'begin'
+  macroEnvs <- getMacroEnvs <$> getState
+  case lookup (stripBraces name) macroEnvs of
+    Nothing -> let grp = NamedGroup (stripBraces name)
+               in modifyState (pushGroup grp) *>
+                  return (CtrlSeq "begin" False: name)
+    Just envdef -> do
+      (startCode, endCode) <- expandEnvironment envdef
+      modifyState . pushGroup $
+        DefinedGroup (stripBraces name) startCode endCode
+      ((map Right startCode)++) <$> getInput >>= setInput
+      return []
+
+expandEnvironment :: MacroEnvDef -> Parser ([Token], [Token])
+expandEnvironment (MacroEnvDef context startCode endCode) = do
+  -- read arguments
+  args <- withoutExpansion (parseArgspec context)
+  -- apply macro to arguments
+  return (applyMacro startCode args, applyMacro endCode args)
 
 endEnvironment :: Parser [Token]
 endEnvironment = do
   name <- envName
-  modifyState (popGroup (NamedGroup (stripBraces name) [] []))
-  return name
+  grp <- getGroup <$> getState
+  case grp of
+    (DefinedGroup _ _ endCode) -> do
+      -- Note: We are popping the group prior to running the
+      -- environment's "end code". This might cause problems
+      -- if the "end code" requires access to local definitions.
+      modifyState (popGroup (DefinedGroup (stripBraces name) [] []))
+      ((map Right endCode)++) <$> getInput >>= setInput
+      return []
+    _ -> do
+      modifyState (popGroup (NamedGroup (stripBraces name)))
+      return (CtrlSeq "end" False: name)
 
 -- Parse the name of a LaTeX environment, including group delimiters.
 --
