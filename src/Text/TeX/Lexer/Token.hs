@@ -15,7 +15,7 @@
 module Text.TeX.Lexer.Token
   ( -- * TeX token types
     Token(..)
-  , CharOrToken
+  , Group(..)
     -- * Utility functions
     -- ** Token predicates
   , isTeXChar
@@ -27,25 +27,22 @@ module Text.TeX.Lexer.Token
   , hasCC
     -- ** Token list manipulation
   , stripBraces
+    -- * Token constants
+    -- ** Number prefixes
+  , hexPrefix
+  , octPrefix
+  , ordPrefix
+    -- ** Primitive control sequences
+  , parTok
+  , falseTok
+  , trueTok
+  , noValueTok
   ) where
 
 import Text.TeX.Lexer.Catcode (Catcode(..))
 
+
 -------------------- Token types
-
--- The input to the lexer/parser is a stream of @CharOrToken@
--- elements. These are either (1) unparsed and yet unseen raw @Char@
--- elements (i.e. characters that need to be assigned a catcode or to
--- be assembled into control sequences) or (2) already parsed @Token@
--- elements (e.g. characters with existing catcode assignment, like
--- they are stored in macros). All @Token@ elements in this stream are
--- the result of macro expansion, and they always form a prefix of the
--- stream (i.e. they never appear after a raw @Char@ element).
-
--- NOTE: We are (ab)using @Either@ to hold two equally relevant types.
--- In particular, @Left@ values are not to be interpreted as errors.
--- | This is the type of elements of a TeX input stream.
-type CharOrToken = Either Char Token
 
 -- | A TeX Token is a character, a control sequence, or a parameter.
 data Token = TeXChar { getRawChar :: Char, getCatcode :: Catcode }
@@ -57,6 +54,25 @@ instance Show Token where
   show (TeXChar ch cc) = '\'':ch:"\'" ++ "(" ++ show cc ++ ")"
   show (CtrlSeq cs active) = "<" ++ cs ++ (if active then "(active)" else "") ++ ">"
   show (Param i n) = replicate n '#' ++ show i
+
+-- | TeX groups and LaTeX environments.
+data Group = AnonymousGroup
+             -- ^ Standard TeX group: @{ .. }@ or @\\bgroup .. \\egroup@.
+           | NativeGroup
+             -- ^ Balanced TeX group: @\\begingroup .. \\endgroup@.
+           | NamedGroup [Token]
+             -- ^ LaTeX Environment: @\\begin{name} .. \\end{name}@.
+           | DefinedGroup [Token] [Token] [Token]
+             -- ^ LaTeX Environment with known (user defined) expansion.
+             -- Arguments: @name@, @before@ (start code), @after@ (end code).
+           deriving Show
+
+instance Eq Group where
+  AnonymousGroup == AnonymousGroup = True
+  NativeGroup == NativeGroup = True
+  NamedGroup n == NamedGroup m = n == m
+  DefinedGroup n _ _ == DefinedGroup m _ _ = n == m
+  _ == _ = False
 
 -------------------- Token predicates
 
@@ -105,3 +121,44 @@ stripBraces [] = []
 stripBraces toks@(x:xs) = if hasCC Bgroup x && hasCC Egroup (last toks)
                           then init xs
                           else toks
+
+-------------------- TeX constants: Number prefixes
+
+-- | Prefix for hex constants.
+hexPrefix :: Token
+hexPrefix = TeXChar '"' Other
+
+-- | Prefix for octal constants.
+octPrefix :: Token
+octPrefix = TeXChar '\'' Other
+
+-- | Prefix for alpha constants.
+ordPrefix :: Token
+ordPrefix = TeXChar '`' Other
+
+-------------------- TeX constants: Primitive control sequences
+
+-- | TeX paragraph break.
+parTok :: Token
+parTok = CtrlSeq "par" False
+
+-- | Boolean constant used by xparse.
+--
+-- Note: We are treating @\\BooleanFalse@ as a primitive here,
+-- although it is defined as @\\c_false_bool@ in xparse, which in turn
+-- is defined as @\\char 0@ in l3basics.
+falseTok :: Token
+falseTok = CtrlSeq "BooleanFalse" False
+
+-- | Boolean constant used by xparse.
+--
+-- Note: We are treating @\\BooleanTrue@ as a primitive here,
+-- although it is defined as @\\c_true_bool@ in xparse, which in turn
+-- is defined as @\\char 1@ in l3basics.
+trueTok :: Token
+trueTok = CtrlSeq "BooleanTrue" False
+
+-- | Used by xparse to represent a missing argument,
+-- printed as @-NoValue-@.
+noValueTok :: Token
+noValueTok = CtrlSeq "NoValue" False

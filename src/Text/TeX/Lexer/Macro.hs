@@ -9,7 +9,7 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- Types and utility functions for TeX macros.
+-- Types and utility functions for TeX macros and environments.
 ----------------------------------------------------------------------
 
 module Text.TeX.Lexer.Macro
@@ -19,11 +19,15 @@ module Text.TeX.Lexer.Macro
   , macroName
   , macroContext
   , macroBody
+    -- * Environment types
   , MacroEnv
   , MacroEnvKey
   , MacroEnvDef(..)
+    -- * Macro arguments
   , ArgSpec
   , ArgType(..)
+    -- * Macro definition modes
+  , MacroDefinitionMode(..)
     -- * Macro expansion
   , applyMacro
   ) where
@@ -33,33 +37,33 @@ import Text.TeX.Lexer.Catcode (Catcode)
 
 -------------------- Argument Specification
 
+-- | A list of argument types that a macro consumes.
 type ArgSpec = [ArgType]
 
-data ArgType = Mandatory        -- ^ For 'm' args
-             | Until            -- ^ For 'u' args
-               [Token]
-             | UntilCC          -- ^ For 'l' args
-               Catcode
-             | Delimited        -- ^ For 'r' args
-               Token            -- ^ Opening delimiter
-               Token            -- ^ Closing delimiter
-               (Maybe [Token])  -- ^ Default value
-             | OptionalGroup    -- ^ For 'o' and 'd' args
-               Token            -- ^ Opening delimiter
-               Token            -- ^ Closing delimiter
-               (Maybe [Token])  -- ^ Default value
-             | OptionalGroupCC  -- ^ For 'g' args
-               Catcode          -- ^ Opening delimiter
-               Catcode          -- ^ Closing delimiter
-               (Maybe [Token])  -- ^ Default value
-             | OptionalToken    -- ^ For 's' and 't' args
-               Token
-             | LiteralToken     -- ^ Literal token
-               Token            -- (for translating from def-style macros)
-             deriving (Eq, Show)
+-- | Possible argument types for macros.
+--
+-- This mainly corresponds to xparse (LaTeX3) argument types,
+-- except for the addition of 'LiteralToken' which facilitates
+-- the translation from original TeX macro definitions (\\def).
+data ArgType
+  -- | For 'm' args.
+  = Mandatory
+  -- | For 'u' args.
+  | Until [Token]
+  -- | For 'l' args.
+  | UntilCC Catcode
+  -- | For 'r' args: Opening delimiter, closing delimiter, default value.
+  | Delimited Token Token (Maybe [Token])
+  -- | For 'o' and 'd' args: Opening delimiter, closing delimiter, default value.
+  | OptionalGroup Token Token (Maybe [Token])
+  -- | For 'g' args: Opening delimiter, closing delimiter, default value.
+  | OptionalGroupCC Catcode Catcode (Maybe [Token])
+  -- | For 's' and 't' args.
+  | OptionalToken Token
+  -- | Literal token.
+  | LiteralToken Token
+  deriving (Eq, Show)
 
-
--------------------- Macro types
 
 -- Fields: @(name, active)@.
 -- | Key for macro lookup.
@@ -114,3 +118,14 @@ applyMacro ((Param i n):ts) args = if n == 1
 applyMacro (tok@(TeXChar _ _):ts) args = tok : applyMacro ts args
 applyMacro (tok@(CtrlSeq _ _):ts) args = tok : applyMacro ts args
 applyMacro [] _ = []
+
+-------------------- Macro definition modes
+
+-- | Requests for registering a macro can specify whether the macro is
+-- allowed or required to overwrite an existing macro with the same
+-- name.
+data MacroDefinitionMode
+  = MacroNew
+  | MacroRenew
+  | MacroProvide
+  | MacroDeclare
