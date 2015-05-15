@@ -19,10 +19,12 @@ module Text.TeX.Lexer.TokenParser.Core
   , charSatCCs
   , satisfyToken
   , satisfyChar
+    -- * Stream modifications
+  , prependToInput
   ) where
 
 import Control.Applicative hiding ((<|>))
-import Text.Parsec (Parsec, tokenPrim, getState, (<|>))
+import Text.Parsec (Parsec, tokenPrim, getInput, setInput, getState, (<|>))
 import Text.Parsec.Pos (updatePosChar)
 
 import Text.TeX.Lexer.Catcode (Catcode, hasCatcode)
@@ -85,3 +87,10 @@ satisfy p = tokenPrim showToken nextpos test
       Left c -> updatePosChar pos c
       Right _ -> pos -- don't increment position
     test = \t -> if p t then Just t else Nothing
+
+
+-------------------- Stream modifications
+
+-- | Prepend a list of tokens to the input stream.
+prependToInput :: [Token] -> Parser ()
+prependToInput xs = (map Right xs ++) <$> getInput >>= setInput

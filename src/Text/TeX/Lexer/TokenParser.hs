@@ -17,5 +17,5 @@ module Text.TeX.Lexer.TokenParser
        , defaultLexerStack
        ) where
 
-import Text.TeX.Lexer.TokenParser.Expansion (texLexer)
+import Text.TeX.Lexer.TokenParser.Execution (texLexer)
 import Text.TeX.Lexer.TokenParser.State (defaultLexerStack)

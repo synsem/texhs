@@ -33,10 +33,20 @@ module Text.TeX.Lexer.TokenParser.Basic
   , eol
   , someChar
     -- ** 'CtrlSeq' Parsers
-  , ctrlseqNoexpand
+  , ctrlseqNoExpand
   , ctrlseqEq
     -- ** 'Param' Parsers
   , param
+    -- * Multi-token parsers
+  , tokenNoExpand
+  , untilTok
+  , untilToks
+  , balanced
+  , balancedCC
+    -- * Combinators
+  , grouped
+  , optGrouped
+  , bracketed
     -- * Linebreak parsers
   , eolpar
     -- * Unit parsers
@@ -61,7 +71,7 @@ import Control.Monad (void, when)
 import Data.Char (isOctDigit, isDigit, isHexDigit)
 import Numeric (readOct, readDec, readHex)
 import Text.Parsec
-  (getState, modifyState, getInput, setInput,
+  (getState, modifyState, try, manyTill, between,
    (<|>), many, many1, choice, option, optional, count,
    (<?>), unexpected)
 
@@ -78,7 +88,7 @@ import Text.TeX.Lexer.TokenParser.State
 -- Does not accept a group and will not expand macros.
 singleToken :: Parser Token
 singleToken = skipOptCommentsPAR *>
-              (ctrlseqNoexpand <|>
+              (ctrlseqNoExpand <|>
                (eolpar <|> param <|> someChar))
 
 -- | Parse the provided token.
@@ -220,7 +230,7 @@ anyCharOptEsc = anyCharCC catcodesNonescaped <|> anyEscapedChar
 -- (e.g. for the input: @\\number`\\ab@).
 anyEscapedChar :: Parser Token
 anyEscapedChar = do
-  (CtrlSeq cs _) <- ctrlseqNoexpand
+  (CtrlSeq cs _) <- ctrlseqNoExpand
   if length cs == 1
     then return (TeXChar (head cs) Other) -- Note: coercing to catcode 'Other' here
     else unexpected $ cs ++ " (where a single character was required). "
@@ -229,8 +239,8 @@ anyEscapedChar = do
 -------------------- 'CtrlSeq' Parsers
 
 -- | Parse a control sequence without trying to expand it.
-ctrlseqNoexpand :: Parser Token
-ctrlseqNoexpand = ctrlseqT <|> ctrlseqC <|> activeC
+ctrlseqNoExpand :: Parser Token
+ctrlseqNoExpand = ctrlseqT <|> ctrlseqC <|> activeC
 
 ctrlseqT :: Parser Token
 ctrlseqT = satisfyToken isCtrlSeq
@@ -281,6 +291,100 @@ paramC = do
   i <- read <$> count 1 (satisfyChar isDigit)
   return (Param i n)
 
+-------------------- Multi-token parsers
+
+-- | Parse a /logical unit/ of tokens without expanding them.
+-- This is either a single 'Token' or a group of tokens.
+tokenNoExpand :: Parser [Token]
+tokenNoExpand =
+  skipOptCommentsPAR *>
+  (groupNoExpand <|> count 1
+   (ctrlseqNoExpand <|> eolpar <|>
+    param <|> someChar))
+
+-- Parse a balanced TeX group as a flat token list including delimiters.
+groupNoExpand :: Parser [Token]
+groupNoExpand = (fmap (++) . (:)) <$> bgroup <*> tokens <*> count 1 egroup
+  where tokens = (concat <$> many tokenNoExpand)
+
+-- | Parse tokens (without expansion) until you hit the specified delimiter.
+-- The delimiter is not included in the result.
+untilTok :: Token -> Parser [Token]
+untilTok t = concat <$> manyTill tokenNoExpand (tok t)
+
+-- | Parse tokens (without expansion) until you hit the specified token sequence.
+-- The delimiting sequence is not included in the result.
+untilToks :: [Token] -> Parser [Token]
+untilToks ts = concat <$> manyTill tokenNoExpand (try (mapM_ tok ts))
+
+-- | Parse a balanced group of tokens (without expansion)
+-- between the provided opening and closing tokens.
+-- The (outermost) delimiters are not included in the result.
+balanced :: Token -> Token -> Parser [Token]
+balanced open close =
+  tok open *> balancedEnd open close
+
+-- Helper function for 'balanced'. Skips delimiters.
+balancedEnd :: Token -> Token -> Parser [Token]
+balancedEnd open close =
+  ([] <$ tok close) <|>
+  ((++) <$> (balancedInner open close <|> tokenNoExpand)
+   <*> balancedEnd open close)
+
+-- Helper function for 'balanced'. Keeps delimiters.
+balancedInner :: Token -> Token -> Parser [Token]
+balancedInner open close =
+  (:) <$> tok open <*> balancedInnerEnd open close
+
+-- Helper function for 'balanced'. Keeps delimiters.
+balancedInnerEnd :: Token -> Token -> Parser [Token]
+balancedInnerEnd open close =
+  count 1 (tok close) <|>
+  ((++) <$> (balancedInner open close <|> tokenNoExpand)
+   <*> balancedInnerEnd open close)
+
+-- | Parse a balanced group of tokens (without expansion)
+-- between tokens with the provided opening and closing catcodes.
+-- The (outermost) delimiters are not included in the result.
+balancedCC :: Catcode -> Catcode -> Parser [Token]
+balancedCC open close =
+  charcc open *> balancedCCEnd open close
+
+-- Helper function for 'balancedCC'. Skips delimiters.
+balancedCCEnd :: Catcode -> Catcode -> Parser [Token]
+balancedCCEnd open close =
+  ([] <$ charcc close) <|>
+  ((++) <$> (balancedCCInner open close <|> tokenNoExpand)
+   <*> balancedCCEnd open close)
+
+-- Helper function for 'balancedCC'. Keeps delimiters.
+balancedCCInner :: Catcode -> Catcode -> Parser [Token]
+balancedCCInner open close =
+  (:) <$> charcc open <*> balancedCCInnerEnd open close
+
+-- Helper function for 'balancedCC'. Keeps delimiters.
+balancedCCInnerEnd :: Catcode -> Catcode -> Parser [Token]
+balancedCCInnerEnd open close =
+  count 1 (charcc close) <|>
+  ((++) <$> (balancedCCInner open close <|> tokenNoExpand)
+   <*> balancedCCInnerEnd open close)
+
+-------------------- Combinators
+
+-- | Apply a parser in a TeX group (between 'Bgroup' and 'Egroup').
+-- The delimiters are not included in the result.
+grouped :: Parser a -> Parser a
+grouped = between bgroup egroup
+
+-- | Apply a parser in a TeX group (see 'grouped') or directly.
+optGrouped :: Parser a -> Parser a
+optGrouped p = grouped p <|> p
+
+-- | Apply a parser between a pair of square brackets.
+-- The delimiters are not included in the result.
+bracketed :: Parser a -> Parser a
+bracketed = between (char '[' Other) (char ']' Other)
+
 -------------------- Linebreak parsers
 
 -- | Parse an 'Eol' char or, if followed by an empty line, a par token.
@@ -323,7 +427,7 @@ skipCommentsPAR :: Parser ()
 skipCommentsPAR = do
   t <- many1 skipSingleComment *> option (TeXChar '\n' Eol) par
   when (isCtrlSeq t) -- true iff par token
-    ((Right t:) <$> getInput >>= setInput)
+    (prependToInput [t])
 
 -- | Skip optional comments.
 --
@@ -338,7 +442,7 @@ skipSpacePAR :: Parser ()
 skipSpacePAR = do
   t <- skipOptSpace *> option (TeXChar '\n' Eol) eolpar
   when (isCtrlSeq t) -- true iff par token
-    ((Right t:) <$> getInput >>= setInput)
+    (prependToInput [t])
 
 -- | Parse an optional equals sign.
 equals :: Parser ()

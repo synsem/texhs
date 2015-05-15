@@ -26,6 +26,7 @@ library
                        Text.TeX.Lexer.TokenParser,
                        Text.TeX.Lexer.TokenParser.Basic,
                        Text.TeX.Lexer.TokenParser.Core,
+                       Text.TeX.Lexer.TokenParser.Execution,
                        Text.TeX.Lexer.TokenParser.Expansion,
                        Text.TeX.Lexer.TokenParser.State
   build-depends:       base   >=4.5 && <4.9,
