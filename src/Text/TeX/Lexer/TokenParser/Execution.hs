@@ -76,42 +76,89 @@ ctrlseq = do
 
 ---------------------------------------- Execute TeX primitives
 
--- Execute a primitive TeX control sequence.
-execute :: Token -> Parser [Token]
-execute (CtrlSeq name active) = expandMacro name active
-execute t = error $ "Control sequence required. Cannot execute " ++ show t
+-- | Primitives are internal names of executable commands
+-- and possible meanings of control sequences.
+type Primitive = String
 
-expandMacro :: String -> Bool -> Parser [Token]
-expandMacro name active = case (name, active) of
-  ("begingroup", False) -> [CtrlSeq name active] <$ modifyState (pushGroup NativeGroup)
-  ("endgroup", False) -> [CtrlSeq name active] <$ modifyState (popGroup NativeGroup)
-  ("bgroup", False) -> [CtrlSeq name active] <$ modifyState (pushGroup AnonymousGroup)
-  ("egroup", False) -> [CtrlSeq name active] <$ modifyState (popGroup AnonymousGroup)
-  ("begin", False) -> beginEnvironment
-  ("end", False) -> endEnvironment
-  ("catcode", False) -> catcode
-  ("def", False) -> def
-  ("iftrue", False) -> iftrue
-  ("iffalse", False) -> iffalse
-  ("char", False) -> count 1 chr
-  ("number", False) -> numbertoks
-  ("NewDocumentCommand", False) -> declareDocumentCommand MacroNew
-  ("RenewDocumentCommand", False) -> declareDocumentCommand MacroRenew
-  ("ProvideDocumentCommand", False) -> declareDocumentCommand MacroProvide
-  ("DeclareDocumentCommand", False) -> declareDocumentCommand MacroDeclare
-  ("NewDocumentEnvironment", False) -> declareDocumentEnvironment MacroNew
-  ("RenewDocumentEnvironment", False) -> declareDocumentEnvironment MacroRenew
-  ("ProvideDocumentEnvironment", False) -> declareDocumentEnvironment MacroProvide
-  ("DeclareDocumentEnvironment", False) -> declareDocumentEnvironment MacroDeclare
-  ("IfBooleanTF", False) -> xparseif trueTok
-  ("IfNoValueTF", False) -> xparseif noValueTok
-  ("newcommand", False) -> newcommand MacroNew
-  ("renewcommand", False) -> newcommand MacroRenew
-  ("providecommand", False) -> newcommand MacroProvide
-  ("DeclareRobustCommand", False) -> newcommand MacroDeclare
-  ("newenvironment", False) -> newenvironment MacroNew
-  ("renewenvironment", False) -> newenvironment MacroRenew
-  _ -> return [CtrlSeq name active] -- undefined command
+-- | Default mapping of tokens (control sequences) to primitives.
+defaultPrimitives :: [(Token, Primitive)]
+defaultPrimitives = map wrapCtrlSeq
+  [ "begingroup"
+  , "endgroup"
+  , "bgroup"
+  , "egroup"
+  , "begin"
+  , "end"
+  , "catcode"
+  , "def"
+  , "iftrue"
+  , "iffalse"
+  , "char"
+  , "number"
+  , "NewDocumentCommand"
+  , "RenewDocumentCommand"
+  , "ProvideDocumentCommand"
+  , "DeclareDocumentCommand"
+  , "NewDocumentEnvironment"
+  , "RenewDocumentEnvironment"
+  , "ProvideDocumentEnvironment"
+  , "DeclareDocumentEnvironment"
+  , "IfBooleanTF"
+  , "IfNoValueTF"
+  , "newcommand"
+  , "renewcommand"
+  , "providecommand"
+  , "DeclareRobustCommand"
+  , "newenvironment"
+  , "renewenvironment"
+  ]
+  where wrapCtrlSeq t = (CtrlSeq t False, t)
+
+-- | Meanings of primitives.
+primitiveMeanings :: [(Primitive, Parser [Token])]
+primitiveMeanings =
+  [ ("begingroup", [CtrlSeq "begingroup" False] <$ modifyState (pushGroup NativeGroup))
+  , ("endgroup", [CtrlSeq "endgroup" False] <$ modifyState (popGroup NativeGroup))
+  , ("bgroup", [CtrlSeq "bgroup" False] <$ modifyState (pushGroup AnonymousGroup))
+  , ("egroup", [CtrlSeq "egroup" False] <$ modifyState (popGroup AnonymousGroup))
+  , ("begin", beginEnvironment)
+  , ("end", endEnvironment)
+  , ("catcode", catcode)
+  , ("def", def)
+  , ("iftrue", iftrue)
+  , ("iffalse", iffalse)
+  , ("char", count 1 chr)
+  , ("number", numbertoks)
+  , ("NewDocumentCommand", declareDocumentCommand MacroNew)
+  , ("RenewDocumentCommand", declareDocumentCommand MacroRenew)
+  , ("ProvideDocumentCommand", declareDocumentCommand MacroProvide)
+  , ("DeclareDocumentCommand", declareDocumentCommand MacroDeclare)
+  , ("NewDocumentEnvironment", declareDocumentEnvironment MacroNew)
+  , ("RenewDocumentEnvironment", declareDocumentEnvironment MacroRenew)
+  , ("ProvideDocumentEnvironment", declareDocumentEnvironment MacroProvide)
+  , ("DeclareDocumentEnvironment", declareDocumentEnvironment MacroDeclare)
+  , ("IfBooleanTF", xparseif trueTok)
+  , ("IfNoValueTF", xparseif noValueTok)
+  , ("newcommand", newcommand MacroNew)
+  , ("renewcommand", newcommand MacroRenew)
+  , ("providecommand", newcommand MacroProvide)
+  , ("DeclareRobustCommand", newcommand MacroDeclare)
+  , ("newenvironment", newenvironment MacroNew)
+  , ("renewenvironment", newenvironment MacroRenew)
+  ]
+
+-- | Execute a token if its meaning is a primitive,
+-- else return the token unmodified.
+execute :: Token -> Parser [Token]
+execute t = case lookup t defaultPrimitives of
+  Just p -> executePrimitive p
+  Nothing -> return [t]
+
+-- | Execute a primitive command.
+executePrimitive :: Primitive -> Parser [Token]
+executePrimitive name = case lookup name primitiveMeanings of
+  Just p -> p
+  Nothing -> error $ "Call to undefined primitive: " ++ name
 
 -------------------- Handle builtin macros
 
