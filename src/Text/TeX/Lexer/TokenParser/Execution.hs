@@ -329,7 +329,7 @@ newcommand :: MacroDefinitionMode -> Parser [Token]
 newcommand defMode = do
   optional (char '*' Other) -- ignore 'long' property
   (CtrlSeq name active) <- optGrouped ctrlseqNoExpand <?> "macro name"
-  numArgs <- option 0 (decToInt <$> bracketed (count 1 digit))
+  numArgs <- option 0 (bracketed singleDigit)
   let open = TeXChar '[' Other
       close = TeXChar ']' Other
   optArg <- optionMaybe (balanced open close)
@@ -347,7 +347,7 @@ newcommand defMode = do
 newenvironment :: MacroDefinitionMode -> Parser [Token]
 newenvironment defMode = do
   name <- grouped tokens <?> "environment name"
-  numArgs <- option 0 (decToInt <$> bracketed (count 1 digit))
+  numArgs <- option 0 (bracketed singleDigit)
   let open = TeXChar '[' Other
       close = TeXChar ']' Other
   optArg <- optionMaybe (balanced open close)

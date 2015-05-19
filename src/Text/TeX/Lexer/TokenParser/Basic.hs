@@ -57,9 +57,7 @@ module Text.TeX.Lexer.TokenParser.Basic
   , equals
     -- * Number parsers
   , number
-  , decToInt
-  , octToInt
-  , hexToInt
+  , singleDigit
   ) where
 
 
@@ -474,6 +472,10 @@ octnum = octToInt <$> (tok octPrefix *> many1 octDigit)
 -- Parse a decimal constant.
 decnum :: Parser Int
 decnum = decToInt <$> many1 digit
+
+-- | Parse a single decimal digit.
+singleDigit :: Parser Int
+singleDigit = decToInt <$> count 1 digit
 
 -- | Convert a string of digits to an integer.
 decToInt :: String -> Int
