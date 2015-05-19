@@ -39,6 +39,7 @@ module Text.TeX.Lexer.TokenParser.Basic
   , param
     -- * Multi-token parsers
   , tokenNoExpand
+  , tokensNoExpand
   , untilTok
   , untilToks
   , balanced
@@ -302,10 +303,14 @@ tokenNoExpand =
    (ctrlseqNoExpand <|> eolpar <|>
     param <|> someChar))
 
+-- | Parse many logical units of tokens without expanding them.
+-- (See 'tokenNoExpand'.)
+tokensNoExpand :: Parser [Token]
+tokensNoExpand = concat <$> many tokenNoExpand
+
 -- Parse a balanced TeX group as a flat token list including delimiters.
 groupNoExpand :: Parser [Token]
-groupNoExpand = (fmap (++) . (:)) <$> bgroup <*> tokens <*> count 1 egroup
-  where tokens = (concat <$> many tokenNoExpand)
+groupNoExpand = (fmap (++) . (:)) <$> bgroup <*> tokensNoExpand <*> count 1 egroup
 
 -- | Parse tokens (without expansion) until you hit the specified delimiter.
 -- The delimiter is not included in the result.

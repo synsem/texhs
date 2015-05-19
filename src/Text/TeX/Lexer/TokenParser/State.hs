@@ -23,9 +23,6 @@ module Text.TeX.Lexer.TokenParser.State
   , popGroup
   , getGroup
   , setGroup
-    -- ** Expansion mode
-  , getExpandMode
-  , setExpandMode
     -- ** Catcode table
   , getCatcodes
   , addCatcode
@@ -56,13 +53,12 @@ data LexerState = LexerState
   { localCatcodes :: CatcodeTable
   , localMacros :: [Macro]
   , localMacroEnvs :: [MacroEnv]
-  , localExpandMode :: Bool
   , localGroup :: Group
   } deriving (Eq, Show)
 
 -- | Create an empty lexer state
 -- from a provided expansion mode and group.
-emptyLexerState :: Bool -> Group -> LexerState
+emptyLexerState :: Group -> LexerState
 emptyLexerState = LexerState [] [] []
 
 -- | The initial lexer stack consists of a single lexer state
@@ -72,7 +68,6 @@ defaultLexerStack = LexerState
   { localCatcodes = defaultCatcodeTable
   , localMacros = []
   , localMacroEnvs = []
-  , localExpandMode = True
   , localGroup = AnonymousGroup
   } :[]
 
@@ -80,8 +75,7 @@ defaultLexerStack = LexerState
 
 -- | Push new group onto stack.
 pushGroup :: Group -> LexerStack -> LexerStack
-pushGroup g tl@(l:_) = emptyLexerState (localExpandMode l) g :tl
-pushGroup _ [] = error "empty lexer stack"
+pushGroup g = (emptyLexerState g :)
 
 -- | Pop group from stack.
 popGroup :: Group -> LexerStack -> LexerStack
@@ -111,18 +105,6 @@ groupEndString AnonymousGroup = "}"
 groupEndString NativeGroup = "\\endgroup"
 groupEndString (NamedGroup name) = "\\end{" ++ show name ++ "}"
 groupEndString (DefinedGroup name _ _) = "\\end{" ++ show name ++ "}"
-
----------- Expansion mode
-
--- | Get current expansion mode.
-getExpandMode :: LexerStack -> Bool
-getExpandMode (l:_) = localExpandMode l
-getExpandMode [] = error "empty lexer stack"
-
--- | Set current expansion mode.
-setExpandMode :: Bool -> LexerStack -> LexerStack
-setExpandMode b (l:ls) = l {localExpandMode = b} :ls
-setExpandMode _ [] = error "empty lexer stack"
 
 ---------- Catcode state
 

@@ -69,14 +69,10 @@ group = (fmap (++) . (:)) <$> bgroup <*> tokens <*> count 1 egroup
 ctrlseq :: Parser [Token]
 ctrlseq = do
   t@(CtrlSeq name active) <- ctrlseqNoExpand
-  expandMode <- getExpandMode <$> getState
-  if not expandMode
-    then return [t]
-    else do
-      macros <- getMacros <$> getState
-      case lookup (name, active) macros of
-        Just m -> [] <$ expand ((name, active), m)
-        Nothing -> execute t
+  macros <- getMacros <$> getState
+  case lookup (name, active) macros of
+    Just m -> [] <$ expand ((name, active), m)
+    Nothing -> execute t
 
 ---------------------------------------- Execute TeX primitives
 
@@ -153,54 +149,56 @@ conditionalPush = conditional >=> prependToInput
 -- so groups are not parsed here.
 conditional :: Bool -> Parser [Token]
 conditional b = do
-  (leftToks, rightToks) <- withExpandMode b (condBranches b [])
+  let (l,r) = (b, not b) -- branch expansion modes
+  (leftToks, rightToks) <- condBranches (l,r) []
   return $ if b then leftToks else rightToks
 
 -- Parse the two branches of a conditional.
 --
--- The flag argument indicates whether the condition is true.
-condBranches :: Bool -> [Token] -> Parser ([Token], [Token])
-condBranches b ltoks = do
-  t <- tokenCond
+-- The flag arguments indicate whether to expand the branches.
+condBranches :: (Bool, Bool) -> [Token] -> Parser ([Token], [Token])
+condBranches (expandLeft,expandRight) ltoks = do
+  t <- tokenCond expandLeft
   case t of
     [CtrlSeq name _]
       | name == "fi" ->
           return (ltoks, [])
       | name == "else" ->
-          withExpandMode (not b) (condRightBranch []) >>=
-            \rtoks -> return (ltoks, rtoks)
+          (,) ltoks <$> condRightBranch expandRight []
       | name `elem` ["iftrue", "iffalse"] ->
           -- handle embedded conditional in dead branch
-          withoutExpansion (condBranches True []) *>
-            condBranches b ltoks
+          condBranches (False, False) [] *>
+            condBranches (expandLeft, expandRight) ltoks
       | otherwise ->
-          condBranches b (ltoks ++ t)
-    _ -> condBranches b (ltoks ++ t)
+          condBranches (expandLeft, expandRight) (ltoks ++ t)
+    _ -> condBranches (expandLeft, expandRight) (ltoks ++ t)
 
 -- Parse the second branch of a conditional.
-condRightBranch :: [Token] -> Parser [Token]
-condRightBranch toks = do
-  t <- tokenCond
+--
+-- The flag argument indicates whether to expand the branch.
+condRightBranch :: Bool -> [Token] -> Parser [Token]
+condRightBranch expandMode toks = do
+  t <- tokenCond expandMode
   case t of
     [CtrlSeq name _]
       | name == "fi" ->
           return toks
       | name `elem` ["iftrue", "iffalse"] ->
         -- handle embedded conditional in dead branch
-          withoutExpansion (condBranches True []) *>
-            condRightBranch toks
+          condBranches (False, False) [] *>
+            condRightBranch expandMode toks
       | otherwise ->
-          condRightBranch (toks ++ t)
-    _ -> condRightBranch (toks ++ t)
+          condRightBranch expandMode (toks ++ t)
+    _ -> condRightBranch expandMode (toks ++ t)
 
 -- Parse a token in a conditional.
 --
 -- Note: Grouping characters are parsed literally.
-tokenCond :: Parser [Token]
-tokenCond = skipOptCommentsPAR *>
-            (ctrlseq <|> count 1
-             (charcc Bgroup <|> charcc Egroup <|>
-              eolpar <|> param <|> someChar))
+tokenCond :: Bool -> Parser [Token]
+tokenCond expandMode = skipOptCommentsPAR *>
+            ((if expandMode then ctrlseq else count 1 ctrlseqNoExpand) <|>
+             count 1 (charcc Bgroup <|> charcc Egroup <|>
+                      eolpar <|> param <|> someChar))
 
 -- Evaluate an xparse-style conditional.
 --
@@ -230,15 +228,9 @@ catcode = do
 -- active macros) and remove the @def@ command from the token stream.
 def :: Parser [Token]
 def = do
-  -- preparation: disallow expansion of embedded macros
-  expandMode <- getExpandMode <$> getState
-  modifyState (setExpandMode False)
-  -- parse the macro definition
   (CtrlSeq name active) <- ctrlseqNoExpand <?> "macro name"
   context <- macroContextDefinition <?> "macro context definition"
-  body <- grouped tokens
-  -- restore original expansion mode and register the new macro
-  modifyState (setExpandMode expandMode)
+  body <- grouped tokensNoExpand
   modifyState (registerLocalMacro
                ((name, active), (def2xparse context, body)))
   return []
@@ -268,16 +260,10 @@ def2xparse (t1:ts@(_:_)) = LiteralToken t1 : def2xparse ts
 -- Parse and register an xparse macro definition.
 declareDocumentCommand :: MacroDefinitionMode -> Parser [Token]
 declareDocumentCommand defMode = do
-  -- preparation: disallow expansion of embedded macros
-  expandMode <- getExpandMode <$> getState
-  modifyState (setExpandMode False)
-  -- parse the macro definition
   (CtrlSeq name active) <- optGrouped ctrlseqNoExpand <?> "macro name"
   context <- argspec <?> "macro argspec"
-  body <- grouped tokens
-  -- restore original expansion mode and register the new macro globally
+  body <- grouped tokensNoExpand
   isDefined <- macroIsDefined (name, active) <$> getState
-  modifyState (setExpandMode expandMode)
   modifyState $ macroDefinitionAction defMode isDefined
     ((name, active), (context, body))
   return []
@@ -285,17 +271,11 @@ declareDocumentCommand defMode = do
 -- Parse and register an xparse environment definition.
 declareDocumentEnvironment :: MacroDefinitionMode -> Parser [Token]
 declareDocumentEnvironment defMode = do
-  -- preparation: disallow expansion of embedded macros
-  expandMode <- getExpandMode <$> getState
-  modifyState (setExpandMode False)
-  -- parse the macro definition
-  name <- grouped tokens <?> "environment name"
+  name <- grouped tokensNoExpand <?> "environment name"
   context <- argspec <?> "environment argspec"
-  startCode <- grouped tokens <?> "environment start code"
-  endCode <- grouped tokens <?> "environment end code"
-  -- restore original expansion mode and register the new environment globally
+  startCode <- grouped tokensNoExpand <?> "environment start code"
+  endCode <- grouped tokensNoExpand <?> "environment end code"
   isDefined <- macroEnvIsDefined name <$> getState
-  modifyState (setExpandMode expandMode)
   modifyState $ macroEnvDefinitionAction defMode isDefined
     (name, MacroEnvDef context startCode endCode)
   return []
@@ -347,11 +327,7 @@ argtype = optional (char '+' Other) *> choice
 -- Parse and register a LaTeX2e macro definition.
 newcommand :: MacroDefinitionMode -> Parser [Token]
 newcommand defMode = do
-  -- preparation: disallow expansion of embedded macros
-  expandMode <- getExpandMode <$> getState
-  modifyState (setExpandMode False)
-  -- parse the macro definition
-  optional (char '*' Other)
+  optional (char '*' Other) -- ignore 'long' property
   (CtrlSeq name active) <- optGrouped ctrlseqNoExpand <?> "macro name"
   numArgs <- option 0 (decToInt <$> bracketed (count 1 digit))
   let open = TeXChar '[' Other
@@ -361,10 +337,8 @@ newcommand defMode = do
         Just d -> OptionalGroup open close (Just d) :
                   replicate (numArgs-1) Mandatory
         Nothing -> replicate numArgs Mandatory
-  body <- grouped tokens <|> count 1 singleToken
-  -- restore original expansion mode and register the new macro globally
+  body <- grouped tokensNoExpand <|> count 1 singleToken
   isDefined <- macroIsDefined (name, active) <$> getState
-  modifyState (setExpandMode expandMode)
   modifyState $ macroDefinitionAction defMode isDefined
     ((name, active), (context, body))
   return []
@@ -372,10 +346,6 @@ newcommand defMode = do
 -- Parse and register a LaTeX2e environment definition.
 newenvironment :: MacroDefinitionMode -> Parser [Token]
 newenvironment defMode = do
-  -- preparation: disallow expansion of embedded macros
-  expandMode <- getExpandMode <$> getState
-  modifyState (setExpandMode False)
-  -- parse the macro definition
   name <- grouped tokens <?> "environment name"
   numArgs <- option 0 (decToInt <$> bracketed (count 1 digit))
   let open = TeXChar '[' Other
@@ -385,11 +355,9 @@ newenvironment defMode = do
         Just d -> OptionalGroup open close (Just d) :
                   replicate (numArgs-1) Mandatory
         Nothing -> replicate numArgs Mandatory
-  startCode <- grouped tokens <?> "environment start code"
-  endCode <- grouped tokens <?> "environment end code"
-  -- restore original expansion mode and register the new macro globally
+  startCode <- grouped tokensNoExpand <?> "environment start code"
+  endCode <- grouped tokensNoExpand <?> "environment end code"
   isDefined <- macroEnvIsDefined name <$> getState
-  modifyState (setExpandMode expandMode)
   modifyState $ macroEnvDefinitionAction defMode isDefined
     (name, MacroEnvDef context startCode endCode)
   return []
@@ -440,19 +408,3 @@ endEnvironment = do
 -- We currently allow arbitrary token lists.
 envName :: Parser [Token]
 envName = group
-
--------------------- Parser state utility functions
-
--- Run a parser with expansion enabled or disabled,
--- depending on the provided flag.
-withExpandMode :: Bool -> Parser a -> Parser a
-withExpandMode mode parser = do
-  expandMode <- getExpandMode <$> getState
-  modifyState (setExpandMode mode)
-  result <- parser
-  modifyState (setExpandMode expandMode)
-  return result
-
--- Run a parser with expansion disabled.
-withoutExpansion :: Parser a -> Parser a
-withoutExpansion = withExpandMode False

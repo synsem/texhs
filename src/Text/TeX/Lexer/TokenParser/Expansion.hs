@@ -27,13 +27,12 @@ import Control.Applicative ((<$), (<$>))
 #endif
 import Control.Monad ((>=>))
 import Data.Maybe (fromMaybe)
-import Text.Parsec (getState, modifyState, many, option, count)
+import Text.Parsec (many, option, count)
 
 import Text.TeX.Lexer.Macro
 import Text.TeX.Lexer.Token
 import Text.TeX.Lexer.TokenParser.Basic
 import Text.TeX.Lexer.TokenParser.Core
-import Text.TeX.Lexer.TokenParser.State
 
 
 -------------------- Macro expansion
@@ -47,14 +46,7 @@ expand = expansion >=> prependToInput
 -- and return the expansion.
 expansion :: Macro -> Parser [Token]
 expansion m = do
-  -- preparation: disallow expansion of embedded macros in arguments
-  expandMode <- getExpandMode <$> getState
-  modifyState (setExpandMode False)
-  -- read arguments
   args <- parseArgspec (macroContext m)
-  -- restore expansion mode
-  modifyState (setExpandMode expandMode)
-  -- apply macro to arguments
   return $ applyMacro (macroBody m) args
 
 -------------------- Environment expansion
