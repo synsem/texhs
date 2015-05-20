@@ -69,9 +69,9 @@ group = (fmap (++) . (:)) <$> bgroup <*> tokens <*> count 1 egroup
 ctrlseq :: Parser [Token]
 ctrlseq = do
   t@(CtrlSeq name active) <- ctrlseqNoExpand
-  macros <- getMacros <$> getState
+  macros <- getMacroCmds <$> getState
   case lookup (name, active) macros of
-    Just m -> [] <$ expand ((name, active), m)
+    Just m -> [] <$ expand m
     Nothing -> execute t
 
 ---------------------------------------- Execute TeX primitives
@@ -278,8 +278,8 @@ def = do
   (CtrlSeq name active) <- ctrlseqNoExpand <?> "macro name"
   context <- macroContextDefinition <?> "macro context definition"
   body <- grouped tokensNoExpand
-  modifyState (registerLocalMacro
-               ((name, active), (def2xparse context, body)))
+  modifyState (registerLocalMacroCmd
+               ((name, active), MacroCmdDef (def2xparse context) body))
   return []
 
 -- Parse a macro context definition. Similar to 'tokens', but
@@ -310,9 +310,9 @@ declareDocumentCommand defMode = do
   (CtrlSeq name active) <- optGrouped ctrlseqNoExpand <?> "macro name"
   context <- argspec <?> "macro argspec"
   body <- grouped tokensNoExpand
-  isDefined <- macroIsDefined (name, active) <$> getState
-  modifyState $ macroDefinitionAction defMode isDefined
-    ((name, active), (context, body))
+  isDefined <- macroCmdIsDefined (name, active) <$> getState
+  modifyState $ macroCmdDefinitionAction defMode isDefined
+    ((name, active), MacroCmdDef context body)
   return []
 
 -- Parse and register an xparse environment definition.
@@ -385,9 +385,9 @@ newcommand defMode = do
                   replicate (numArgs-1) Mandatory
         Nothing -> replicate numArgs Mandatory
   body <- grouped tokensNoExpand <|> count 1 singleToken
-  isDefined <- macroIsDefined (name, active) <$> getState
-  modifyState $ macroDefinitionAction defMode isDefined
-    ((name, active), (context, body))
+  isDefined <- macroCmdIsDefined (name, active) <$> getState
+  modifyState $ macroCmdDefinitionAction defMode isDefined
+    ((name, active), MacroCmdDef context body)
   return []
 
 -- Parse and register a LaTeX2e environment definition.

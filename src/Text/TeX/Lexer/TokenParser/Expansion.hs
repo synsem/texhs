@@ -39,15 +39,15 @@ import Text.TeX.Lexer.TokenParser.Core
 
 -- | Expand a call of a user-defined macro
 -- and push the expansion back into the input stream.
-expand :: Macro -> Parser ()
+expand :: MacroCmdDef -> Parser ()
 expand = expansion >=> prependToInput
 
 -- | Expand a call of a user-defined macro
 -- and return the expansion.
-expansion :: Macro -> Parser [Token]
+expansion :: MacroCmdDef -> Parser [Token]
 expansion m = do
-  args <- parseArgspec (macroContext m)
-  return $ applyMacro (macroBody m) args
+  args <- parseArgspec (macroCmdContext m)
+  return $ applyMacro (macroCmdBody m) args
 
 -------------------- Environment expansion
 

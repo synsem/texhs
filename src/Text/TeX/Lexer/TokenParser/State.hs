@@ -27,10 +27,10 @@ module Text.TeX.Lexer.TokenParser.State
   , getCatcodes
   , addCatcode
     -- ** Macro definitions
-  , getMacros
-  , macroIsDefined
-  , registerLocalMacro
-  , macroDefinitionAction
+  , getMacroCmds
+  , macroCmdIsDefined
+  , registerLocalMacroCmd
+  , macroCmdDefinitionAction
     -- ** Environment definitions
   , getMacroEnvs
   , macroEnvIsDefined
@@ -51,7 +51,7 @@ type LexerStack = [LexerState]
 -- local macro definitions and the current group type.
 data LexerState = LexerState
   { localCatcodes :: CatcodeTable
-  , localMacros :: [Macro]
+  , localMacroCmds :: [MacroCmd]
   , localMacroEnvs :: [MacroEnv]
   , localGroup :: Group
   } deriving (Eq, Show)
@@ -66,7 +66,7 @@ emptyLexerState = LexerState [] [] []
 defaultLexerStack :: LexerStack
 defaultLexerStack = LexerState
   { localCatcodes = defaultCatcodeTable
-  , localMacros = []
+  , localMacroCmds = []
   , localMacroEnvs = []
   , localGroup = AnonymousGroup
   } :[]
@@ -121,31 +121,31 @@ addCatcode _ [] = error "empty lexer stack"
 
 ---------- Macro state
 
--- | Get all registered macro definitions.
-getMacros :: LexerStack -> [Macro]
-getMacros = concatMap localMacros
+-- | Get all registered macro command definitions.
+getMacroCmds :: LexerStack -> [MacroCmd]
+getMacroCmds = concatMap localMacroCmds
 
 -- | Get all registered environment definitions.
 getMacroEnvs :: LexerStack -> [MacroEnv]
 getMacroEnvs = concatMap localMacroEnvs
 
--- | Register a local macro definition.
+-- | Register a local macro command definition.
 --
 -- Prefix macro to the list of currently active macros.
 -- The new macro will shadow others with the same name
 -- (due to @lookup@'s left bias).
-registerLocalMacro :: Macro -> LexerStack -> LexerStack
-registerLocalMacro m (l:ls) = l {localMacros = m : localMacros l} :ls
-registerLocalMacro _ [] = error "empty lexer stack"
+registerLocalMacroCmd :: MacroCmd -> LexerStack -> LexerStack
+registerLocalMacroCmd m (l:ls) = l {localMacroCmds = m : localMacroCmds l} :ls
+registerLocalMacroCmd _ [] = error "empty lexer stack"
 
--- Add macro definition to the global context.
-registerGlobalMacro :: Macro -> LexerStack -> LexerStack
-registerGlobalMacro m ls@(_:_) =
+-- Add macro command definition to the global context.
+registerGlobalMacroCmd :: MacroCmd -> LexerStack -> LexerStack
+registerGlobalMacroCmd m ls@(_:_) =
   let (g:tl) = reverse ls
-  in reverse (g {localMacros = m : localMacros g} :tl)
-registerGlobalMacro _ [] = error "empty lexer stack"
+  in reverse (g {localMacroCmds = m : localMacroCmds g} :tl)
+registerGlobalMacroCmd _ [] = error "empty lexer stack"
 
--- Add environment definition to the global context.
+-- Add macro environment definition to the global context.
 -- Note: All user-defined environments have global scope.
 registerGlobalMacroEnv :: MacroEnv -> LexerStack -> LexerStack
 registerGlobalMacroEnv m ls@(_:_) =
@@ -154,8 +154,8 @@ registerGlobalMacroEnv m ls@(_:_) =
 registerGlobalMacroEnv _ [] = error "empty lexer stack"
 
 -- | Return whether a macro with the given key is already defined.
-macroIsDefined :: MacroKey -> LexerStack -> Bool
-macroIsDefined m ls = m `elem` (map fst (getMacros ls))
+macroCmdIsDefined :: MacroCmdKey -> LexerStack -> Bool
+macroCmdIsDefined m ls = m `elem` (map fst (getMacroCmds ls))
 
 -- | Return whether an environment with the given key is already defined.
 macroEnvIsDefined :: MacroEnvKey -> LexerStack -> Bool
@@ -168,17 +168,17 @@ macroEnvIsDefined m ls = m `elem` (map fst (getMacroEnvs ls))
 --
 -- This will trigger, depending on 'MacroDefinitionMode',
 -- one of three possible actions: register, error, pass (ignore).
-macroDefinitionAction :: MacroDefinitionMode -> Bool ->
-                         Macro -> LexerStack -> LexerStack
-macroDefinitionAction MacroDeclare _ = registerGlobalMacro
-macroDefinitionAction MacroNew True =
-  error . (++) "macro already defined: " . show . macroName
-macroDefinitionAction MacroNew False = registerGlobalMacro
-macroDefinitionAction MacroRenew True = registerGlobalMacro
-macroDefinitionAction MacroRenew False =
-  error . (++) "cannot redefine undefined macro: " . show . macroName
-macroDefinitionAction MacroProvide True = flip const
-macroDefinitionAction MacroProvide False = registerGlobalMacro
+macroCmdDefinitionAction :: MacroDefinitionMode -> Bool ->
+                            MacroCmd -> LexerStack -> LexerStack
+macroCmdDefinitionAction MacroDeclare _ = registerGlobalMacroCmd
+macroCmdDefinitionAction MacroNew True =
+  error . (++) "macro already defined: " . show . macroCmdName
+macroCmdDefinitionAction MacroNew False = registerGlobalMacroCmd
+macroCmdDefinitionAction MacroRenew True = registerGlobalMacroCmd
+macroCmdDefinitionAction MacroRenew False =
+  error . (++) "cannot redefine undefined macro: " . show . macroCmdName
+macroCmdDefinitionAction MacroProvide True = flip const
+macroCmdDefinitionAction MacroProvide False = registerGlobalMacroCmd
 
 -- | Register a global environment definition.
 --

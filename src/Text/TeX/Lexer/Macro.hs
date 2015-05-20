@@ -13,13 +13,12 @@
 ----------------------------------------------------------------------
 
 module Text.TeX.Lexer.Macro
-  ( -- * Macro types
-    Macro
-  , MacroKey
-  , macroName
-  , macroContext
-  , macroBody
-    -- * Environment types
+  ( -- * Macro commands
+    MacroCmd
+  , MacroCmdKey
+  , MacroCmdDef(..)
+  , macroCmdName
+    -- * Macro environments
   , MacroEnv
   , MacroEnvKey
   , MacroEnvDef(..)
@@ -64,46 +63,38 @@ data ArgType
   | LiteralToken Token
   deriving (Eq, Show)
 
+-------------------- Macro Commands
 
--- Fields: @(name, active)@.
--- | Key for macro lookup.
-type MacroKey = (String, Bool)
+-- | A macro command maps a macro key to its definition.
+type MacroCmd = (MacroCmdKey, MacroCmdDef)
 
--- For now we use a simple type synonym rather than a full data type
--- so we can use @lookup@ in @[Macro]@ without any unwrapping.
--- Fields: @((name, active), (context, body))@.
--- | A Macro maps a name (and a flag for active characters) to a macro
--- context and a macro body.
-type Macro = (MacroKey, (ArgSpec, [Token]))
+-- | Key for macro command lookup: name and active flag.
+type MacroCmdKey = (String, Bool)
 
--- | Extract name of a macro.
-macroName :: Macro -> String
-macroName = fst . fst
+-- | Definition of a macro command.
+data MacroCmdDef = MacroCmdDef
+  { macroCmdContext :: ArgSpec
+  , macroCmdBody :: [Token]
+  } deriving (Eq, Show)
 
--- | Extract context from a macro.
-macroContext :: Macro -> ArgSpec
-macroContext = fst . snd
+-- | Extract name of a macro command.
+macroCmdName :: MacroCmd -> String
+macroCmdName = fst . fst
 
--- | Extract body from a macro.
-macroBody :: Macro -> [Token]
-macroBody = snd . snd
+-------------------- Macro Environments
 
--------------------- MacroEnv types
+-- | A macro environment maps an environment key to its definition.
+type MacroEnv = (MacroEnvKey, MacroEnvDef)
 
 -- | Key for environment lookup.
 type MacroEnvKey = [Token]
 
 -- | Definition of an environment.
 data MacroEnvDef = MacroEnvDef
-                   { macroEnvContext :: ArgSpec
-                   , macroEnvStart :: [Token]
-                   , macroEnvEnd :: [Token]
-                   } deriving (Eq, Show)
-
--- | An environment maps a name to a macro context,
--- a start code (before) and an end code (after).
-type MacroEnv = (MacroEnvKey, MacroEnvDef)
-
+  { macroEnvContext :: ArgSpec
+  , macroEnvStart :: [Token]
+  , macroEnvEnd :: [Token]
+  } deriving (Eq, Show)
 
 -------------------- Macro expansion
 
