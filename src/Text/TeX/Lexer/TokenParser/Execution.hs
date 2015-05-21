@@ -69,8 +69,8 @@ group = (fmap (++) . (:)) <$> bgroup <*> tokens <*> count 1 egroup
 ctrlseq :: Parser [Token]
 ctrlseq = do
   t@(CtrlSeq name active) <- ctrlseqNoExpand
-  macros <- getMacroCmds <$> getState
-  case lookup (name, active) macros of
+  st <- getState
+  case lookupMacroCmd (name, active) st of
     Just m -> [] <$ expand m
     Nothing -> execute t
 
@@ -415,8 +415,8 @@ beginEnvironment :: Parser [Token]
 beginEnvironment = do
   name <- envName
   -- Note: expansion must be enabled because we are expanding 'begin'
-  macroEnvs <- getMacroEnvs <$> getState
-  case lookup (stripBraces name) macroEnvs of
+  st <- getState
+  case lookupMacroEnv (stripBraces name) st of
     Nothing -> let grp = NamedGroup (stripBraces name)
                in modifyState (pushGroup grp) *>
                   return (CtrlSeq "begin" False: name)

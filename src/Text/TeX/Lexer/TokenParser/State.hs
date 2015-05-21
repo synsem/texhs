@@ -34,14 +34,14 @@ module Text.TeX.Lexer.TokenParser.State
   , addCatcode
     -- ** Macro definitions
     -- Generic
---  , getMacros
+--  , lookupMacro
 --  , registerMacro
     -- *** Commands
-  , getMacroCmds
-  , registerLocalMacroCmd
+  , lookupMacroCmd
   , registerMacroCmd
+  , registerLocalMacroCmd
     -- *** Environments
-  , getMacroEnvs
+  , lookupMacroEnv
   , registerMacroEnv
   ) where
 
@@ -149,17 +149,21 @@ addCatcode _ [] = error "empty lexer stack"
 
 ---------- Macro state
 
+-- | Lookup macro definition.
+lookupMacro :: Macro k a => k -> LexerStack -> Maybe a
+lookupMacro k = lookup k . getMacros
+
+-- | Lookup macro command definition.
+lookupMacroCmd :: MacroCmdKey -> LexerStack -> Maybe MacroCmd
+lookupMacroCmd = lookupMacro
+
+-- | Lookup macro environment definition.
+lookupMacroEnv :: MacroEnvKey -> LexerStack -> Maybe MacroEnv
+lookupMacroEnv = lookupMacro
+
 -- | Get all registered macro definitions.
 getMacros :: Macro k a => LexerStack -> [(k, a)]
 getMacros = concatMap getLocalMacros
-
--- | Get all registered macro command definitions.
-getMacroCmds :: LexerStack -> MacroCmdMap
-getMacroCmds = getMacros
-
--- | Get all registered environment definitions.
-getMacroEnvs :: LexerStack -> MacroEnvMap
-getMacroEnvs = getMacros
 
 -- | Register a local macro command definition.
 --
