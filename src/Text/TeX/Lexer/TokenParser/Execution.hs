@@ -278,8 +278,9 @@ def = do
   (CtrlSeq name active) <- ctrlseqNoExpand <?> "macro name"
   context <- macroContextDefinition <?> "macro context definition"
   body <- grouped tokensNoExpand
+  let key = (name, active)
   modifyState (registerLocalMacroCmd
-               ((name, active), MacroCmdDef (def2xparse context) body))
+               (key, MacroCmd key (def2xparse context) body))
   return []
 
 -- Parse a macro context definition. Similar to 'tokens', but
@@ -311,8 +312,9 @@ declareDocumentCommand defMode = do
   context <- argspec <?> "macro argspec"
   body <- grouped tokensNoExpand
   isDefined <- macroCmdIsDefined (name, active) <$> getState
-  modifyState $ macroCmdDefinitionAction defMode isDefined
-    ((name, active), MacroCmdDef context body)
+  let key = (name, active)
+  modifyState $ registerMacroCmd defMode isDefined
+    (key, MacroCmd key context body)
   return []
 
 -- Parse and register an xparse environment definition.
@@ -323,8 +325,8 @@ declareDocumentEnvironment defMode = do
   startCode <- grouped tokensNoExpand <?> "environment start code"
   endCode <- grouped tokensNoExpand <?> "environment end code"
   isDefined <- macroEnvIsDefined name <$> getState
-  modifyState $ macroEnvDefinitionAction defMode isDefined
-    (name, MacroEnvDef context startCode endCode)
+  modifyState $ registerMacroEnv defMode isDefined
+    (name, MacroEnv name context startCode endCode)
   return []
 
 -- Parse a full xparse-style argument specification.
@@ -386,8 +388,9 @@ newcommand defMode = do
         Nothing -> replicate numArgs Mandatory
   body <- grouped tokensNoExpand <|> count 1 singleToken
   isDefined <- macroCmdIsDefined (name, active) <$> getState
-  modifyState $ macroCmdDefinitionAction defMode isDefined
-    ((name, active), MacroCmdDef context body)
+  let key = (name, active)
+  modifyState $ registerMacroCmd defMode isDefined
+    (key, MacroCmd key context body)
   return []
 
 -- Parse and register a LaTeX2e environment definition.
@@ -405,8 +408,8 @@ newenvironment defMode = do
   startCode <- grouped tokensNoExpand <?> "environment start code"
   endCode <- grouped tokensNoExpand <?> "environment end code"
   isDefined <- macroEnvIsDefined name <$> getState
-  modifyState $ macroEnvDefinitionAction defMode isDefined
-    (name, MacroEnvDef context startCode endCode)
+  modifyState $ registerMacroEnv defMode isDefined
+    (name, MacroEnv name context startCode endCode)
   return []
 
 -------------------- Handle LaTeX environments (named groups)

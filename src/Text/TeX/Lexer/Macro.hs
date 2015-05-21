@@ -14,14 +14,11 @@
 
 module Text.TeX.Lexer.Macro
   ( -- * Macro commands
-    MacroCmd
+    MacroCmd(..)
   , MacroCmdKey
-  , MacroCmdDef(..)
-  , macroCmdName
     -- * Macro environments
-  , MacroEnv
+  , MacroEnv(..)
   , MacroEnvKey
-  , MacroEnvDef(..)
     -- * Macro arguments
   , ArgSpec
   , ArgType(..)
@@ -65,33 +62,25 @@ data ArgType
 
 -------------------- Macro Commands
 
--- | A macro command maps a macro key to its definition.
-type MacroCmd = (MacroCmdKey, MacroCmdDef)
-
 -- | Key for macro command lookup: name and active flag.
 type MacroCmdKey = (String, Bool)
 
 -- | Definition of a macro command.
-data MacroCmdDef = MacroCmdDef
-  { macroCmdContext :: ArgSpec
+data MacroCmd = MacroCmd
+  { macroCmdName :: MacroCmdKey
+  , macroCmdContext :: ArgSpec
   , macroCmdBody :: [Token]
   } deriving (Eq, Show)
 
--- | Extract name of a macro command.
-macroCmdName :: MacroCmd -> String
-macroCmdName = fst . fst
-
 -------------------- Macro Environments
 
--- | A macro environment maps an environment key to its definition.
-type MacroEnv = (MacroEnvKey, MacroEnvDef)
-
--- | Key for environment lookup.
+-- | Key for macro environment lookup.
 type MacroEnvKey = [Token]
 
--- | Definition of an environment.
-data MacroEnvDef = MacroEnvDef
-  { macroEnvContext :: ArgSpec
+-- | Definition of a macro environment.
+data MacroEnv = MacroEnv
+  { macroEnvName :: MacroEnvKey
+  , macroEnvContext :: ArgSpec
   , macroEnvStart :: [Token]
   , macroEnvEnd :: [Token]
   } deriving (Eq, Show)
