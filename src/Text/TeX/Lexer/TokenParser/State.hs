@@ -35,16 +35,13 @@ module Text.TeX.Lexer.TokenParser.State
     -- ** Macro definitions
     -- Generic
 --  , getMacros
---  , macroIsDefined
 --  , registerMacro
     -- *** Commands
   , getMacroCmds
-  , macroCmdIsDefined
   , registerLocalMacroCmd
   , registerMacroCmd
     -- *** Environments
   , getMacroEnvs
-  , macroEnvIsDefined
   , registerMacroEnv
   ) where
 
@@ -180,19 +177,9 @@ registerGlobalMacro m ls@(_:_) =
   in reverse (addLocalMacro m g :tl)
 registerGlobalMacro _ [] = error "empty lexer stack"
 
-
 -- | Return whether a macro with the given key is already defined.
 macroIsDefined :: Macro k a => k -> LexerStack -> Bool
 macroIsDefined m ls = m `elem` (map fst (getMacros ls))
-
--- | Return whether a macro command with the given key is already defined.
-macroCmdIsDefined :: MacroCmdKey -> LexerStack -> Bool
-macroCmdIsDefined = macroIsDefined
-
--- | Return whether a macro environment with the given key is already defined.
-macroEnvIsDefined :: MacroEnvKey -> LexerStack -> Bool
-macroEnvIsDefined = macroIsDefined
-
 
 -- | Register a global macro definition.
 --
@@ -201,24 +188,26 @@ macroEnvIsDefined = macroIsDefined
 --
 -- This will trigger, depending on 'MacroDefinitionMode',
 -- one of three possible actions: register, error, pass (ignore).
-registerMacro :: Macro k a => MacroDefinitionMode -> Bool ->
-                 (k, a) -> LexerStack -> LexerStack
-registerMacro MacroDeclare _ = registerGlobalMacro
-registerMacro MacroNew True =
-  error . (++) "macro already defined" . getMacroName
-registerMacro MacroNew False = registerGlobalMacro
-registerMacro MacroRenew True = registerGlobalMacro
-registerMacro MacroRenew False =
-  error . (++) "cannot redefine undefined macro: " . getMacroName
-registerMacro MacroProvide True = flip const
-registerMacro MacroProvide False = registerGlobalMacro
+registerMacro :: Macro k a => MacroDefinitionMode -> (k, a) ->
+                 LexerStack -> LexerStack
+registerMacro mode m@(k,_) st
+  | macroIsDefined k st = case mode of
+    MacroDeclare -> registerGlobalMacro m st
+    MacroNew -> error $ "macro already defined" ++ (getMacroName m)
+    MacroRenew -> registerGlobalMacro m st
+    MacroProvide -> st
+  | otherwise = case mode of
+    MacroDeclare -> registerGlobalMacro m st
+    MacroNew -> registerGlobalMacro m st
+    MacroRenew -> error $ "cannot redefine undefined macro: " ++ (getMacroName m)
+    MacroProvide -> registerGlobalMacro m st
 
 -- | Register a global macro command definition.
-registerMacroCmd :: MacroDefinitionMode -> Bool ->
-                    (MacroCmdKey, MacroCmd) -> LexerStack -> LexerStack
+registerMacroCmd :: MacroDefinitionMode -> (MacroCmdKey, MacroCmd) ->
+                    LexerStack -> LexerStack
 registerMacroCmd = registerMacro
 
 -- | Register a global macro environment definition.
-registerMacroEnv :: MacroDefinitionMode -> Bool ->
-                    (MacroEnvKey, MacroEnv) -> LexerStack -> LexerStack
+registerMacroEnv :: MacroDefinitionMode -> (MacroEnvKey, MacroEnv) ->
+                    LexerStack -> LexerStack
 registerMacroEnv = registerMacro

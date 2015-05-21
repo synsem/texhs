@@ -311,9 +311,8 @@ declareDocumentCommand defMode = do
   (CtrlSeq name active) <- optGrouped ctrlseqNoExpand <?> "macro name"
   context <- argspec <?> "macro argspec"
   body <- grouped tokensNoExpand
-  isDefined <- macroCmdIsDefined (name, active) <$> getState
   let key = (name, active)
-  modifyState $ registerMacroCmd defMode isDefined
+  modifyState $ registerMacroCmd defMode
     (key, MacroCmd key context body)
   return []
 
@@ -324,8 +323,7 @@ declareDocumentEnvironment defMode = do
   context <- argspec <?> "environment argspec"
   startCode <- grouped tokensNoExpand <?> "environment start code"
   endCode <- grouped tokensNoExpand <?> "environment end code"
-  isDefined <- macroEnvIsDefined name <$> getState
-  modifyState $ registerMacroEnv defMode isDefined
+  modifyState $ registerMacroEnv defMode
     (name, MacroEnv name context startCode endCode)
   return []
 
@@ -387,9 +385,8 @@ newcommand defMode = do
                   replicate (numArgs-1) Mandatory
         Nothing -> replicate numArgs Mandatory
   body <- grouped tokensNoExpand <|> count 1 singleToken
-  isDefined <- macroCmdIsDefined (name, active) <$> getState
   let key = (name, active)
-  modifyState $ registerMacroCmd defMode isDefined
+  modifyState $ registerMacroCmd defMode
     (key, MacroCmd key context body)
   return []
 
@@ -407,8 +404,7 @@ newenvironment defMode = do
         Nothing -> replicate numArgs Mandatory
   startCode <- grouped tokensNoExpand <?> "environment start code"
   endCode <- grouped tokensNoExpand <?> "environment end code"
-  isDefined <- macroEnvIsDefined name <$> getState
-  modifyState $ registerMacroEnv defMode isDefined
+  modifyState $ registerMacroEnv defMode
     (name, MacroEnv name context startCode endCode)
   return []
 
