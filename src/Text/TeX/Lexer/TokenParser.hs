@@ -14,8 +14,8 @@
 
 module Text.TeX.Lexer.TokenParser
        ( texLexer
-       , defaultLexerStack
+       , defaultLexerState
        ) where
 
 import Text.TeX.Lexer.TokenParser.Execution (texLexer)
-import Text.TeX.Lexer.TokenParser.State (defaultLexerStack)
+import Text.TeX.Lexer.TokenParser.State (defaultLexerState)

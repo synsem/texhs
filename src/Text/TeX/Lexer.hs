@@ -21,19 +21,19 @@ module Text.TeX.Lexer
 import Text.Parsec (runParser)
 
 import Text.TeX.Lexer.Token (Token)
-import Text.TeX.Lexer.TokenParser (texLexer, defaultLexerStack)
+import Text.TeX.Lexer.TokenParser (texLexer, defaultLexerState)
 
 
 -- | Run TeX lexer on named input string and return a 'Token' list.
 -- (The resulting 'Token' stream is restricted to 'TeXChar' and
 -- 'CtrlSeq' elements, i.e. no 'Param' elements.) Exit on failure.
 parseTeX :: String -> String -> [Token]
-parseTeX name input = case runParser texLexer defaultLexerStack name (map Left input) of
+parseTeX name input = case runParser texLexer defaultLexerState name (map Left input) of
   Left l  -> error (show l)
   Right r -> r
 
 -- | Run TeX lexer on input string and return all results and errors as strings.
 replParseTeX :: String -> String
-replParseTeX input = case runParser texLexer defaultLexerStack "" (map Left input) of
+replParseTeX input = case runParser texLexer defaultLexerState "" (map Left input) of
   Left err  -> "ERROR " ++ show err
   Right ans -> show ans

@@ -13,26 +13,24 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- Internal state for TeX lexer.
+-- The lexer state manages the catcode table, group nesting
+-- and user-defined macro commands and environments.
 ----------------------------------------------------------------------
 
 module Text.TeX.Lexer.TokenParser.State
   ( -- * Types
-    LexerStack
-  , LexerState
-  , defaultLexerStack
-  , MacroCmdMap
-  , MacroEnvMap
+    LexerState
+  , defaultLexerState
     -- * Accessor functions
-    -- ** Group
+    -- ** Catcodes
+  , getCatcodes
+  , addCatcode
+    -- ** Groups
   , pushGroup
   , popGroup
   , getGroup
   , setGroup
-    -- ** Catcode table
-  , getCatcodes
-  , addCatcode
-    -- ** Macro definitions
+    -- ** User macros
     -- Generic
 --  , lookupMacro
 --  , registerMacro
@@ -50,10 +48,95 @@ import Text.TeX.Lexer.Macro
 import Text.TeX.Lexer.Token
 
 
+---------- Types
+
+-- | Internal state of the TeX lexer.
+newtype LexerState = LexerState { getLexerState :: [Scope] }
+  deriving (Eq, Show)
+
+-- | Map a function over a LexerState.
+fmapL :: ([Scope] -> [Scope]) -> LexerState -> LexerState
+fmapL f = LexerState . f . getLexerState
+
+-- | A TeX scope, with the current catcode table,
+-- local macro definitions and the current group type.
+data Scope = Scope
+  { localCatcodes :: CatcodeTable
+  , localMacroCmds :: MacroCmdMap
+  , localMacroEnvs :: MacroEnvMap
+  , localGroup :: Group
+  } deriving (Eq, Show)
+
+---------- Constructors
+
+-- | The initial lexer state contains the default catcode table
+-- and no registered macros.
+defaultLexerState :: LexerState
+defaultLexerState = LexerState [Scope
+  { localCatcodes = defaultCatcodeTable
+  , localMacroCmds = []
+  , localMacroEnvs = []
+  , localGroup = AnonymousGroup
+  }]
+
+-- | Create an empty scope from a provided group.
+emptyScope :: Group -> Scope
+emptyScope = Scope [] [] []
+
+---------- Groups
+
+-- | Push new group.
+pushGroup :: Group -> LexerState -> LexerState
+pushGroup g = fmapL (emptyScope g:)
+
+-- | Pop matching group.
+-- Throws an error on group mismatch (invalid nesting).
+popGroup :: Group -> LexerState -> LexerState
+popGroup g st@(LexerState (_:ls))
+  | getGroup st == g = LexerState ls
+  | otherwise = error $ "invalid group nesting" ++
+                ": expecting " ++ groupEndString (getGroup st) ++
+                " but got " ++ groupEndString g
+popGroup _ _ = error "invalid lexer state"
+
+-- | Get current group.
+getGroup :: LexerState -> Group
+getGroup (LexerState (l:_)) = localGroup l
+getGroup _ = error "invalid lexer state"
+
+-- | Set current group.
+setGroup :: Group -> LexerState -> LexerState
+setGroup g (LexerState (l:ls)) = LexerState (l {localGroup = g} :ls)
+setGroup _ _ = error "invalid lexer state"
+
+-- Get string representation of the expected end delimiter for the
+-- current group. Only used for error messages.
+groupEndString :: Group -> String
+groupEndString AnonymousGroup = "}"
+groupEndString NativeGroup = "\\endgroup"
+groupEndString (NamedGroup name) = "\\end{" ++ show name ++ "}"
+groupEndString (DefinedGroup name _ _) = "\\end{" ++ show name ++ "}"
+
+---------- Catcodes
+
+-- | Get current category code table.
+getCatcodes :: LexerState -> CatcodeTable
+getCatcodes = concatMap localCatcodes . getLexerState
+
+-- | Add new catcode assignment to the local category code table.
+addCatcode :: (Char, Catcode) -> LexerState -> LexerState
+addCatcode ccpair (LexerState (l:ls)) =
+  let cctab = updateCatcodeTable ccpair (localCatcodes l)
+  in LexerState (l {localCatcodes = cctab} :ls)
+addCatcode _ _ = error "invalid lexer state"
+
+---------- User macros
+
+-- Generalize over macro commands and environments.
 class (Eq k) => Macro k a | k -> a where
   getMacroName :: (k, a) -> String
-  getLocalMacros :: LexerState -> [(k, a)]
-  addLocalMacro :: (k, a) -> LexerState -> LexerState
+  getLocalMacros :: Scope -> [(k, a)]
+  addLocalMacro :: (k, a) -> Scope -> Scope
 
 instance Macro MacroCmdKey MacroCmd where
   getMacroName = fst . macroCmdName . snd
@@ -71,129 +154,45 @@ type MacroCmdMap = [(MacroCmdKey, MacroCmd)]
 -- | Lookup table for macro environments.
 type MacroEnvMap = [(MacroEnvKey, MacroEnv)]
 
--- | Stack of open TeX scopes.
--- The head is the current local scope.
-type LexerStack = [LexerState]
-
--- | A TeX scope, with the current catcode table,
--- local macro definitions and the current group type.
-data LexerState = LexerState
-  { localCatcodes :: CatcodeTable
-  , localMacroCmds :: MacroCmdMap
-  , localMacroEnvs :: MacroEnvMap
-  , localGroup :: Group
-  } deriving (Eq, Show)
-
--- | Create an empty lexer state
--- from a provided expansion mode and group.
-emptyLexerState :: Group -> LexerState
-emptyLexerState = LexerState [] [] []
-
--- | The initial lexer stack consists of a single lexer state
--- with the default catcode table and no registered macros.
-defaultLexerStack :: LexerStack
-defaultLexerStack = LexerState
-  { localCatcodes = defaultCatcodeTable
-  , localMacroCmds = []
-  , localMacroEnvs = []
-  , localGroup = AnonymousGroup
-  } :[]
-
----------- Stack manipulation
-
--- | Push new group onto stack.
-pushGroup :: Group -> LexerStack -> LexerStack
-pushGroup g = (emptyLexerState g :)
-
--- | Pop group from stack.
-popGroup :: Group -> LexerStack -> LexerStack
-popGroup g tl@(_:ls)
-  | getGroup tl == g = ls
-  | otherwise = error $ "invalid group nesting" ++
-                ": expecting " ++ groupEndString (getGroup tl) ++
-                " but got " ++ groupEndString g
-popGroup _ [] = error "empty lexer stack"
-
----------- Group
-
--- | Get current group.
-getGroup :: LexerStack -> Group
-getGroup (l:_) = localGroup l
-getGroup [] = error "empty lexer stack"
-
--- | Set current group.
-setGroup :: Group -> LexerStack -> LexerStack
-setGroup g (l:ls) = l {localGroup = g} :ls
-setGroup _ [] = error "empty lexer stack"
-
--- Get string representation of the expected end delimiter for the
--- current group. Only used for error messages.
-groupEndString :: Group -> String
-groupEndString AnonymousGroup = "}"
-groupEndString NativeGroup = "\\endgroup"
-groupEndString (NamedGroup name) = "\\end{" ++ show name ++ "}"
-groupEndString (DefinedGroup name _ _) = "\\end{" ++ show name ++ "}"
-
----------- Catcode state
-
--- | Get current category code table.
-getCatcodes :: LexerStack -> CatcodeTable
-getCatcodes = concatMap localCatcodes
-
--- | Add new catcode assignment to current category code table.
-addCatcode :: (Char, Catcode) -> LexerStack -> LexerStack
-addCatcode ccpair (l:ls) =
-  let cctab = updateCatcodeTable ccpair (localCatcodes l)
-  in l {localCatcodes = cctab} :ls
-addCatcode _ [] = error "empty lexer stack"
-
----------- Macro state
-
 -- | Lookup macro definition.
-lookupMacro :: Macro k a => k -> LexerStack -> Maybe a
+lookupMacro :: Macro k a => k -> LexerState -> Maybe a
 lookupMacro k = lookup k . getMacros
 
 -- | Lookup macro command definition.
-lookupMacroCmd :: MacroCmdKey -> LexerStack -> Maybe MacroCmd
+lookupMacroCmd :: MacroCmdKey -> LexerState -> Maybe MacroCmd
 lookupMacroCmd = lookupMacro
 
 -- | Lookup macro environment definition.
-lookupMacroEnv :: MacroEnvKey -> LexerStack -> Maybe MacroEnv
+lookupMacroEnv :: MacroEnvKey -> LexerState -> Maybe MacroEnv
 lookupMacroEnv = lookupMacro
 
 -- | Get all registered macro definitions.
-getMacros :: Macro k a => LexerStack -> [(k, a)]
-getMacros = concatMap getLocalMacros
+getMacros :: Macro k a => LexerState -> [(k, a)]
+getMacros = concatMap getLocalMacros . getLexerState
 
 -- | Register a local macro command definition.
---
--- Prefix macro to the list of currently active macros.
--- The new macro will shadow others with the same name
--- (due to @lookup@'s left bias).
-registerLocalMacroCmd :: (MacroCmdKey, MacroCmd) -> LexerStack -> LexerStack
-registerLocalMacroCmd m (l:ls) = l {localMacroCmds = m : localMacroCmds l} :ls
-registerLocalMacroCmd _ [] = error "empty lexer stack"
+registerLocalMacroCmd :: (MacroCmdKey, MacroCmd) -> LexerState -> LexerState
+registerLocalMacroCmd m (LexerState (l:ls)) =
+  LexerState (l {localMacroCmds = m : localMacroCmds l} :ls)
+registerLocalMacroCmd _ _ = error "invalid lexer state"
 
 -- | Register a global macro definition.
-registerGlobalMacro :: Macro k a => (k, a) -> LexerStack -> LexerStack
-registerGlobalMacro m ls@(_:_) =
-  let (g:tl) = reverse ls
-  in reverse (addLocalMacro m g :tl)
-registerGlobalMacro _ [] = error "empty lexer stack"
+registerGlobalMacro :: Macro k a => (k, a) -> LexerState -> LexerState
+registerGlobalMacro m (LexerState sc@(_:_)) =
+  let (g:tl) = reverse sc
+  in LexerState (reverse (addLocalMacro m g :tl))
+registerGlobalMacro _ _ = error "invalid lexer state"
 
 -- | Return whether a macro with the given key is already defined.
-macroIsDefined :: Macro k a => k -> LexerStack -> Bool
+macroIsDefined :: Macro k a => k -> LexerState -> Bool
 macroIsDefined m ls = m `elem` (map fst (getMacros ls))
 
 -- | Register a global macro definition.
 --
--- The second argument is a flag that indicates whether
--- the macro is already defined.
---
 -- This will trigger, depending on 'MacroDefinitionMode',
 -- one of three possible actions: register, error, pass (ignore).
 registerMacro :: Macro k a => MacroDefinitionMode -> (k, a) ->
-                 LexerStack -> LexerStack
+                 LexerState -> LexerState
 registerMacro mode m@(k,_) st
   | macroIsDefined k st = case mode of
     MacroDeclare -> registerGlobalMacro m st
@@ -208,10 +207,10 @@ registerMacro mode m@(k,_) st
 
 -- | Register a global macro command definition.
 registerMacroCmd :: MacroDefinitionMode -> (MacroCmdKey, MacroCmd) ->
-                    LexerStack -> LexerStack
+                    LexerState -> LexerState
 registerMacroCmd = registerMacro
 
 -- | Register a global macro environment definition.
 registerMacroEnv :: MacroDefinitionMode -> (MacroEnvKey, MacroEnv) ->
-                    LexerStack -> LexerStack
+                    LexerState -> LexerState
 registerMacroEnv = registerMacro

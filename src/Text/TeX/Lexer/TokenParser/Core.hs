@@ -29,13 +29,13 @@ import Text.Parsec.Pos (updatePosChar)
 
 import Text.TeX.Lexer.Catcode (Catcode, hasCatcode)
 import Text.TeX.Lexer.Token (Token, getRawChar, isCharSat, hasCC)
-import Text.TeX.Lexer.TokenParser.State (LexerStack, getCatcodes)
+import Text.TeX.Lexer.TokenParser.State (LexerState, getCatcodes)
 
 
 -------------------- Parser type
 
 -- | Parser for TeX input streams.
-type Parser = Parsec [CharOrToken] LexerStack
+type Parser = Parsec [CharOrToken] LexerState
 
 -- The input to the lexer/parser is a stream of @CharOrToken@
 -- elements. These are either (1) unparsed and yet unseen raw @Char@
