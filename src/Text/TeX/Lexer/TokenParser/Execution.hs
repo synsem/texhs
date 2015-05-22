@@ -24,9 +24,6 @@ module Text.TeX.Lexer.TokenParser.Execution
 import Control.Applicative ((<*), (<*>), (*>), (<$), (<$>))
 #endif
 import Control.Monad ((>=>))
-import Text.Parsec
-  (getState, modifyState, (<|>), many, choice,
-   option, optionMaybe, optional, count, eof, (<?>))
 
 import Text.TeX.Lexer.Catcode
 import Text.TeX.Lexer.Macro

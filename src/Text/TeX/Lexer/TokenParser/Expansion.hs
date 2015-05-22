@@ -27,7 +27,6 @@ import Control.Applicative ((<$), (<$>))
 #endif
 import Control.Monad ((>=>))
 import Data.Maybe (fromMaybe)
-import Text.Parsec (many, option, count)
 
 import Text.TeX.Lexer.Macro
 import Text.TeX.Lexer.Token

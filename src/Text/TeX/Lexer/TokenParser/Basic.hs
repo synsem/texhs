@@ -69,10 +69,6 @@ import Control.Applicative ((<*), (<*>), (*>), (<$), (<$>))
 import Control.Monad (void, when)
 import Data.Char (isOctDigit, isDigit, isHexDigit)
 import Numeric (readOct, readDec, readHex)
-import Text.Parsec
-  (getState, modifyState, try, manyTill, between,
-   (<|>), many, many1, choice, option, optional, count,
-   (<?>), unexpected)
 
 import Text.TeX.Lexer.Catcode
 import Text.TeX.Lexer.Token

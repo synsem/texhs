@@ -13,9 +13,11 @@
 ----------------------------------------------------------------------
 
 module Text.TeX.Lexer.TokenParser
-       ( texLexer
+       ( runParser
+       , texLexer
        , defaultLexerState
        ) where
 
+import Text.TeX.Lexer.TokenParser.Core (runParser)
 import Text.TeX.Lexer.TokenParser.Execution (texLexer)
 import Text.TeX.Lexer.TokenParser.State (defaultLexerState)
