@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 ----------------------------------------------------------------------
 -- |
@@ -46,7 +47,11 @@ module Text.TeX.Lexer.TokenParser.Core
   , try
   ) where
 
-import Control.Applicative hiding ((<|>), many, optional)
+#if MIN_VERSION_base(4,8,0)
+-- Prelude already exports everything required from Control.Applicative
+#else
+import Control.Applicative (Applicative, (<$>))
+#endif
 import Control.Monad.Trans.Class (MonadTrans)
 import Data.Functor.Identity (Identity)
 import Text.Parsec (ParsecT, ParseError, tokenPrim)
