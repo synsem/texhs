@@ -373,14 +373,7 @@ newcommand :: MacroDefinitionMode -> Parser [Token]
 newcommand defMode = do
   optional (char '*' Other) -- ignore 'long' property
   (CtrlSeq name active) <- optGrouped ctrlseqNoExpand <?> "macro name"
-  numArgs <- option 0 (bracketed singleDigit)
-  let open = TeXChar '[' Other
-      close = TeXChar ']' Other
-  optArg <- optionMaybe (balanced open close)
-  let context = case optArg of
-        Just d -> OptionalGroup open close (Just d) :
-                  replicate (numArgs-1) Mandatory
-        Nothing -> replicate numArgs Mandatory
+  context <- latexMacroContext
   body <- grouped tokensNoExpand <|> count 1 singleToken
   let key = (name, active)
   modifyState $ registerMacroCmd defMode
@@ -391,6 +384,17 @@ newcommand defMode = do
 newenvironment :: MacroDefinitionMode -> Parser [Token]
 newenvironment defMode = do
   name <- grouped tokens <?> "environment name"
+  context <- latexMacroContext
+  startCode <- grouped tokensNoExpand <?> "environment start code"
+  endCode <- grouped tokensNoExpand <?> "environment end code"
+  modifyState $ registerMacroEnv defMode
+    (name, MacroEnv name context startCode endCode)
+  return []
+
+-- Parse a LaTeX2e macro context definition and
+-- convert it to an xparse-style ArgSpec.
+latexMacroContext :: Parser ArgSpec
+latexMacroContext = do
   numArgs <- option 0 (bracketed singleDigit)
   let open = TeXChar '[' Other
       close = TeXChar ']' Other
@@ -399,11 +403,7 @@ newenvironment defMode = do
         Just d -> OptionalGroup open close (Just d) :
                   replicate (numArgs-1) Mandatory
         Nothing -> replicate numArgs Mandatory
-  startCode <- grouped tokensNoExpand <?> "environment start code"
-  endCode <- grouped tokensNoExpand <?> "environment end code"
-  modifyState $ registerMacroEnv defMode
-    (name, MacroEnv name context startCode endCode)
-  return []
+  return context
 
 -------------------- Handle LaTeX environments (named groups)
 
