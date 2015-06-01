@@ -70,12 +70,15 @@ type Parser = ParserT Identity
 
 -- | Parser for TeX input streams.
 newtype ParserT m a = ParserT {
-    runParserT :: ParsecT [CharOrToken] LexerState m a
+    runParserT :: TeXParsecT m a
   } deriving (Functor, Applicative, Monad, MonadTrans)
 
 -- | Run a TeX parser on a 'Char' input stream.
 runParser :: Parser a -> LexerState -> String -> String -> Either ParseError a
 runParser (ParserT p) st name input = P.runParser p st name (map Left input)
+
+-- ParsecT specialized for TeX input streams.
+type TeXParsecT = ParsecT [CharOrToken] LexerState
 
 -- The input to the lexer/parser is a stream of @CharOrToken@
 -- elements. These are either (1) unparsed and yet unseen raw @Char@
@@ -139,6 +142,21 @@ prependToInput xs = (map Right xs ++) <$> getInput >>= setInput
 
 -------------------- Parsec re-exports
 
+---------- lifting helpers
+
+liftP :: (TeXParsecT m a -> TeXParsecT m r) ->
+         ParserT m a -> ParserT m r
+liftP f (ParserT p) = ParserT (f p)
+
+liftP2 :: (TeXParsecT m a1 -> TeXParsecT m a2 -> TeXParsecT m r) ->
+          ParserT m a1 -> ParserT m a2 -> ParserT m r
+liftP2 f (ParserT p1) (ParserT p2) = ParserT (f p1 p2)
+
+liftP3 :: (TeXParsecT m a1 -> TeXParsecT m a2 ->
+           TeXParsecT m a3 -> TeXParsecT m r) ->
+          ParserT m a1 -> ParserT m a2 -> ParserT m a3 -> ParserT m r
+liftP3 f (ParserT p1) (ParserT p2) (ParserT p3) = ParserT (f p1 p2 p3)
+
 ---------- input
 
 -- | See 'P.getInput' from "Text.Parsec".
@@ -165,7 +183,7 @@ infix 0 <?>
 
 -- | See 'P.<?>' from "Text.Parsec".
 (<?>) :: Parser a -> String -> Parser a
-ParserT p <?> msg = ParserT (p P.<?> msg)
+p <?> msg = liftP (P.<?> msg) p
 
 -- | See 'P.unexpected' from "Text.Parsec".
 unexpected :: String -> Parser a
@@ -177,11 +195,11 @@ infixr 1 <|>
 
 -- | See 'P.<|>' from "Text.Parsec".
 (<|>) :: Parser a -> Parser a -> Parser a
-ParserT p <|> ParserT q = ParserT (p P.<|> q)
+(<|>) = liftP2 (P.<|>)
 
 -- | See 'P.between' from "Text.Parsec".
 between :: Parser open -> Parser close -> Parser a -> Parser a
-between (ParserT o) (ParserT c) (ParserT b) = ParserT (P.between o c b)
+between = liftP3 P.between
 
 -- | See 'P.choice' from "Text.Parsec".
 choice :: [Parser a] -> Parser a
@@ -189,7 +207,7 @@ choice = ParserT . P.choice . map runParserT
 
 -- | See 'P.count' from "Text.Parsec".
 count :: Int -> Parser a -> Parser [a]
-count i (ParserT p) = ParserT (P.count i p)
+count = liftP . P.count
 
 -- | See 'P.eof' from "Text.Parsec".
 eof :: Parser ()
@@ -197,28 +215,28 @@ eof = ParserT P.eof
 
 -- | See 'P.many' from "Text.Parsec".
 many :: Parser a -> Parser [a]
-many (ParserT p) = ParserT (P.many p)
+many = liftP P.many
 
 -- | See 'P.many1' from "Text.Parsec".
 many1 :: Parser a -> Parser [a]
-many1 (ParserT p) = ParserT (P.many1 p)
+many1 = liftP P.many1
 
 -- | See 'P.manyTill' from "Text.Parsec".
 manyTill :: Parser a -> Parser end -> Parser [a]
-manyTill (ParserT p) (ParserT e) = ParserT (P.manyTill p e)
+manyTill = liftP2 P.manyTill
 
 -- | See 'P.option' from "Text.Parsec".
 option :: a -> Parser a -> Parser a
-option v (ParserT p) = ParserT (P.option v p)
+option = liftP . P.option
 
 -- | See 'P.optionMaybe' from "Text.Parsec".
 optionMaybe :: Parser a -> Parser (Maybe a)
-optionMaybe (ParserT p) = ParserT (P.optionMaybe p)
+optionMaybe = liftP P.optionMaybe
 
 -- | See 'P.optional' from "Text.Parsec".
 optional :: Parser a -> Parser ()
-optional (ParserT p) = ParserT (P.optional p)
+optional = liftP P.optional
 
 -- | See 'P.try' from "Text.Parsec".
 try :: Parser a -> Parser a
-try (ParserT p) = ParserT (P.try p)
+try = liftP P.try
