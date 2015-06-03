@@ -20,9 +20,9 @@ module Text.TeX.Lexer.TokenParser.Core
   , ParserT
   , runParser
     -- * Fundamental parsers
-  , charSatCCs
   , satisfyToken
   , satisfyChar
+  , satisfyCharCC
     -- * Stream modifications
   , prependToInput
     -- * Parsec re-exports
@@ -99,15 +99,15 @@ type CharOrToken = Either Char Token
 
 -- | Parse a character that both satisfies the provided property
 -- and has one of the listed catcodes.
-charSatCCs :: (Char -> Bool) -> [Catcode] -> Parser Char
-charSatCCs p ccs = charSatCCsT p ccs <|> charSatCCsC p ccs
+satisfyCharCC :: (Char -> Bool) -> [Catcode] -> Parser Char
+satisfyCharCC p ccs = satisfyCharCCT p ccs <|> satisfyCharCCC p ccs
 
-charSatCCsT :: (Char -> Bool) -> [Catcode] -> Parser Char
-charSatCCsT p ccs = getRawChar <$> satisfyToken
-                    (\t -> isCharSat p t && any (`hasCC` t) ccs)
+satisfyCharCCT :: (Char -> Bool) -> [Catcode] -> Parser Char
+satisfyCharCCT p ccs = getRawChar <$> satisfyToken (\t ->
+                         isCharSat p t && any (`hasCC` t) ccs)
 
-charSatCCsC :: (Char -> Bool) -> [Catcode] -> Parser Char
-charSatCCsC p ccs = do
+satisfyCharCCC :: (Char -> Bool) -> [Catcode] -> Parser Char
+satisfyCharCCC p ccs = do
   cctab <- getCatcodes <$> getState
   satisfyChar (\x -> p x && any (\cc -> hasCatcode cc cctab x) ccs)
 
@@ -124,9 +124,8 @@ satisfyChar p = satisfy (either p (const False)) >>= \(Left c) -> return c
 
 -- Fundamental parser for "CharOrToken" streams.
 satisfy :: (CharOrToken -> Bool) -> Parser CharOrToken
-satisfy p = ParserT $ tokenPrim showToken nextpos test
+satisfy p = ParserT $ tokenPrim show nextpos test
   where
-    showToken = show
     nextpos = \pos t _ -> case t of
       Left c -> updatePosChar pos c
       Right _ -> pos -- don't increment position

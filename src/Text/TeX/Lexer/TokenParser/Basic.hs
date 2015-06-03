@@ -126,8 +126,8 @@ charC c i = do
 -- the current catcode table).
 charcc :: Catcode -> Parser Token
 charcc i = charccT i <|> charccC i
--- Note: This can also be expressed in terms of @charSatCCs@ as follows:
--- charcc i = charSatCCs (const True) [i] >>= \c -> return (TeXChar c i)
+-- Note: This can also be expressed in terms of @satisfyCharCC@ as follows:
+-- charcc i = satisfyCharCC (const True) [i] >>= \c -> return (TeXChar c i)
 
 -- | Parse any character that does not have the provided catcode.
 charccno :: Catcode -> Parser Token
@@ -171,18 +171,18 @@ string = foldr op (return "")
 
 -- | Parse a decimal digit.
 digit :: Parser Char
-digit = charSatCCs isDigit [Other]
+digit = satisfyCharCC isDigit [Other]
 
 -- | Parse an octal digit.
 octDigit :: Parser Char
-octDigit = charSatCCs isOctDigit [Other]
+octDigit = satisfyCharCC isOctDigit [Other]
 
 -- | Parse a hexadecimal digit.
 --
 -- Note: TeX wants cc(0-9) = Other, cc(a-f)= Other|Letter.
 -- We are more liberal and only require cc(0-9a-f) = Other|Letter.
 hexDigit :: Parser Char
-hexDigit = charSatCCs isHexDigit [Other, Letter]
+hexDigit = satisfyCharCC isHexDigit [Other, Letter]
 
 -- | Parse an explicit bgroup token.
 bgroup :: Parser Token
