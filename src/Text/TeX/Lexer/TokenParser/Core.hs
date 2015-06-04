@@ -60,7 +60,8 @@ import Text.Parsec.Pos (updatePosChar)
 
 import Text.TeX.Lexer.Catcode (Catcode, hasCatcode)
 import Text.TeX.Lexer.Token (Token, getRawChar, isCharSat, hasCC)
-import Text.TeX.Lexer.TokenParser.State (LexerState, getCatcodes)
+import Text.TeX.Lexer.TokenParser.State
+  (LexerState, ThrowsError, validate, getCatcodes)
 
 
 -------------------- Parser type
@@ -168,13 +169,21 @@ setInput = ParserT . P.setInput
 
 ---------- state
 
--- | See 'P.getState' from "Text.Parsec".
+-- | Retrieve the current lexer state.
+-- Throws a 'ParseError' if the lexer state is invalid.
+--
+-- Also see 'P.getState' from "Text.Parsec".
 getState :: Parser LexerState
-getState = ParserT P.getState
+getState = validate <$> ParserT P.getState >>=
+           either (parserFail . show) return
 
--- | See 'P.modifyState' from "Text.Parsec".
-modifyState :: (LexerState -> LexerState) -> Parser ()
-modifyState = ParserT . P.modifyState
+-- | Apply a function to the lexer state.
+-- Throws a 'ParseError' if the function fails.
+--
+-- Also see 'P.modifyState' from "Text.Parsec".
+modifyState :: (LexerState -> ThrowsError LexerState) -> Parser ()
+modifyState f = f <$> getState >>=
+                either (parserFail . show) (ParserT . P.putState)
 
 ---------- error
 
@@ -187,6 +196,10 @@ p <?> msg = liftP (P.<?> msg) p
 -- | See 'P.unexpected' from "Text.Parsec".
 unexpected :: String -> Parser a
 unexpected = ParserT . P.unexpected
+
+-- | See 'P.parserFail' from "Text.Parsec".
+parserFail :: String -> Parser a
+parserFail = ParserT . P.parserFail
 
 ---------- combinator
 
