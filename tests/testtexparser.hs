@@ -14,7 +14,7 @@ import Test.HUnit (Test(..), Counts(..), test, (~:), (~=?), runTestTT)
 
 
 import Text.TeX.Lexer.Catcode
-import Text.TeX.Lexer.Token (Token(TeXChar,CtrlSeq))
+import Text.TeX.Lexer.Token (Token(TeXChar,CtrlSeq), parTok)
 import Text.TeX.Parser (parseTeX)
 import Text.TeX.Parser.Types (TeXAtom(..))
 
@@ -109,6 +109,14 @@ testsBasic = TestLabel "basic" $ test
   , "superscripted group"
     ~: [SupScript [Plain "abc"], Plain "x"]
     ~=? (parseTeX "" $ supTok : mkGroup (mkString "abc") ++ mkString "x")
+  , "two paragraphs"
+    ~: [Plain "abc", Par, Plain "cba"]
+    ~=? (parseTeX "" $ mkString "abc" ++ [parTok] ++ mkString "cba")
+  , "two hard newlines"
+    ~: [Plain "ab", Newline, Plain "cd", Newline, Plain "x"]
+    ~=? (parseTeX "" $ mkString "ab" ++ [mkCtrlSeq "\\"] ++
+         mkOptArg (mkOther '2' : mkString "cm") ++
+         mkString "cd" ++ [mkCtrlSeq "\\"] ++ mkString "x")
   ]
 
 -- collect all tests

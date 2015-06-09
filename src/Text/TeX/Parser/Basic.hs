@@ -26,7 +26,7 @@ import Control.Applicative ((<*), (*>), (<$), (<$>))
 #endif
 import Control.Monad (void)
 import Text.Parsec
-  ((<|>), choice, many, many1, manyTill,
+  ((<|>), choice, optional, many, many1, manyTill,
    count, between, parserFail, eof)
 
 import Text.TeX.Lexer.Catcode
@@ -129,8 +129,12 @@ optargInner = failOnParam <|> command <|> white <|> group <|> plainExcept "[]"
 command :: TeXParser TeXAtom
 command = do
   name <- ctrlseq
-  (opt, mand) <- maybe parseUnknownArgSpec parseArgSpec (lookup name commandDB)
-  return (Command name (opt, mand))
+  case name of
+    "par" -> return Par
+    "\\" -> optional optarg *> return Newline
+    _ -> do
+      (opt, mand) <- maybe parseUnknownArgSpec parseArgSpec (lookup name commandDB)
+      return (Command name (opt, mand))
 
 -- Lookup table for the ArgSpec of known commands. Stub.
 -- (To be replaced by a more general external database.)
