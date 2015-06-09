@@ -38,6 +38,11 @@ mkOptArg = between (mkOther '[') (mkOther ']')
 mkGroup :: [Token] -> [Token]
 mkGroup = between (TeXChar '{' Bgroup) (TeXChar '}' Egroup)
 
+mkEnv :: String -> [Token] -> [Token]
+mkEnv name body =
+  mkCtrlSeq "begin" : mkGroup (mkString name) ++ body ++
+  (mkCtrlSeq "end" : mkGroup (mkString name))
+
 between :: Token -> Token -> [Token] -> [Token]
 between open close content = open : (content ++ [close])
 
@@ -46,6 +51,9 @@ spcTok = TeXChar ' ' Space
 
 eolTok :: Token
 eolTok = TeXChar '\n' Eol
+
+alignTok :: Token
+alignTok = TeXChar '&' AlignTab
 
 subTok :: Token
 subTok = TeXChar '_' Subscript
@@ -117,6 +125,18 @@ testsBasic = TestLabel "basic" $ test
     ~=? (parseTeX "" $ mkString "ab" ++ [mkCtrlSeq "\\"] ++
          mkOptArg (mkOther '2' : mkString "cm") ++
          mkString "cd" ++ [mkCtrlSeq "\\"] ++ mkString "x")
+  , "simple 2x2 tabular"
+    ~: [Group "tabular" ([[]], [[Plain "ll"]])
+        [Plain "a", AlignMark, Plain "b", Newline,
+         Plain "c", AlignMark, Plain "d", Newline]]
+    ~=? (parseTeX "" $ mkEnv "tabular" (mkGroup (mkString "ll") ++
+         mkString "a" ++ [alignTok] ++ mkString "b" ++ [mkCtrlSeq "\\"] ++
+         mkString "c" ++ [alignTok] ++ mkString "d" ++ [mkCtrlSeq "\\"]))
+  , "nested environments"
+    ~: [Group "a" ([],[])
+        [Group "b" ([],[])
+         [Group "c" ([],[]) []]]]
+    ~=? (parseTeX "" $ mkEnv "a" (mkEnv "b" (mkEnv "c" [])))
   ]
 
 -- collect all tests

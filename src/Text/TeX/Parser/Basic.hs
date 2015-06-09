@@ -22,15 +22,14 @@ module Text.TeX.Parser.Basic
 #if MIN_VERSION_base(4,8,0)
 -- Prelude exports all required operators from Control.Applicative
 #else
-import Control.Applicative ((<*), (*>), (<$), (<$>))
+import Control.Applicative ((<*), (<*>), (*>), (<$), (<$>))
 #endif
 import Control.Monad (void)
 import Text.Parsec
-  ((<|>), choice, optional, many, many1, manyTill,
-   count, between, parserFail, eof)
+  ((<|>), choice, option, optional, many, many1, manyTill,
+   count, between, (<?>), parserFail, eof)
 
 import Text.TeX.Lexer.Catcode
-import Text.TeX.Lexer.Macro
 import Text.TeX.Lexer.Token
 import Text.TeX.Parser.Core
 import Text.TeX.Parser.Types
@@ -44,10 +43,9 @@ texParser = atoms <* eof
 atoms :: TeXParser TeX
 atoms = many atom
 
--- Stub.
 -- | Parse a single TeXAtom.
 atom :: TeXParser TeXAtom
-atom = choice [plain, group, command, white,
+atom = choice [plain, group, command, white, alignMark,
                subscript, supscript, failOnParam]
 
 -- The 'Token' input stream must not contain any 'Param' elements.
@@ -63,6 +61,10 @@ subscript = SubScript <$> (charCC Subscript *> arg)
 -- | Parse superscripted content.
 supscript :: TeXParser TeXAtom
 supscript = SupScript <$> (charCC Supscript *> arg)
+
+-- | Parse an align tab.
+alignMark :: TeXParser TeXAtom
+alignMark = AlignMark <$ charCC AlignTab
 
 -- | Parse a control sequence and return its name.
 ctrlseq :: TeXParser String
@@ -122,36 +124,49 @@ optarg :: TeXParser TeX
 optarg = (char '[') *> manyTill optargInner (char ']')
 
 -- Like 'atom' but stops on square brackets.
+-- (Stub. Use 'balanced' parsers.)
 optargInner :: TeXParser TeXAtom
-optargInner = failOnParam <|> command <|> white <|> group <|> plainExcept "[]"
+optargInner = choice [plainExcept "[]", group, command, white, alignMark,
+                      subscript, supscript, failOnParam]
 
 -- | Parse a control sequence.
 command :: TeXParser TeXAtom
-command = do
-  name <- ctrlseq
-  case name of
-    "par" -> return Par
-    "\\" -> optional optarg *> return Newline
-    _ -> do
-      (opt, mand) <- maybe parseUnknownArgSpec parseArgSpec (lookup name commandDB)
-      return (Command name (opt, mand))
+command = ctrlseq >>= processCtrlseq
+
+processCtrlseq :: String -> TeXParser TeXAtom
+processCtrlseq name = case name of
+  "par" -> return Par
+  "\\" -> optional optarg *> return Newline
+  "begin" -> env
+  _ -> do
+    args <- maybe parseUnknownArgSpec parseArgSpec (lookup name commandDB)
+    return (Command name args)
 
 -- Lookup table for the ArgSpec of known commands. Stub.
 -- (To be replaced by a more general external database.)
-commandDB :: [(String, ArgSpec)]
+--
+-- We use a pair @(nrOptArgs, nrMandArgs)@ as a simplified
+-- ArgSpec representation here.
+commandDB :: [(String, (Int, Int))]
 commandDB =
-  [ ("rm", [])
-  , ("it", [])
-  , ("textrm", [Mandatory])
-  , ("textit", [Mandatory])
+  [ ("rm", (0,0))
+  , ("it", (0,0))
+  , ("textrm", (0,1))
+  , ("textit", (0,1))
   ]
 
--- Parse a given ArgSpec. Stub.
-parseArgSpec :: ArgSpec -> TeXParser Args
-parseArgSpec xs = do
-  let nrMand = length $ takeWhile (== Mandatory) xs
+-- Lookup table for the ArgSpec of known environments. Stub.
+envDB :: [(String, (Int, Int))]
+envDB =
+  [ ("tabular", (1,1))
+  ]
+
+-- Parse a given ArgSpec.
+parseArgSpec :: (Int, Int) -> TeXParser Args
+parseArgSpec (nrOpt, nrMand) = do
+  opt <- count nrOpt (option [] optarg)
   mand <- count nrMand arg
-  return ([], mand)
+  return (opt, mand)
 
 -- Heuristic for arguments of unknown control sequences: consume any
 -- number of subsequent tokens that look like optional or mandatory
@@ -161,3 +176,34 @@ parseUnknownArgSpec = do
   opt <- many optarg
   mand <- many mandarg
   return (opt, mand)
+
+-- | Parse the name of an environment.
+envName :: TeXParser String
+envName = map getRawChar <$> between bgroup egroup
+          (many1 (charCC Letter <|> charCC Other))
+
+-- | Parse an environment.
+env :: TeXParser TeXAtom
+env = do
+  name <- envName
+  args <- maybe parseUnknownArgSpec parseArgSpec (lookup name envDB)
+  body <- envInner name
+  return (Group name args body)
+
+-- Parse the body of an environment.
+envInner :: String -> TeXParser [TeXAtom]
+envInner name = commandEnvInner name <|> ((:) <$>
+  -- like 'atom' but without 'command'
+  choice [plain, group, white, alignMark,
+          subscript, supscript, failOnParam] <*>
+  envInner name)
+
+-- Parse a command inside the body of an environment.
+commandEnvInner :: String -> TeXParser [TeXAtom]
+commandEnvInner name = do
+  cname <- ctrlseq
+  if cname == "end"
+    then between bgroup egroup
+         (mapM_ char name <?> "\\end{" ++ name ++ "}")
+         *> return []
+    else (:) <$> processCtrlseq cname <*> envInner name
