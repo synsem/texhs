@@ -74,7 +74,7 @@ data Scope = Scope
 -- | Raise a lexer state error if the state is invalid.
 validate :: LexerState -> ThrowsError LexerState
 validate ls
-  | isValid ls = return ls
+  | isValid ls = Right ls
   | otherwise = throwE "invalid lexer state: too many closing braces?"
 
 -- | Return whether the lexer state is valid.
@@ -113,13 +113,13 @@ emptyScope = Scope [] [] []
 
 -- | Push new group.
 pushGroup :: Group -> LexerState -> ThrowsError LexerState
-pushGroup g = return . fmapL (emptyScope g:)
+pushGroup g = Right . fmapL (emptyScope g:)
 
 -- | Pop matching group.
 -- Throws an error on group mismatch (invalid nesting).
 popGroup :: Group -> LexerState -> ThrowsError LexerState
 popGroup g (LexerState (l:ls))
-  | localGroup l == g = return $ LexerState ls
+  | localGroup l == g = Right $ LexerState ls
   | otherwise = throwE $ "invalid group nesting" ++
                 ": expecting " ++ groupEndString (localGroup l) ++
                 " but got " ++ groupEndString g
@@ -135,7 +135,7 @@ getGroup _ = error "invalid lexer state"
 
 -- | Set current group.
 setGroup :: Group -> LexerState -> ThrowsError LexerState
-setGroup g (LexerState (l:ls)) = return $ LexerState (l {localGroup = g} :ls)
+setGroup g (LexerState (l:ls)) = Right $ LexerState (l {localGroup = g} :ls)
 setGroup _ _ = throwE "invalid lexer state"
 
 -- Get string representation of the expected end delimiter for the
@@ -156,7 +156,7 @@ getCatcodes = concatMap localCatcodes . getLexerState
 addCatcode :: (Char, Catcode) -> LexerState -> ThrowsError LexerState
 addCatcode ccpair (LexerState (l:ls)) =
   let cctab = updateCatcodeTable ccpair (localCatcodes l)
-  in return $ LexerState (l {localCatcodes = cctab} :ls)
+  in Right $ LexerState (l {localCatcodes = cctab} :ls)
 addCatcode _ _ = throwE "invalid lexer state"
 
 ---------- User macros
@@ -202,14 +202,14 @@ getMacros = concatMap getLocalMacros . getLexerState
 -- | Register a local macro command definition.
 registerLocalMacroCmd :: (MacroCmdKey, MacroCmd) -> LexerState -> ThrowsError LexerState
 registerLocalMacroCmd m (LexerState (l:ls)) =
-  return $ LexerState (l {localMacroCmds = m : localMacroCmds l} :ls)
+  Right $ LexerState (l {localMacroCmds = m : localMacroCmds l} :ls)
 registerLocalMacroCmd _ _ = throwE "invalid lexer state"
 
 -- | Register a global macro definition.
 registerGlobalMacro :: Macro k a => (k, a) -> LexerState -> ThrowsError LexerState
 registerGlobalMacro m (LexerState sc@(_:_)) =
   let (g:tl) = reverse sc
-  in return $ LexerState (reverse (addLocalMacro m g :tl))
+  in Right $ LexerState (reverse (addLocalMacro m g :tl))
 registerGlobalMacro _ _ = throwE "invalid lexer state"
 
 -- | Return whether a macro with the given key is already defined.
@@ -228,7 +228,7 @@ registerMacro mode m@(k,_) st
     MacroNew -> throwE $
       "macro already defined" ++ (getMacroName m)
     MacroRenew -> registerGlobalMacro m st
-    MacroProvide -> return st
+    MacroProvide -> Right st
   | otherwise = case mode of
     MacroDeclare -> registerGlobalMacro m st
     MacroNew -> registerGlobalMacro m st
