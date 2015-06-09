@@ -25,7 +25,9 @@ module Text.TeX.Parser.Basic
 import Control.Applicative ((<*), (*>), (<$), (<$>))
 #endif
 import Control.Monad (void)
-import Text.Parsec ((<|>), many, many1, manyTill, count, between, parserFail, eof)
+import Text.Parsec
+  ((<|>), choice, many, many1, manyTill,
+   count, between, parserFail, eof)
 
 import Text.TeX.Lexer.Catcode
 import Text.TeX.Lexer.Macro
@@ -45,13 +47,22 @@ atoms = many atom
 -- Stub.
 -- | Parse a single TeXAtom.
 atom :: TeXParser TeXAtom
-atom = failOnParam <|> command <|> white <|> group <|> plain
+atom = choice [plain, group, command, white,
+               subscript, supscript, failOnParam]
 
 -- The 'Token' input stream must not contain any 'Param' elements.
 -- We enforce this restriction by raising an error if we encounter
 -- a 'Param' element.
 failOnParam :: TeXParser a
 failOnParam = satisfy isParam *> parserFail "encountered a Param element"
+
+-- | Parse subscripted content.
+subscript :: TeXParser TeXAtom
+subscript = SubScript <$> (charCC Subscript *> arg)
+
+-- | Parse superscripted content.
+supscript :: TeXParser TeXAtom
+supscript = SupScript <$> (charCC Supscript *> arg)
 
 -- | Parse a control sequence and return its name.
 ctrlseq :: TeXParser String
@@ -65,6 +76,10 @@ char c = Plain [c] <$ satisfy (isCharSat (== c))
 charCC :: Catcode -> TeXParser Token
 charCC = satisfy . hasCC
 
+-- | Parse a single letter or other.
+plainChar :: TeXParser TeXAtom
+plainChar = (Plain . map getRawChar) <$> count 1 (charCC Letter <|> charCC Other)
+
 -- | Parse letters and others.
 plain :: TeXParser TeXAtom
 plain = (Plain . map getRawChar) <$> many1 (charCC Letter <|> charCC Other)
@@ -77,15 +92,15 @@ plainExcept xs = (Plain . map getRawChar) <$> many1 (satisfy (\t ->
 
 -- | Parse intra-paragraph whitespace.
 white :: TeXParser TeXAtom
-white = White <$ many1 (satisfy (hasCC Space) <|> satisfy (hasCC Eol))
+white = White <$ many1 (charCC Space <|> charCC Eol)
 
 -- | Parse a delimiter that opens a TeX group (begin group).
 bgroup :: TeXParser ()
-bgroup = void $ satisfy (hasCC Bgroup)
+bgroup = void $ charCC Bgroup
 
 -- | Parse a delimiter that closes a TeX group (end group).
 egroup :: TeXParser ()
-egroup = void $ satisfy (hasCC Egroup)
+egroup = void $ charCC Egroup
 
 -- | Parse an anonymous TeX group.
 group :: TeXParser TeXAtom
@@ -94,7 +109,7 @@ group = Group "" ([],[]) <$> between bgroup egroup atoms
 -- Use this parser if you know the control sequence requires an argument.
 -- | Parse a mandatory argument: the content of a group or a single atom.
 arg :: TeXParser TeX
-arg = mandarg <|> count 1 atom
+arg = mandarg <|> count 1 plainChar
 
 -- Use this parser as a heuristic to eat up possible mandatory
 -- arguments of unknown control sequences.

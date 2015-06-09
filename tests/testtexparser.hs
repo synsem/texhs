@@ -47,6 +47,12 @@ spcTok = TeXChar ' ' Space
 eolTok :: Token
 eolTok = TeXChar '\n' Eol
 
+subTok :: Token
+subTok = TeXChar '_' Subscript
+
+supTok :: Token
+supTok = TeXChar '^' Supscript
+
 -------------------- tests
 
 testsBasic :: Test
@@ -91,6 +97,18 @@ testsBasic = TestLabel "basic" $ test
     ~=? (parseTeX "" $
          mkCtrlSeq "rm" :
          mkOptArg (mkString "no arg"))
+  , "subscripted single character"
+    ~: [SubScript [Plain "a"], Plain "bc"]
+    ~=? (parseTeX "" $ subTok : mkString "abc")
+  , "subscripted group"
+    ~: [SubScript [Plain "abc"], Plain "x"]
+    ~=? (parseTeX "" $ subTok : mkGroup (mkString "abc") ++ mkString "x")
+  , "superscripted single character"
+    ~: [SupScript [Plain "a"], Plain "bc"]
+    ~=? (parseTeX "" $ supTok : mkString "abc")
+  , "superscripted group"
+    ~: [SupScript [Plain "abc"], Plain "x"]
+    ~=? (parseTeX "" $ supTok : mkGroup (mkString "abc") ++ mkString "x")
   ]
 
 -- collect all tests
