@@ -27,16 +27,33 @@ module Text.TeX.Lexer.Token
   , hasCC
     -- ** Token list manipulation
   , stripBraces
+    -- * Token builder functions
+  , mkLetter
+  , mkString
+  , mkOther
+  , mkCtrlSeq
+  , mkGroup
+  , mkOptArg
+  , mkEnv
     -- * Token constants
     -- ** Number prefixes
   , hexPrefix
   , octPrefix
   , ordPrefix
-    -- ** Primitive control sequences
+    -- ** Control sequences
   , parTok
   , falseTok
   , trueTok
   , noValueTok
+    -- ** Basic tokens for various catcodes
+  , bgroupTok
+  , egroupTok
+  , mathTok
+  , alignTok
+  , eolTok
+  , supTok
+  , subTok
+  , spcTok
   ) where
 
 import Text.TeX.Lexer.Catcode (Catcode(..))
@@ -99,7 +116,6 @@ isCharEq c1 i1 (TeXChar c2 i2) = c1 == c2 && i1 == i2
 isCharEq _ _ _ = False
 
 -- | Lift a @Char@ property to a 'Token' property.
--- (Token @t@ is a character satisfying the property @p@.)
 --
 -- Given a character property and a 'Token', return @True@
 -- iff the token is a 'TeXChar' with the given property.
@@ -122,25 +138,61 @@ stripBraces toks@(x:xs) = if hasCC Bgroup x && hasCC Egroup (last toks)
                           then init xs
                           else toks
 
+-------------------- Token builder functions
+
+-- | Create a 'Letter' token.
+mkLetter :: Char -> Token
+mkLetter = flip TeXChar Letter
+
+-- | Create a list of 'Letter' tokens.
+mkString :: String -> [Token]
+mkString = map mkLetter
+
+-- | Create an 'Other' token.
+mkOther :: Char -> Token
+mkOther = flip TeXChar Other
+
+-- | Create a 'CtrlSeq' token.
+mkCtrlSeq :: String -> Token
+mkCtrlSeq = flip CtrlSeq False
+
+-- | Wrap a list of tokens in a TeX group.
+mkGroup :: [Token] -> [Token]
+mkGroup = between bgroupTok egroupTok
+
+-- | Wrap a list of tokens in square brackets.
+mkOptArg :: [Token] -> [Token]
+mkOptArg = between (mkOther '[') (mkOther ']')
+
+-- | Create a LaTeX-style environment (no arguments):
+-- @\\begin{name} body \\end{name}@.
+mkEnv :: String -> [Token] -> [Token]
+mkEnv name body =
+  mkCtrlSeq "begin" : mkGroup (mkString name) ++ body ++
+  (mkCtrlSeq "end" : mkGroup (mkString name))
+
+between :: Token -> Token -> [Token] -> [Token]
+between open close content = open : (content ++ [close])
+
 -------------------- TeX constants: Number prefixes
 
 -- | Prefix for hex constants.
 hexPrefix :: Token
-hexPrefix = TeXChar '"' Other
+hexPrefix = mkOther '"'
 
 -- | Prefix for octal constants.
 octPrefix :: Token
-octPrefix = TeXChar '\'' Other
+octPrefix = mkOther '\''
 
 -- | Prefix for alpha constants.
 ordPrefix :: Token
-ordPrefix = TeXChar '`' Other
+ordPrefix = mkOther '`'
 
--------------------- TeX constants: Primitive control sequences
+-------------------- TeX constants: Control sequences
 
 -- | TeX paragraph break.
 parTok :: Token
-parTok = CtrlSeq "par" False
+parTok = mkCtrlSeq "par"
 
 -- | Boolean constant used by xparse.
 --
@@ -148,7 +200,7 @@ parTok = CtrlSeq "par" False
 -- although it is defined as @\\c_false_bool@ in xparse, which in turn
 -- is defined as @\\char 0@ in l3basics.
 falseTok :: Token
-falseTok = CtrlSeq "BooleanFalse" False
+falseTok = mkCtrlSeq "BooleanFalse"
 
 -- | Boolean constant used by xparse.
 --
@@ -156,9 +208,43 @@ falseTok = CtrlSeq "BooleanFalse" False
 -- although it is defined as @\\c_true_bool@ in xparse, which in turn
 -- is defined as @\\char 1@ in l3basics.
 trueTok :: Token
-trueTok = CtrlSeq "BooleanTrue" False
+trueTok = mkCtrlSeq "BooleanTrue"
 
 -- | Used by xparse to represent a missing argument,
 -- printed as @-NoValue-@.
 noValueTok :: Token
-noValueTok = CtrlSeq "NoValue" False
+noValueTok = mkCtrlSeq "NoValue"
+
+-------------------- TeX constants: Basic tokens for various catcodes
+
+-- | 'Bgroup' token.
+bgroupTok :: Token
+bgroupTok = TeXChar '{' Bgroup
+
+-- | 'Egroup' token.
+egroupTok :: Token
+egroupTok = TeXChar '}' Egroup
+
+-- | 'Mathshift' token.
+mathTok :: Token
+mathTok = TeXChar '$' Mathshift
+
+-- | 'AlignTab' token.
+alignTok :: Token
+alignTok = TeXChar '&' AlignTab
+
+-- | 'Eol' token.
+eolTok :: Token
+eolTok = TeXChar '\n' Eol
+
+-- | 'Supscript' token.
+supTok :: Token
+supTok = TeXChar '^' Supscript
+
+-- | 'Subscript' token.
+subTok :: Token
+subTok = TeXChar '_' Subscript
+
+-- | 'Space' token.
+spcTok :: Token
+spcTok = TeXChar ' ' Space

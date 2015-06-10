@@ -109,15 +109,15 @@ defaultPrimitives = map wrapCtrlSeq
   , "newenvironment"
   , "renewenvironment"
   ]
-  where wrapCtrlSeq t = (CtrlSeq t False, t)
+  where wrapCtrlSeq t = (mkCtrlSeq t, t)
 
 -- | Meanings of primitives.
 primitiveMeanings :: [(Primitive, Parser [Token])]
 primitiveMeanings =
-  [ ("begingroup", [CtrlSeq "begingroup" False] <$ modifyState (pushGroup NativeGroup))
-  , ("endgroup", [CtrlSeq "endgroup" False] <$ modifyState (popGroup NativeGroup))
-  , ("bgroup", [CtrlSeq "bgroup" False] <$ modifyState (pushGroup AnonymousGroup))
-  , ("egroup", [CtrlSeq "egroup" False] <$ modifyState (popGroup AnonymousGroup))
+  [ ("begingroup", [mkCtrlSeq "begingroup"] <$ modifyState (pushGroup NativeGroup))
+  , ("endgroup", [mkCtrlSeq "endgroup"] <$ modifyState (popGroup NativeGroup))
+  , ("bgroup", [mkCtrlSeq "bgroup"] <$ modifyState (pushGroup AnonymousGroup))
+  , ("egroup", [mkCtrlSeq "egroup"] <$ modifyState (popGroup AnonymousGroup))
   , ("begin", beginEnvironment)
   , ("end", endEnvironment)
   , ("catcode", catcode)
@@ -345,13 +345,13 @@ argtype = optional (char '+' Other) *> choice
             (letter 'R' *> singleToken) <*>
             singleToken <*> (Just <$> grouped tokens)
           , OptionalGroup
-            (TeXChar '[' Other) (TeXChar ']' Other)
+            (mkOther '[') (mkOther ']')
             Nothing <$ letter 'o'
           , OptionalGroup <$>
             (letter 'd' *> singleToken) <*>
             singleToken <*> return Nothing
           , OptionalGroup
-            (TeXChar '[' Other) (TeXChar ']' Other)
+            (mkOther '[') (mkOther ']')
             <$> (letter 'O' *> (Just <$> grouped tokens))
           , OptionalGroup <$>
             (letter 'D' *> singleToken) <*>
@@ -361,7 +361,7 @@ argtype = optional (char '+' Other) *> choice
           , OptionalGroupCC Bgroup Egroup <$>
             (letter 'G' *> (Just <$> grouped tokens))
           , OptionalToken
-            (TeXChar '*' Other) <$ letter 's'
+            (mkOther '*') <$ letter 's'
           , OptionalToken
             <$> (letter 't' *> singleToken)
           ] <* skipOptSpace
@@ -396,8 +396,8 @@ newenvironment defMode = do
 latexMacroContext :: Parser ArgSpec
 latexMacroContext = do
   numArgs <- option 0 (bracketed singleDigit)
-  let open = TeXChar '[' Other
-      close = TeXChar ']' Other
+  let open = mkOther '['
+      close = mkOther ']'
   optArg <- optionMaybe (balanced open close)
   let context = case optArg of
         Just d -> OptionalGroup open close (Just d) :
@@ -416,7 +416,7 @@ beginEnvironment = do
   case lookupMacroEnv (stripBraces name) st of
     Nothing -> let grp = NamedGroup (stripBraces name)
                in modifyState (pushGroup grp) *>
-                  return (CtrlSeq "begin" False: name)
+                  return (mkCtrlSeq "begin": name)
     Just envdef -> do
       (startCode, endCode) <- expandEnvironment envdef
       modifyState . pushGroup $
@@ -428,7 +428,7 @@ beginEnvironment = do
 endEnvironment :: Parser [Token]
 endEnvironment = do
   name <- envName
-  let endEnv = CtrlSeq "end" False: name
+  let endEnv = mkCtrlSeq "end": name
   grp <- getGroup <$> getState
   case grp of
     (DefinedGroup name' _ endCode) ->

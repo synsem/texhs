@@ -12,57 +12,10 @@ module Main where
 import System.Exit (ExitCode, exitSuccess, exitFailure)
 import Test.HUnit (Test(..), Counts(..), test, (~:), (~=?), runTestTT)
 
-
-import Text.TeX.Lexer.Catcode
-import Text.TeX.Lexer.Token (Token(TeXChar,CtrlSeq), parTok)
+import Text.TeX.Lexer.Token
 import Text.TeX.Parser (parseTeX)
 import Text.TeX.Parser.Types (TeXAtom(..), MathType(..))
 
--------------------- Token construction helpers
-
-mkLetter :: Char -> Token
-mkLetter = flip TeXChar Letter
-
-mkString :: String -> [Token]
-mkString = map mkLetter
-
-mkOther :: Char -> Token
-mkOther = flip TeXChar Other
-
-mkCtrlSeq :: String -> Token
-mkCtrlSeq = flip CtrlSeq False
-
-mkOptArg :: [Token] -> [Token]
-mkOptArg = between (mkOther '[') (mkOther ']')
-
-mkGroup :: [Token] -> [Token]
-mkGroup = between (TeXChar '{' Bgroup) (TeXChar '}' Egroup)
-
-mkEnv :: String -> [Token] -> [Token]
-mkEnv name body =
-  mkCtrlSeq "begin" : mkGroup (mkString name) ++ body ++
-  (mkCtrlSeq "end" : mkGroup (mkString name))
-
-between :: Token -> Token -> [Token] -> [Token]
-between open close content = open : (content ++ [close])
-
-spcTok :: Token
-spcTok = TeXChar ' ' Space
-
-eolTok :: Token
-eolTok = TeXChar '\n' Eol
-
-alignTok :: Token
-alignTok = TeXChar '&' AlignTab
-
-subTok :: Token
-subTok = TeXChar '_' Subscript
-
-supTok :: Token
-supTok = TeXChar '^' Supscript
-
-mathTok :: Token
-mathTok = TeXChar '$' Mathshift
 
 -------------------- tests
 

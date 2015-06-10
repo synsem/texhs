@@ -424,7 +424,7 @@ skipComments = void $ many1 skipSingleComment
 -- NOTE: If followed by an empty line, push a par token back into the stream.
 skipCommentsPAR :: Parser ()
 skipCommentsPAR = do
-  t <- many1 skipSingleComment *> option (TeXChar '\n' Eol) par
+  t <- many1 skipSingleComment *> option eolTok par
   when (isCtrlSeq t) -- true iff par token
     (prependToInput [t])
 
@@ -439,7 +439,7 @@ skipOptCommentsPAR = option () skipCommentsPAR
 -- NOTE: If followed by an empty line, push a par token back into the stream.
 skipSpacePAR :: Parser ()
 skipSpacePAR = do
-  t <- skipOptSpace *> option (TeXChar '\n' Eol) eolpar
+  t <- skipOptSpace *> option eolTok eolpar
   when (isCtrlSeq t) -- true iff par token
     (prependToInput [t])
 
