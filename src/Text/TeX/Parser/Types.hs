@@ -17,7 +17,7 @@ module Text.TeX.Parser.Types
     TeX
   , TeXAtom(..)
   , Args
-  , MathType
+  , MathType(..)
     -- * TeXAtom predicates
   , isPlain
   , isCommand

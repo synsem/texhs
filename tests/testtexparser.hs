@@ -16,7 +16,7 @@ import Test.HUnit (Test(..), Counts(..), test, (~:), (~=?), runTestTT)
 import Text.TeX.Lexer.Catcode
 import Text.TeX.Lexer.Token (Token(TeXChar,CtrlSeq), parTok)
 import Text.TeX.Parser (parseTeX)
-import Text.TeX.Parser.Types (TeXAtom(..))
+import Text.TeX.Parser.Types (TeXAtom(..), MathType(..))
 
 -------------------- Token construction helpers
 
@@ -60,6 +60,9 @@ subTok = TeXChar '_' Subscript
 
 supTok :: Token
 supTok = TeXChar '^' Supscript
+
+mathTok :: Token
+mathTok = TeXChar '$' Mathshift
 
 -------------------- tests
 
@@ -137,6 +140,22 @@ testsBasic = TestLabel "basic" $ test
         [Group "b" ([],[])
          [Group "c" ([],[]) []]]]
     ~=? (parseTeX "" $ mkEnv "a" (mkEnv "b" (mkEnv "c" [])))
+  , "simple inline math"
+    ~: [MathGroup MathInline [Plain "a"]]
+    ~=? (parseTeX "" $ mathTok : mkLetter 'a' : [mathTok])
+  , "simple display math"
+    ~: [MathGroup MathDisplay [Plain "a"]]
+    ~=? (parseTeX "" $ replicate 2 mathTok ++ mkString "a" ++
+         replicate 2 mathTok)
+  , "embedded math"
+    ~: [MathGroup MathInline
+        [ Command "text"
+          ([], [[Plain "t", MathGroup MathDisplay [Plain "a"]]])
+        , Plain "b"]]
+    ~=? (parseTeX "" $ mathTok : mkCtrlSeq "text" :
+         mkGroup (mkString "t" ++ replicate 2 mathTok ++
+                 mkString "a" ++ replicate 2 mathTok) ++
+         mkString "b" ++ [mathTok])
   ]
 
 -- collect all tests

@@ -46,7 +46,7 @@ atoms = many atom
 -- | Parse a single TeXAtom.
 atom :: TeXParser TeXAtom
 atom = choice [plain, group, command, white, alignMark,
-               subscript, supscript, failOnParam]
+               mathgroup, subscript, supscript, failOnParam]
 
 -- The 'Token' input stream must not contain any 'Param' elements.
 -- We enforce this restriction by raising an error if we encounter
@@ -108,6 +108,24 @@ egroup = void $ charCC Egroup
 group :: TeXParser TeXAtom
 group = Group "" ([],[]) <$> between bgroup egroup atoms
 
+-- | Parse a TeX math group.
+mathgroup :: TeXParser TeXAtom
+mathgroup = charCC Mathshift *> (displaymath <|> inlinemath)
+
+inlinemath :: TeXParser TeXAtom
+inlinemath = MathGroup MathInline <$> mathInner
+             <* charCC Mathshift <?> "end of inline math"
+
+displaymath :: TeXParser TeXAtom
+displaymath = MathGroup MathDisplay <$> (charCC Mathshift *> mathInner)
+              <* count 2 (charCC Mathshift) <?> "end of display math"
+
+-- Parse the body of a math group.
+-- Like 'atom' but without 'mathgroup'.
+mathInner :: TeXParser [TeXAtom]
+mathInner = many $ choice [plain, group, command, white, alignMark,
+                           subscript, supscript, failOnParam]
+
 -- Use this parser if you know the control sequence requires an argument.
 -- | Parse a mandatory argument: the content of a group or a single atom.
 arg :: TeXParser TeX
@@ -127,7 +145,7 @@ optarg = (char '[') *> manyTill optargInner (char ']')
 -- (Stub. Use 'balanced' parsers.)
 optargInner :: TeXParser TeXAtom
 optargInner = choice [plainExcept "[]", group, command, white, alignMark,
-                      subscript, supscript, failOnParam]
+                      mathgroup, subscript, supscript, failOnParam]
 
 -- | Parse a control sequence.
 command :: TeXParser TeXAtom
@@ -195,7 +213,7 @@ envInner :: String -> TeXParser [TeXAtom]
 envInner name = commandEnvInner name <|> ((:) <$>
   -- like 'atom' but without 'command'
   choice [plain, group, white, alignMark,
-          subscript, supscript, failOnParam] <*>
+          mathgroup, subscript, supscript, failOnParam] <*>
   envInner name)
 
 -- Parse a command inside the body of an environment.
