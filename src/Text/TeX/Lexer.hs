@@ -14,24 +14,16 @@
 
 module Text.TeX.Lexer
   ( -- * TeX Lexer
-    parseTeX
-  , replParseTeX
+    lexTeX
   ) where
 
 import Text.TeX.Lexer.Token (Token)
 import Text.TeX.Lexer.TokenParser (runParser, texLexer, defaultLexerState)
 
-
 -- | Run TeX lexer on named input string and return a 'Token' list.
 -- (The resulting 'Token' stream is restricted to 'TeXChar' and
 -- 'CtrlSeq' elements, i.e. no 'Param' elements.) Exit on failure.
-parseTeX :: String -> String -> [Token]
-parseTeX name input = case runParser texLexer defaultLexerState name input of
+lexTeX :: String -> String -> [Token]
+lexTeX name input = case runParser texLexer defaultLexerState name input of
   Left l  -> error (show l)
   Right r -> r
-
--- | Run TeX lexer on input string and return all results and errors as strings.
-replParseTeX :: String -> String
-replParseTeX input = case runParser texLexer defaultLexerState "" input of
-  Left err  -> "ERROR " ++ show err
-  Right ans -> show ans
