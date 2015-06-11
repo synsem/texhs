@@ -107,12 +107,12 @@ testsComments = TestLabel "comments" $ test
 testsGrouping :: Test
 testsGrouping = TestLabel "grouping" $ test
   [ "'bgroup' and 'egroup' control sequences induce grouping"
-    ~: [(CtrlSeq "bgroup" False), (TeXChar 'c' Letter), (TeXChar 'd' Letter),
-        (CtrlSeq "egroup" False), (CtrlSeq "ab" False)]
+    ~: [(TeXChar '{' Bgroup), (TeXChar 'c' Letter), (TeXChar 'd' Letter),
+        (TeXChar '}' Egroup), (CtrlSeq "ab" False)]
     ~=? (lexTeX "" "\\bgroup\\def\\ab{cd}\\ab\\egroup\\ab")
   , "'begingroup' and 'endgroup' control sequences induce grouping"
-    ~: [(CtrlSeq "begingroup" False), (TeXChar 'c' Letter), (TeXChar 'd' Letter),
-        (CtrlSeq "endgroup" False), (CtrlSeq "ab" False)]
+    ~: [(TeXChar '{' Bgroup), (TeXChar 'c' Letter), (TeXChar 'd' Letter),
+        (TeXChar '}' Egroup), (CtrlSeq "ab" False)]
     ~=? (lexTeX "" "\\begingroup\\def\\ab{cd}\\ab\\endgroup\\ab")
   , "'begin' and 'end' control sequences induce grouping"
     ~: [(CtrlSeq "begin" False), (TeXChar '{' Bgroup), (TeXChar 'z' Letter),
@@ -383,8 +383,8 @@ testsMacrosXparse = TestLabel "xparse macro definitions" $ test
     ~=? (lexTeX "" ("\\DeclareDocumentCommand{\\a}{o}{(#1)}"
                       ++ "\\a[{]]![[}]."))
   , "global scope"
-    ~: [(CtrlSeq "bgroup" False), (TeXChar '{' Bgroup), (TeXChar '}' Egroup),
-        (CtrlSeq "egroup" False), (TeXChar '2' Other), (TeXChar '.' Other),
+    ~: [(TeXChar '{' Bgroup), (TeXChar '{' Bgroup), (TeXChar '}' Egroup),
+        (TeXChar '}' Egroup), (TeXChar '2' Other), (TeXChar '.' Other),
         (TeXChar '4' Other)]
     ~=? (lexTeX "" ("\\bgroup{\\DeclareDocumentCommand{\\a}{mm}{#2.}}\\egroup"
                       ++ "\\a {one}24"))
@@ -413,7 +413,7 @@ testsMacrosXparse = TestLabel "xparse macro definitions" $ test
     ~=? (lexTeX "" ("\\DeclareDocumentCommand{\\a}{}{1}"
                       ++ "{\\RenewDocumentCommand{\\a}{}{2}}" ++ "\\a"))
   , "redefining a macro has global effects: renew in 'begingroup'/'endgroup'"
-    ~: [(CtrlSeq "begingroup" False), (CtrlSeq "endgroup" False), (TeXChar '2' Other)]
+    ~: [(TeXChar '{' Bgroup), (TeXChar '}' Egroup), (TeXChar '2' Other)]
     ~=? (lexTeX "" ("\\DeclareDocumentCommand{\\a}{}{1}"
                       ++ "\\begingroup\\RenewDocumentCommand{\\a}{}{2}\\endgroup"
                       ++ "\\a"))
@@ -457,8 +457,8 @@ testsMacrosLaTeX2e = TestLabel "LaTeX2e macro definitions" $ test
         (TeXChar 'z' Letter), (TeXChar ')' Other)]
     ~=? (lexTeX "" "\\newcommand{\\a}[1][z]{(#1)}\\a[{]}]\\a")
   , "global scope"
-    ~: [(CtrlSeq "bgroup" False), (TeXChar '{' Bgroup), (TeXChar '}' Egroup),
-        (CtrlSeq "egroup" False), (TeXChar '2' Other), (TeXChar '.' Other),
+    ~: [(TeXChar '{' Bgroup), (TeXChar '{' Bgroup), (TeXChar '}' Egroup),
+        (TeXChar '}' Egroup), (TeXChar '2' Other), (TeXChar '.' Other),
         (TeXChar '4' Other)]
     ~=? (lexTeX "" ("\\bgroup{\\newcommand{\\a}[2]{#2.}}\\egroup"
                       ++ "\\a {one}24"))

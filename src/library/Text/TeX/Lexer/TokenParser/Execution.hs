@@ -114,10 +114,10 @@ defaultPrimitives = map wrapCtrlSeq
 -- | Meanings of primitives.
 primitiveMeanings :: [(Primitive, Parser [Token])]
 primitiveMeanings =
-  [ ("begingroup", [mkCtrlSeq "begingroup"] <$ modifyState (pushGroup NativeGroup))
-  , ("endgroup", [mkCtrlSeq "endgroup"] <$ modifyState (popGroup NativeGroup))
-  , ("bgroup", [mkCtrlSeq "bgroup"] <$ modifyState (pushGroup AnonymousGroup))
-  , ("egroup", [mkCtrlSeq "egroup"] <$ modifyState (popGroup AnonymousGroup))
+  [ ("begingroup", [bgroupTok] <$ modifyState (pushGroup NativeGroup))
+  , ("endgroup", [egroupTok] <$ modifyState (popGroup NativeGroup))
+  , ("bgroup", [bgroupTok] <$ modifyState (pushGroup AnonymousGroup))
+  , ("egroup", [egroupTok] <$ modifyState (popGroup AnonymousGroup))
   , ("begin", beginEnvironment)
   , ("end", endEnvironment)
   , ("catcode", catcode)
