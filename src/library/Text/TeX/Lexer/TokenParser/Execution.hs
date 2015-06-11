@@ -84,6 +84,10 @@ defaultPrimitives = map wrapCtrlSeq
   , "endgroup"
   , "bgroup"
   , "egroup"
+  , "("
+  , ")"
+  , "["
+  , "]"
   , "begin"
   , "end"
   , "catcode"
@@ -118,6 +122,10 @@ primitiveMeanings =
   , ("endgroup", [egroupTok] <$ modifyState (popGroup NativeGroup))
   , ("bgroup", [bgroupTok] <$ modifyState (pushGroup AnonymousGroup))
   , ("egroup", [egroupTok] <$ modifyState (popGroup AnonymousGroup))
+  , ("(", return [mathTok])
+  , (")", return [mathTok])
+  , ("[", return (replicate 2 mathTok))
+  , ("]", return (replicate 2 mathTok))
   , ("begin", beginEnvironment)
   , ("end", endEnvironment)
   , ("catcode", catcode)

@@ -84,6 +84,12 @@ testsBasic = TestLabel "basic" $ test
           ([], [[Plain "t", MathGroup MathDisplay [Plain "a"]]])
         , Plain "b"]]
     ~=? (readTeX "" "$\\text{t$$a$$}b$")
+  , "simple inline math from latex syntax"
+    ~: [MathGroup MathInline [Plain "a"]]
+    ~=? (readTeX "" "\\(a\\)")
+  , "simple display math from latex syntax"
+    ~: [MathGroup MathDisplay [Plain "a"]]
+    ~=? (readTeX "" "\\[a\\]")
   ]
 
 -- collect all tests
