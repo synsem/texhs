@@ -18,7 +18,7 @@ module Text.TeX.Parser
   ) where
 
 import Text.TeX.Lexer.Token (Token)
-import Text.TeX.Parser.Types (TeX)
+import Text.TeX.Parser.Types (TeX, normalize)
 import Text.TeX.Parser.Core (runTeXParser)
 import Text.TeX.Parser.Basic (texParser)
 
@@ -27,4 +27,4 @@ import Text.TeX.Parser.Basic (texParser)
 parseTeX :: String -> [Token] -> TeX
 parseTeX name input = case runTeXParser texParser name input of
   Left l  -> error (show l)
-  Right r -> r
+  Right r -> normalize r

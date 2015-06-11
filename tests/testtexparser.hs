@@ -21,10 +21,7 @@ import Text.TeX.Parser.Types (TeXAtom(..), MathType(..))
 
 testsBasic :: Test
 testsBasic = TestLabel "basic" $ test
-  [ "merge spaces"
-    ~: [White]
-    ~=? (parseTeX "" [spcTok, eolTok, spcTok])
-  , "two words"
+  [ "two words"
     ~: [Plain "hello", White, Plain "world"]
     ~=? (parseTeX "" $
          mkString "hello" ++
@@ -111,10 +108,64 @@ testsBasic = TestLabel "basic" $ test
          mkString "b" ++ [mathTok])
   ]
 
+testsWhitespace :: Test
+testsWhitespace = TestLabel "whitespace" $ test
+  [ "conflate inner whitespace"
+    ~: [Plain "a", White, Plain "z"]
+    ~=? (parseTeX "" [mkLetter 'a', spcTok, eolTok, spcTok, mkLetter 'z'])
+  , "conflate outer whitespace but do not strip it"
+    ~: [White]
+    ~=? (parseTeX "" [eolTok, spcTok, spcTok])
+  , "strip whitespace around explicit line breaks"
+    ~: [Newline]
+    ~=? (parseTeX "" [spcTok, eolTok, spcTok, mkCtrlSeq "\\", spcTok, eolTok])
+  , "preserve par after explicit line breaks"
+    ~: [Newline, Par]
+    ~=? (parseTeX "" [spcTok, mkCtrlSeq "\\", spcTok, eolTok, parTok, spcTok])
+  , "conflate leading whitespace"
+    ~: [White, Plain "a"]
+    ~=? (parseTeX "" [spcTok, eolTok, spcTok, mkLetter 'a'])
+  , "conflate leading whitespace around par"
+    ~: [Par, Plain "a"]
+    ~=? (parseTeX "" [spcTok, eolTok, parTok, spcTok, mkLetter 'a'])
+  , "conflate trailing whitespace"
+    ~: [Plain "a", White]
+    ~=? (parseTeX "" [mkLetter 'a', spcTok, eolTok, spcTok])
+  , "conflate trailing whitespace around par"
+    ~: [Plain "a", Par]
+    ~=? (parseTeX "" [mkLetter 'a', spcTok, eolTok, parTok, spcTok])
+  , "conflate leading and trailing whitespace"
+    ~: [White, Plain "a", White]
+    ~=? (parseTeX "" [eolTok, spcTok, mkLetter 'a', spcTok, eolTok])
+  , "conflate whitespace within a group"
+    ~: [Group "" ([],[]) [White, Plain "a", Par]]
+    ~=? (parseTeX "" $ mkGroup
+         [eolTok, spcTok, mkLetter 'a', spcTok, parTok, eolTok])
+  , "conflate whitespace within nested groups"
+    ~: [Group "" ([],[])
+        [White, Group "" ([],[])
+         [Group "" ([],[])
+          [White, Plain "a", Par]]]]
+    ~=? (parseTeX "" $ mkGroup ([spcTok, eolTok] ++ mkGroup (mkGroup
+         [eolTok, spcTok, mkLetter 'a', spcTok, parTok, eolTok])))
+  , "conflate whitespace within command arguments"
+    ~: [Command "cmd"
+        ([[White, Plain "a", Par],
+          [Group "" ([],[])
+           [Group "" ([],[])
+            [White, Plain "b", Par]]]],[])]
+    ~=? (parseTeX "" $ mkCtrlSeq "cmd" :
+         mkOptArg
+           [eolTok, spcTok, mkLetter 'a', spcTok, parTok, eolTok] ++
+         mkOptArg (mkGroup (mkGroup
+           [eolTok, spcTok, mkLetter 'b', spcTok, parTok, eolTok])))
+  ]
+
 -- collect all tests
 tests :: Test
 tests = TestList
   [ testsBasic
+  , testsWhitespace
   ]
 
 -- run tests
