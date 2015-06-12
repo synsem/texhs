@@ -38,12 +38,12 @@ import Text.TeX.Lexer.TokenParser.Core
 
 -- | Expand a call of a user-defined macro
 -- and push the expansion back into the input stream.
-expand :: MacroCmd -> Parser ()
-expand = expansion >=> prependToInput
+expand :: Monad m => MacroCmd -> LexerT m ()
+expand = expansion >=> prependTokens
 
 -- | Expand a call of a user-defined macro
 -- and return the expansion.
-expansion :: MacroCmd -> Parser [Token]
+expansion :: Monad m => MacroCmd -> LexerT m [Token]
 expansion m = do
   args <- parseArgspec (macroCmdContext m)
   return $ applyMacro (macroCmdBody m) args
@@ -53,7 +53,7 @@ expansion m = do
 -- | Expand a user-defined environment
 -- and return the expansion as a pair of
 -- @start code@ and @end code@.
-expandEnvironment :: MacroEnv -> Parser ([Token], [Token])
+expandEnvironment :: Monad m => MacroEnv -> LexerT m ([Token], [Token])
 expandEnvironment (MacroEnv _ context startCode endCode) = do
   args <- parseArgspec context
   return (applyMacro startCode args, applyMacro endCode args)
@@ -61,11 +61,11 @@ expandEnvironment (MacroEnv _ context startCode endCode) = do
 -------------------- Helper functions
 
 -- Parse the arguments in a macro call.
-parseArgspec :: ArgSpec -> Parser [[Token]]
+parseArgspec :: Monad m => ArgSpec -> LexerT m [[Token]]
 parseArgspec = mapM parseArgtype
 
 -- Parse a single argument in a macro call.
-parseArgtype :: ArgType -> Parser [Token]
+parseArgtype :: Monad m => ArgType -> LexerT m [Token]
 parseArgtype Mandatory = stripBraces <$> tokenNoExpand
 parseArgtype (Until [t]) = untilTok t
 parseArgtype (Until ts) = untilToks ts

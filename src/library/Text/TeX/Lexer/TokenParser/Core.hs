@@ -11,20 +11,22 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- Low-level parsers for TeX tokens and re-exports of Parsec parsers.
+-- Low-level TeX lexers and lifted Parsec functions for TeX lexing.
 ----------------------------------------------------------------------
 
 module Text.TeX.Lexer.TokenParser.Core
-  ( -- * Parser type
-    Parser
-  , ParserT
-  , runParser
-    -- * Fundamental parsers
+  ( -- * Lexer type
+    LexerT
+  , runLexer
+  , runLexerIO
+  , HandleTeXIO(..)
+    -- * Fundamental lexers
   , satisfyToken
   , satisfyChar
   , satisfyCharCC
     -- * Stream modifications
-  , prependToInput
+  , prependTokens
+  , prependString
     -- * Parsec re-exports
     -- ** State
   , getState
@@ -52,8 +54,13 @@ module Text.TeX.Lexer.TokenParser.Core
 #else
 import Control.Applicative (Applicative, (<$>))
 #endif
-import Control.Monad.Trans.Class (MonadTrans)
-import Data.Functor.Identity (Identity)
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans.Class (MonadTrans, lift)
+import Data.Functor.Identity (Identity, runIdentity)
+import Data.Time (getZonedTime, formatTime, defaultTimeLocale)
+import System.FilePath ((<.>), (</>))
+import System.Directory
+  (getCurrentDirectory, getPermissions, findFilesWith, readable)
 import Text.Parsec (ParsecT, ParseError, tokenPrim)
 import qualified Text.Parsec as P
 import Text.Parsec.Pos (updatePosChar)
@@ -64,31 +71,64 @@ import Text.TeX.Lexer.TokenParser.State
   (LexerState, ThrowsError, validate, getCatcodes)
 
 
--------------------- Parser type
+-------------------- Lexer type
 
--- | Parser for TeX input streams, running over Identity monad.
-type Parser = ParserT Identity
+-- | A type class for monads that know how to handle requests for
+-- certain IO actions that are denoted by primitive TeX commands,
+-- like @\\input@ or @\\year@.
+class Monad m => HandleTeXIO m where
+  handleReadFile :: FilePath -> m String
+  handleReadDate :: m String
 
--- | Parser for TeX input streams.
-newtype ParserT m a = ParserT {
-    runParserT :: TeXParsecT m a
-  } deriving (Functor, Applicative, Monad, MonadTrans)
+-- Execute IO actions.
+instance HandleTeXIO IO where
+  handleReadFile = liftIO . readTeXFile
+  handleReadDate = liftIO getZonedTime >>= return .
+                   formatTime defaultTimeLocale "%Y-%m-%d %H:%M"
 
--- | Run a TeX parser on a 'Char' input stream.
-runParser :: Parser a -> LexerState -> String -> String -> Either ParseError a
-runParser (ParserT p) st name input = P.runParser p st name (map Left input)
+-- Read a TeX file. Attempts to append ".tex" or ".sty"
+-- if the provided filename does not exist.
+readTeXFile :: FilePath -> IO String
+readTeXFile filename = do
+  cwd <- getCurrentDirectory
+  paths <- concat <$> mapM (findFilesWith (fmap readable . getPermissions) [cwd])
+           (map (filename <.>) ["", "tex", "sty"])
+  case paths of
+    (path:_) -> readFile path
+    [] -> error $ "cannot read file: " ++ (cwd </> filename)
+
+-- Silently ignore all requests for IO actions.
+instance HandleTeXIO Identity where
+  handleReadFile _ = return ""
+  handleReadDate = return ""
+
+instance HandleTeXIO m => HandleTeXIO (ParsecT s u m) where
+  handleReadFile = lift . handleReadFile
+  handleReadDate = lift handleReadDate
+
+-- | Lexer for TeX input streams.
+newtype LexerT m a = LexerT {
+    runLexerT :: TeXParsecT m a
+  } deriving (Functor, Applicative, Monad, MonadTrans, HandleTeXIO)
+
+-- | Run a TeX lexer on a 'Char' input stream over the Identity monad, ignoring IO requests.
+runLexer :: LexerT Identity a -> LexerState -> String -> String -> Either ParseError a
+runLexer (LexerT p) st name input = runIdentity (P.runParserT p st name (map Left input))
+
+-- | Run a TeX lexer on a 'Char' input stream over the IO monad, executing IO requests.
+runLexerIO :: LexerT IO a -> LexerState -> String -> String -> IO (Either ParseError a)
+runLexerIO (LexerT p) st name input = P.runParserT p st name (map Left input)
 
 -- ParsecT specialized for TeX input streams.
 type TeXParsecT = ParsecT [CharOrToken] LexerState
 
--- The input to the lexer/parser is a stream of @CharOrToken@
--- elements. These are either (1) unparsed and yet unseen raw @Char@
--- elements (i.e. characters that need to be assigned a catcode or to
--- be assembled into control sequences) or (2) already parsed @Token@
+-- The input to the lexer is a stream of @CharOrToken@ elements.
+-- These are either (1) unparsed and yet unseen raw @Char@ elements
+-- (i.e. characters that need to be assigned a catcode or to be
+-- assembled into control sequences) or (2) already parsed @Token@
 -- elements (e.g. characters with existing catcode assignment, like
--- they are stored in macros). All @Token@ elements in this stream are
--- the result of macro expansion, and they always form a prefix of the
--- stream (i.e. they never appear after a raw @Char@ element).
+-- they are stored in macros). @Token@ elements in this stream are
+-- usually the result of macro expansion.
 
 -- NOTE: We are using @Either@ to hold two equally relevant types.
 -- In particular, @Left@ values are not to be interpreted as errors.
@@ -96,18 +136,18 @@ type TeXParsecT = ParsecT [CharOrToken] LexerState
 type CharOrToken = Either Char Token
 
 
--------------------- Fundamental parsers
+-------------------- Fundamental lexers
 
 -- | Parse a character that both satisfies the provided property
 -- and has one of the listed catcodes.
-satisfyCharCC :: (Char -> Bool) -> [Catcode] -> Parser Char
+satisfyCharCC :: Monad m => (Char -> Bool) -> [Catcode] -> LexerT m Char
 satisfyCharCC p ccs = satisfyCharCCT p ccs <|> satisfyCharCCC p ccs
 
-satisfyCharCCT :: (Char -> Bool) -> [Catcode] -> Parser Char
+satisfyCharCCT :: Monad m => (Char -> Bool) -> [Catcode] -> LexerT m Char
 satisfyCharCCT p ccs = getRawChar <$> satisfyToken (\t ->
                          isCharSat p t && any (`hasCC` t) ccs)
 
-satisfyCharCCC :: (Char -> Bool) -> [Catcode] -> Parser Char
+satisfyCharCCC :: Monad m => (Char -> Bool) -> [Catcode] -> LexerT m Char
 satisfyCharCCC p ccs = do
   cctab <- getCatcodes <$> getState
   satisfyChar (\x -> p x && any (\cc -> hasCatcode cc cctab x) ccs)
@@ -115,17 +155,17 @@ satisfyCharCCC p ccs = do
 
 -- Parse a @Right@ stream element.
 -- | Parse a verifying token.
-satisfyToken :: (Token -> Bool) -> Parser Token
+satisfyToken :: Monad m => (Token -> Bool) -> LexerT m Token
 satisfyToken p = satisfy (either (const False) p) >>= \(Right t) -> return t
 
 -- Parse a @Left@ stream element.
 -- | Parse a verifying character.
-satisfyChar :: (Char -> Bool) -> Parser Char
+satisfyChar :: Monad m => (Char -> Bool) -> LexerT m Char
 satisfyChar p = satisfy (either p (const False)) >>= \(Left c) -> return c
 
--- Fundamental parser for "CharOrToken" streams.
-satisfy :: (CharOrToken -> Bool) -> Parser CharOrToken
-satisfy p = ParserT $ tokenPrim show nextpos test
+-- Fundamental lexer for "CharOrToken" streams.
+satisfy :: Monad m => (CharOrToken -> Bool) -> LexerT m CharOrToken
+satisfy p = LexerT $ tokenPrim show nextpos test
   where
     nextpos = \pos t _ -> case t of
       Left c -> updatePosChar pos c
@@ -136,8 +176,12 @@ satisfy p = ParserT $ tokenPrim show nextpos test
 -------------------- Stream modifications
 
 -- | Prepend a list of tokens to the input stream.
-prependToInput :: [Token] -> Parser ()
-prependToInput xs = (map Right xs ++) <$> getInput >>= setInput
+prependTokens :: Monad m => [Token] -> LexerT m ()
+prependTokens xs = (map Right xs ++) <$> getInput >>= setInput
+
+-- | Prepend a list of chars to the input stream.
+prependString :: Monad m => String -> LexerT m ()
+prependString xs = (map Left xs ++) <$> getInput >>= setInput
 
 
 -------------------- Parsec re-exports
@@ -145,27 +189,27 @@ prependToInput xs = (map Right xs ++) <$> getInput >>= setInput
 ---------- lifting helpers
 
 liftP :: (TeXParsecT m a -> TeXParsecT m r) ->
-         ParserT m a -> ParserT m r
-liftP f (ParserT p) = ParserT (f p)
+         LexerT m a -> LexerT m r
+liftP f (LexerT p) = LexerT (f p)
 
 liftP2 :: (TeXParsecT m a1 -> TeXParsecT m a2 -> TeXParsecT m r) ->
-          ParserT m a1 -> ParserT m a2 -> ParserT m r
-liftP2 f (ParserT p1) (ParserT p2) = ParserT (f p1 p2)
+          LexerT m a1 -> LexerT m a2 -> LexerT m r
+liftP2 f (LexerT p1) (LexerT p2) = LexerT (f p1 p2)
 
 liftP3 :: (TeXParsecT m a1 -> TeXParsecT m a2 ->
            TeXParsecT m a3 -> TeXParsecT m r) ->
-          ParserT m a1 -> ParserT m a2 -> ParserT m a3 -> ParserT m r
-liftP3 f (ParserT p1) (ParserT p2) (ParserT p3) = ParserT (f p1 p2 p3)
+          LexerT m a1 -> LexerT m a2 -> LexerT m a3 -> LexerT m r
+liftP3 f (LexerT p1) (LexerT p2) (LexerT p3) = LexerT (f p1 p2 p3)
 
 ---------- input
 
 -- | See 'P.getInput' from "Text.Parsec".
-getInput :: Parser [CharOrToken]
-getInput = ParserT P.getInput
+getInput :: Monad m => LexerT m [CharOrToken]
+getInput = LexerT P.getInput
 
 -- | See 'P.setInput' from "Text.Parsec".
-setInput :: [CharOrToken] -> Parser ()
-setInput = ParserT . P.setInput
+setInput :: Monad m => [CharOrToken] -> LexerT m ()
+setInput = LexerT . P.setInput
 
 ---------- state
 
@@ -173,82 +217,83 @@ setInput = ParserT . P.setInput
 -- Throws a 'ParseError' if the lexer state is invalid.
 --
 -- Also see 'P.getState' from "Text.Parsec".
-getState :: Parser LexerState
-getState = validate <$> ParserT P.getState >>=
+getState :: Monad m => LexerT m LexerState
+getState = validate <$> LexerT P.getState >>=
            either (parserFail . show) return
 
 -- | Apply a function to the lexer state.
 -- Throws a 'ParseError' if the function fails.
 --
 -- Also see 'P.modifyState' from "Text.Parsec".
-modifyState :: (LexerState -> ThrowsError LexerState) -> Parser ()
+modifyState :: Monad m => (LexerState -> ThrowsError LexerState) -> LexerT m ()
 modifyState f = f <$> getState >>=
-                either (parserFail . show) (ParserT . P.putState)
+                either (parserFail . show) (LexerT . P.putState)
 
 ---------- error
 
 infix 0 <?>
 
 -- | See 'P.<?>' from "Text.Parsec".
-(<?>) :: Parser a -> String -> Parser a
+(<?>) :: Monad m => LexerT m a -> String -> LexerT m a
 p <?> msg = liftP (P.<?> msg) p
 
 -- | See 'P.unexpected' from "Text.Parsec".
-unexpected :: String -> Parser a
-unexpected = ParserT . P.unexpected
+unexpected :: Monad m => String -> LexerT m a
+unexpected = LexerT . P.unexpected
 
 -- | See 'P.parserFail' from "Text.Parsec".
-parserFail :: String -> Parser a
-parserFail = ParserT . P.parserFail
+parserFail :: Monad m => String -> LexerT m a
+parserFail = LexerT . P.parserFail
 
 ---------- combinator
 
 infixr 1 <|>
 
 -- | See 'P.<|>' from "Text.Parsec".
-(<|>) :: Parser a -> Parser a -> Parser a
+(<|>) :: Monad m => LexerT m a -> LexerT m a -> LexerT m a
 (<|>) = liftP2 (P.<|>)
 
 -- | See 'P.between' from "Text.Parsec".
-between :: Parser open -> Parser close -> Parser a -> Parser a
+between :: Monad m => LexerT m open -> LexerT m close ->
+           LexerT m a -> LexerT m a
 between = liftP3 P.between
 
 -- | See 'P.choice' from "Text.Parsec".
-choice :: [Parser a] -> Parser a
-choice = ParserT . P.choice . map runParserT
+choice :: Monad m => [LexerT m a] -> LexerT m a
+choice = LexerT . P.choice . map runLexerT
 
 -- | See 'P.count' from "Text.Parsec".
-count :: Int -> Parser a -> Parser [a]
+count :: Monad m => Int -> LexerT m a -> LexerT m [a]
 count = liftP . P.count
 
 -- | See 'P.eof' from "Text.Parsec".
-eof :: Parser ()
-eof = ParserT P.eof
+eof :: Monad m => LexerT m ()
+eof = LexerT P.eof
 
 -- | See 'P.many' from "Text.Parsec".
-many :: Parser a -> Parser [a]
+many :: Monad m => LexerT m a -> LexerT m [a]
 many = liftP P.many
 
 -- | See 'P.many1' from "Text.Parsec".
-many1 :: Parser a -> Parser [a]
+many1 :: Monad m => LexerT m a -> LexerT m [a]
 many1 = liftP P.many1
 
 -- | See 'P.manyTill' from "Text.Parsec".
-manyTill :: Parser a -> Parser end -> Parser [a]
+manyTill :: Monad m => LexerT m a -> LexerT m end -> LexerT m [a]
 manyTill = liftP2 P.manyTill
 
 -- | See 'P.option' from "Text.Parsec".
-option :: a -> Parser a -> Parser a
+option :: Monad m => a -> LexerT m a -> LexerT m a
 option = liftP . P.option
 
 -- | See 'P.optionMaybe' from "Text.Parsec".
-optionMaybe :: Parser a -> Parser (Maybe a)
+optionMaybe :: Monad m => LexerT m a -> LexerT m (Maybe a)
 optionMaybe = liftP P.optionMaybe
 
 -- | See 'P.optional' from "Text.Parsec".
-optional :: Parser a -> Parser ()
+optional :: Monad m => LexerT m a -> LexerT m ()
 optional = liftP P.optional
 
 -- | See 'P.try' from "Text.Parsec".
-try :: Parser a -> Parser a
+try :: Monad m => LexerT m a -> LexerT m a
 try = liftP P.try

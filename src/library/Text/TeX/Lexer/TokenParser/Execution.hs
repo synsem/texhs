@@ -39,13 +39,13 @@ import Text.TeX.Lexer.TokenParser.State
 ---------- Main document parser
 
 -- | TeX Lexer: Convert TeX source document to a 'Token' stream.
-texLexer :: Parser [Token]
+texLexer :: HandleTeXIO m => LexerT m [Token]
 texLexer = skipOptWhite *> tokens <* eof
 
 ---------- Multi-token parsers with expansion
 
 -- Parse many tokens using 'token'.
-tokens :: Parser [Token]
+tokens :: HandleTeXIO m => LexerT m [Token]
 tokens = concat <$> many token
 
 -- Parse a /logical unit/ of tokens. This is either a single 'Token'
@@ -53,17 +53,17 @@ tokens = concat <$> many token
 -- of tokens resulting from macro expansion. We try to parse as little
 -- structure as possible. Still we need to recognize groups because
 -- many lexer-level commands have group scope (e.g. @\\catcode@).
-token :: Parser [Token]
+token :: HandleTeXIO m => LexerT m [Token]
 token = skipOptCommentsPAR *>
         (group <|> ctrlseq <|> count 1
          (eolpar <|> param <|> someChar))
 
 -- Parse a balanced TeX group as a flat token list including delimiters.
-group :: Parser [Token]
+group :: HandleTeXIO m => LexerT m [Token]
 group = (fmap (++) . (:)) <$> bgroup <*> tokens <*> count 1 egroup
 
 -- Parse a control sequence and try to expand or execute it.
-ctrlseq :: Parser [Token]
+ctrlseq :: HandleTeXIO m => LexerT m [Token]
 ctrlseq = do
   t@(CtrlSeq name active) <- ctrlseqNoExpand
   st <- getState
@@ -112,11 +112,13 @@ defaultPrimitives = map wrapCtrlSeq
   , "DeclareRobustCommand"
   , "newenvironment"
   , "renewenvironment"
+  , "input"
+  , "date"
   ]
   where wrapCtrlSeq t = (mkCtrlSeq t, t)
 
 -- | Meanings of primitives.
-primitiveMeanings :: [(Primitive, Parser [Token])]
+primitiveMeanings :: HandleTeXIO m => [(Primitive, LexerT m [Token])]
 primitiveMeanings =
   [ ("begingroup", [bgroupTok] <$ modifyState (pushGroup NativeGroup))
   , ("endgroup", [egroupTok] <$ modifyState (popGroup NativeGroup))
@@ -150,48 +152,55 @@ primitiveMeanings =
   , ("DeclareRobustCommand", newcommand MacroDeclare)
   , ("newenvironment", newenvironment MacroNew)
   , ("renewenvironment", newenvironment MacroRenew)
+  , ("input", readInputFile)
+  , ("date", mkString <$> handleReadDate)
   ]
 
 -- | Execute a token if its meaning is a primitive,
 -- else return the token unmodified.
-execute :: Token -> Parser [Token]
+execute :: HandleTeXIO m => Token -> LexerT m [Token]
 execute t = case lookup t defaultPrimitives of
   Just p -> executePrimitive p
   Nothing -> return [t]
 
 -- | Execute a primitive command.
-executePrimitive :: Primitive -> Parser [Token]
+executePrimitive :: HandleTeXIO m => Primitive -> LexerT m [Token]
 executePrimitive name = case lookup name primitiveMeanings of
   Just p -> p
   Nothing -> error $ "Call to undefined primitive: " ++ name
 
 -------------------- Handle builtin macros
 
+---------- Builtin macros: file input
+
+readInputFile :: HandleTeXIO m => LexerT m [Token]
+readInputFile = [] <$ (filename >>= (handleReadFile >=> prependString))
+
 ---------- Builtin macros: numbers
 
 -- Parse a character by its number. We are treating these characters
 -- as Tokens with catcode 'Other'.
-chr :: Parser Token
+chr :: Monad m => LexerT m Token
 chr = number >>= \chCode -> return (TeXChar (toEnum chCode) Other)
 
 -- Convert an internal integer to its string representation.
-numbertoks :: Parser [Token]
+numbertoks :: Monad m => LexerT m [Token]
 numbertoks = (map (`TeXChar` Other) . show) <$> number
 
 ---------- Builtin macros: conditionals
 
 -- Expand a conditional to its left branch.
-iftrue :: Parser [Token]
+iftrue :: HandleTeXIO m => LexerT m [Token]
 iftrue = [] <$ conditionalPush True
 
 -- Expand a conditional to its right branch.
-iffalse :: Parser [Token]
+iffalse :: HandleTeXIO m => LexerT m [Token]
 iffalse = [] <$ conditionalPush False
 
 -- Expand a conditional and push the resulting token list
 -- back into the stream (for group detection).
-conditionalPush :: Bool -> Parser ()
-conditionalPush = conditional >=> prependToInput
+conditionalPush :: HandleTeXIO m => Bool -> LexerT m ()
+conditionalPush = conditional >=> prependTokens
 
 -- Parse a conditional and return its left or right branch,
 -- depending on the provided flag.
@@ -199,7 +208,7 @@ conditionalPush = conditional >=> prependToInput
 -- The flag argument indicates whether the condition is true.
 -- Note: Conditional nesting is independent of grouping,
 -- so groups are not parsed here.
-conditional :: Bool -> Parser [Token]
+conditional :: HandleTeXIO m => Bool -> LexerT m [Token]
 conditional b = do
   let (l,r) = (b, not b) -- branch expansion modes
   (leftToks, rightToks) <- condBranches (l,r) []
@@ -208,7 +217,7 @@ conditional b = do
 -- Parse the two branches of a conditional.
 --
 -- The flag arguments indicate whether to expand the branches.
-condBranches :: (Bool, Bool) -> [Token] -> Parser ([Token], [Token])
+condBranches :: HandleTeXIO m => (Bool, Bool) -> [Token] -> LexerT m ([Token], [Token])
 condBranches (expandLeft,expandRight) ltoks = do
   t <- tokenCond expandLeft
   case t of
@@ -228,7 +237,7 @@ condBranches (expandLeft,expandRight) ltoks = do
 -- Parse the second branch of a conditional.
 --
 -- The flag argument indicates whether to expand the branch.
-condRightBranch :: Bool -> [Token] -> Parser [Token]
+condRightBranch :: HandleTeXIO m => Bool -> [Token] -> LexerT m [Token]
 condRightBranch expandMode toks = do
   t <- tokenCond expandMode
   case t of
@@ -246,7 +255,7 @@ condRightBranch expandMode toks = do
 -- Parse a token in a conditional.
 --
 -- Note: Grouping characters are parsed literally.
-tokenCond :: Bool -> Parser [Token]
+tokenCond :: HandleTeXIO m => Bool -> LexerT m [Token]
 tokenCond expandMode = skipOptCommentsPAR *>
             ((if expandMode then ctrlseq else count 1 ctrlseqNoExpand) <|>
              count 1 (charcc Bgroup <|> charcc Egroup <|>
@@ -255,7 +264,7 @@ tokenCond expandMode = skipOptCommentsPAR *>
 -- Evaluate an xparse-style conditional.
 --
 -- Note: In LaTeX3 this is defined via @\\ifx@.
-xparseif :: Token -> Parser [Token]
+xparseif :: HandleTeXIO m => Token -> LexerT m [Token]
 xparseif t = do
   rs <- token <* skipOptSpace
   stripBraces <$> case stripBraces rs of
@@ -266,7 +275,7 @@ xparseif t = do
 
 -- Parse the body of a @catcode@ command, execute it (by changing the
 -- current catcode table) and remove catcode command from the token stream.
-catcode :: Parser [Token]
+catcode :: Monad m => LexerT m [Token]
 catcode = do
   chCode <- number
   equals
@@ -278,7 +287,7 @@ catcode = do
 
 -- Parse a macro definition, execute it (by updating the list of
 -- active macros) and remove the @def@ command from the token stream.
-def :: Parser [Token]
+def :: Monad m => LexerT m [Token]
 def = do
   (CtrlSeq name active) <- ctrlseqNoExpand <?> "macro name"
   context <- macroContextDefinition <?> "macro context definition"
@@ -290,7 +299,7 @@ def = do
 
 -- Parse a macro context definition. Similar to 'tokens', but
 -- must not contain 'Bgroup' (so do not include 'group' parser).
-macroContextDefinition :: Parser [Token]
+macroContextDefinition :: Monad m => LexerT m [Token]
 macroContextDefinition =
   concat <$> many (skipOptCommentsPAR *> count 1
                    (param <|> ctrlseqNoExpand <|> eolpar <|> someChar))
@@ -311,7 +320,7 @@ def2xparse (t1:ts@(_:_)) = LiteralToken t1 : def2xparse ts
 ---------- Builtin macros: LaTeX3 (xparse) macro definitions
 
 -- Parse and register an xparse macro definition.
-declareDocumentCommand :: MacroDefinitionMode -> Parser [Token]
+declareDocumentCommand :: HandleTeXIO m => MacroDefinitionMode -> LexerT m [Token]
 declareDocumentCommand defMode = do
   (CtrlSeq name active) <- optGrouped ctrlseqNoExpand <?> "macro name"
   context <- argspec <?> "macro argspec"
@@ -322,7 +331,7 @@ declareDocumentCommand defMode = do
   return []
 
 -- Parse and register an xparse environment definition.
-declareDocumentEnvironment :: MacroDefinitionMode -> Parser [Token]
+declareDocumentEnvironment :: HandleTeXIO m => MacroDefinitionMode -> LexerT m [Token]
 declareDocumentEnvironment defMode = do
   name <- grouped tokensNoExpand <?> "environment name"
   context <- argspec <?> "environment argspec"
@@ -333,13 +342,13 @@ declareDocumentEnvironment defMode = do
   return []
 
 -- Parse a full xparse-style argument specification.
-argspec :: Parser ArgSpec
+argspec :: HandleTeXIO m => LexerT m ArgSpec
 argspec = grouped (skipOptSpace *> many argtype) <* skipOptSpace
 
 -- Parse a single xparse-style argument type.
 --
 -- Not implemented: 'v' (verbatim), '>' (argument processor).
-argtype :: Parser ArgType
+argtype :: HandleTeXIO m => LexerT m ArgType
 argtype = optional (char '+' Other) *> choice
           [ Mandatory <$ letter 'm'
           , Until <$>
@@ -377,7 +386,7 @@ argtype = optional (char '+' Other) *> choice
 ---------- Builtin macros: LaTeX2e macro definitions
 
 -- Parse and register a LaTeX2e macro definition.
-newcommand :: MacroDefinitionMode -> Parser [Token]
+newcommand :: Monad m => MacroDefinitionMode -> LexerT m [Token]
 newcommand defMode = do
   optional (char '*' Other) -- ignore 'long' property
   (CtrlSeq name active) <- optGrouped ctrlseqNoExpand <?> "macro name"
@@ -389,7 +398,7 @@ newcommand defMode = do
   return []
 
 -- Parse and register a LaTeX2e environment definition.
-newenvironment :: MacroDefinitionMode -> Parser [Token]
+newenvironment :: HandleTeXIO m => MacroDefinitionMode -> LexerT m [Token]
 newenvironment defMode = do
   name <- grouped tokens <?> "environment name"
   context <- latexMacroContext
@@ -401,7 +410,7 @@ newenvironment defMode = do
 
 -- Parse a LaTeX2e macro context definition and
 -- convert it to an xparse-style ArgSpec.
-latexMacroContext :: Parser ArgSpec
+latexMacroContext :: Monad m => LexerT m ArgSpec
 latexMacroContext = do
   numArgs <- option 0 (bracketed singleDigit)
   let open = mkOther '['
@@ -416,7 +425,7 @@ latexMacroContext = do
 -------------------- Handle LaTeX environments (named groups)
 
 -- Start TeX group and try to expand user-defined environment definitions.
-beginEnvironment :: Parser [Token]
+beginEnvironment :: HandleTeXIO m => LexerT m [Token]
 beginEnvironment = do
   name <- envName
   -- Note: expansion must be enabled because we are expanding 'begin'
@@ -429,11 +438,11 @@ beginEnvironment = do
       (startCode, endCode) <- expandEnvironment envdef
       modifyState . pushGroup $
         DefinedGroup (stripBraces name) startCode endCode
-      prependToInput startCode
+      prependTokens startCode
       return []
 
 -- Close matching TeX group and inject end code for user-defined environments.
-endEnvironment :: Parser [Token]
+endEnvironment :: HandleTeXIO m => LexerT m [Token]
 endEnvironment = do
   name <- envName
   let endEnv = mkCtrlSeq "end": name
@@ -448,7 +457,7 @@ endEnvironment = do
       else do -- inject end code
         modifyState . setGroup $
           DefinedGroup name' [] []
-        prependToInput (endCode ++ endEnv)
+        prependTokens (endCode ++ endEnv)
         return []
     _ -> do
       modifyState (popGroup (NamedGroup (stripBraces name)))
@@ -457,5 +466,5 @@ endEnvironment = do
 -- Parse the name of a LaTeX environment, including group delimiters.
 --
 -- We currently allow arbitrary token lists.
-envName :: Parser [Token]
+envName :: HandleTeXIO m => LexerT m [Token]
 envName = group

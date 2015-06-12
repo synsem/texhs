@@ -16,11 +16,11 @@ module Main where
 
 import System.Environment
 
-import Text.TeX (readTeX)
+import Text.TeX (readTeXIO)
 
 main :: IO ()
 main = do
   argv <- getArgs
   case argv of
-    [filename] -> print . readTeX filename =<< readFile filename
+    [filename] -> print =<< readTeXIO filename =<< readFile filename
     _ -> error "Usage: provide a texfile as single argument"
