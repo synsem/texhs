@@ -32,4 +32,4 @@ readTeX name = parseTeX name . lexTeX name
 -- | Parse the named input string to a 'TeX' document,
 -- executing embedded IO-related TeX primitives like @\\input@ or @\\year@.
 readTeXIO :: String -> String -> IO TeX
-readTeXIO name input = parseTeX name <$> lexTeXIO name input
+readTeXIO name input = parseTeX name `fmap` lexTeXIO name input

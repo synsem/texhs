@@ -36,5 +36,5 @@ lexTeX name input =
 -- executing embedded IO-related TeX primitives like @\\input@ or @\\year@.
 lexTeXIO :: String -> String -> IO [Token]
 lexTeXIO name input =
-  either (error . show) id <$>
+  either (error . show) id `fmap`
   runLexerIO texLexer defaultLexerState name input
