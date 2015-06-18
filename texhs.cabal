@@ -1,6 +1,6 @@
 name:                texhs
 version:             0.1.0.0
-synopsis:            (La)TeX Parser
+synopsis:            TeX and LaTeX Parser
 description:         texhs is a Haskell library for parsing TeX and LaTeX documents
                      with support for category code management and the main macro
                      systems of TeX, LaTeX2e and LaTeX3 (xparse).
@@ -21,20 +21,20 @@ tested-with:         GHC == 7.10.1,
 
 library
   hs-source-dirs:      src/library
-  exposed-modules:     Text.TeX,
-                       Text.TeX.Lexer,
-                       Text.TeX.Lexer.Catcode,
-                       Text.TeX.Lexer.Macro,
-                       Text.TeX.Lexer.Token,
-                       Text.TeX.Lexer.TokenParser,
-                       Text.TeX.Lexer.TokenParser.Basic,
-                       Text.TeX.Lexer.TokenParser.Core,
-                       Text.TeX.Lexer.TokenParser.Execution,
-                       Text.TeX.Lexer.TokenParser.Expansion,
-                       Text.TeX.Lexer.TokenParser.State,
-                       Text.TeX.Parser,
-                       Text.TeX.Parser.Basic,
-                       Text.TeX.Parser.Core,
+  exposed-modules:     Text.TeX
+                       Text.TeX.Lexer
+                       Text.TeX.Lexer.Catcode
+                       Text.TeX.Lexer.Macro
+                       Text.TeX.Lexer.Token
+                       Text.TeX.Lexer.TokenParser
+                       Text.TeX.Lexer.TokenParser.Basic
+                       Text.TeX.Lexer.TokenParser.Core
+                       Text.TeX.Lexer.TokenParser.Execution
+                       Text.TeX.Lexer.TokenParser.Expansion
+                       Text.TeX.Lexer.TokenParser.State
+                       Text.TeX.Parser
+                       Text.TeX.Parser.Basic
+                       Text.TeX.Parser.Core
                        Text.TeX.Parser.Types
   build-depends:       base         >=4.5 && <4.9,
                        directory    >=1.2 && <1.3,
@@ -43,7 +43,16 @@ library
                        time         >=1.5 && <1.6,
                        transformers >=0.3 && <0.5
   default-language:    Haskell2010
+  -- extensions used in all modules:
+  default-extensions:
+  -- extensions used in some modules (Cabal >=1.10)
+  -- (see LANGUAGE pragmas in file headers):
   other-extensions:    CPP
+                       GeneralizedNewtypeDeriving
+                       TypeSynonymInstances
+                       FlexibleInstances
+                       MultiParamTypeClasses
+                       FunctionalDependencies
   ghc-options:         -Wall
 
 executable texhs
