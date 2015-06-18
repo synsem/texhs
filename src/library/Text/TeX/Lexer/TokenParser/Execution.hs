@@ -113,6 +113,7 @@ defaultPrimitives = map wrapCtrlSeq
   , "newenvironment"
   , "renewenvironment"
   , "input"
+  , "include"
   , "date"
   ]
   where wrapCtrlSeq t = (mkCtrlSeq t, t)
@@ -153,6 +154,7 @@ primitiveMeanings =
   , ("newenvironment", newenvironment MacroNew)
   , ("renewenvironment", newenvironment MacroRenew)
   , ("input", readInputFile)
+  , ("include", readInputFile)
   , ("date", mkString <$> handleReadDate)
   ]
 

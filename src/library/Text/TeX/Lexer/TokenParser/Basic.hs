@@ -68,7 +68,7 @@ module Text.TeX.Lexer.TokenParser.Basic
 import Control.Applicative ((<*), (<*>), (*>), (<$), (<$>))
 #endif
 import Control.Monad (void, when)
-import Data.Char (isOctDigit, isDigit, isHexDigit)
+import Data.Char (isOctDigit, isDigit, isHexDigit, isSpace, isControl)
 import Numeric (readOct, readDec, readHex)
 
 import Text.TeX.Lexer.Catcode
@@ -173,8 +173,14 @@ string = foldr op (return "")
 -- | Parse a valid filename.
 filename :: Monad m => LexerT m String
 filename =
-  map getRawChar <$>
-  optGrouped (many1 (anyCharCC [Letter, Other]))
+  optGrouped (strip (many1
+    (satisfyCharCC isFilenameChar filenameCCs
+     <?> "valid filename character")))
+  where
+    strip p = skipOptSpace *> p <* skipOptSpace
+    isFilenameChar = \x -> not (isSpace x || isControl x)
+    filenameCCs = [Letter, Other, Mathshift, AlignTab,
+                   ParamPrefix, Supscript, Subscript, Active]
 
 -- | Parse a decimal digit.
 digit :: Monad m => LexerT m Char

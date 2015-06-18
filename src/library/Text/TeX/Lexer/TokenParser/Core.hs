@@ -86,13 +86,13 @@ instance HandleTeXIO IO where
   handleReadDate = liftIO getZonedTime >>= return .
                    formatTime defaultTimeLocale "%Y-%m-%d %H:%M"
 
--- Read a TeX file. Attempts to append ".tex" or ".sty"
--- if the provided filename does not exist.
+-- Read a TeX file.
+-- Appends ".tex" if the provided filename does not exist.
 readTeXFile :: FilePath -> IO String
 readTeXFile filename = do
   cwd <- getCurrentDirectory
   paths <- concat <$> mapM (findFilesWith (fmap readable . getPermissions) [cwd])
-           (map (filename <.>) ["", "tex", "sty"])
+           (map (filename <.>) ["", "tex"])
   case paths of
     (path:_) -> readFile path
     [] -> error $ "cannot read file: " ++ (cwd </> filename)

@@ -13,7 +13,7 @@ import System.Exit (ExitCode, exitSuccess, exitFailure)
 import Test.HUnit (Test(..), Counts(..), test, (~:), (~=?), runTestTT)
 
 import Text.TeX.Lexer (lexTeX)
-import Text.TeX.Lexer.Token (Token(TeXChar,CtrlSeq))
+import Text.TeX.Lexer.Token
 import Text.TeX.Lexer.Catcode (Catcode(..))
 
 
@@ -652,6 +652,24 @@ testsNumber = TestLabel "number command" $ test
     ~=? (lexTeX "" "\\number\\catcode`\\\\")
   ]
 
+-- these tests run with 'lexTeX' over the identity monad, so @\\input@
+-- and @\\include@ commands are ignored, but we can test the filename parser.
+testsIncludes :: Test
+testsIncludes = TestLabel "include commands" $ test
+  [ "input with whitespace-separated ascii filename"
+    ~: mkString "ab"
+    ~=? (lexTeX "" "\\input hello ab")
+  , "input with special characters in filename"
+    ~: mkString "ab"
+    ~=? (lexTeX "" "\\input z$&/#^_~.#!~ ab")
+  , "include with whitespace in group argument"
+    ~: mkString "ab"
+    ~=? (lexTeX "" "\\include{ hello }ab")
+  , "include without whitespace in group argument"
+    ~: mkString "ab"
+    ~=? (lexTeX "" "\\include{h$ll#}ab")
+  ]
+
 -- collect all tests
 tests :: Test
 tests = TestList
@@ -670,6 +688,7 @@ tests = TestList
   , testsActiveChars
   , testsChar
   , testsNumber
+  , testsIncludes
   ]
 
 -- run tests
