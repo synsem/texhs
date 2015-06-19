@@ -40,6 +40,7 @@ module Text.TeX.Lexer.TokenParser.Core
   , choice
   , count
   , eof
+  , lookAhead
   , many
   , many1
   , manyTill
@@ -297,3 +298,7 @@ optional = liftP P.optional
 -- | See 'P.try' from "Text.Parsec".
 try :: Monad m => LexerT m a -> LexerT m a
 try = liftP P.try
+
+-- | See 'P.lookAhead' from "Text.Parsec".
+lookAhead :: Monad m => LexerT m a -> LexerT m a
+lookAhead = liftP P.lookAhead

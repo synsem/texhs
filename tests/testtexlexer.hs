@@ -44,7 +44,7 @@ testsWhitespace = TestLabel "whitespace" $ test
         (TeXChar 'c' Letter)]
     ~=? (lexTeX "" "\\def\\a#1{#1.}\\a \n \n  bc")
   , "drop leading whitespace from every line"
-    ~: [(TeXChar 'a' Letter), (TeXChar ' ' Space), (TeXChar '\n' Eol),
+    ~: [(TeXChar 'a' Letter), (TeXChar ' ' Space),
         (TeXChar 'b' Letter), (TeXChar ' ' Space)]
     ~=? (lexTeX "" "     a \n    b ")
   , "do not drop leading whitespace if linebreak is escaped"
@@ -52,9 +52,8 @@ testsWhitespace = TestLabel "whitespace" $ test
         (TeXChar 'b' Letter)]
     ~=? (lexTeX "" " a\\\n b")
   , "detect linebreaks within a paragraph"
-    ~: [(TeXChar 'a' Letter), (TeXChar '\n' Eol), (TeXChar 'b' Letter),
-        (TeXChar 'c' Letter), (TeXChar ' ' Space), (TeXChar '\n' Eol),
-        (TeXChar 'd' Letter)]
+    ~: [(TeXChar 'a' Letter), (TeXChar ' ' Space), (TeXChar 'b' Letter),
+        (TeXChar 'c' Letter), (TeXChar ' ' Space), (TeXChar 'd' Letter)]
     ~=? (lexTeX "" "a\n  b%\n  c \nd")
   , "parse trailing empty lines as par"
     ~: [(TeXChar 'a' Letter), (CtrlSeq "par" False)]
@@ -74,6 +73,9 @@ testsWhitespace = TestLabel "whitespace" $ test
   , "parse multiple empty lines with interrupting comments as a single par"
     ~: [(TeXChar 'a' Letter), (CtrlSeq "par" False), (TeXChar 'b' Letter)]
     ~=? (lexTeX "" "a\n \n % comment! \n  \n  b")
+  , "drop whitespace before par"
+    ~: [mkLetter 'a', parTok, mkLetter 'b']
+    ~=? (lexTeX "" "a \n \n \n  b")
   ]
 
 testsComments :: Test
@@ -102,6 +104,15 @@ testsComments = TestLabel "comments" $ test
   , "drop leading whitespace from lines following a comment"
     ~: [(TeXChar 'a' Letter), (TeXChar '8' Other)]
     ~=? (lexTeX "" "a% some comment\n  8")
+  , "drop comment in an empty group"
+    ~: mkGroup []
+    ~=? (lexTeX "" "{% some comment\n}")
+  , "drop multiple comments in an empty group"
+    ~: mkGroup []
+    ~=? (lexTeX "" "{% comment 1\n   % comment 2\n}")
+  , "drop comment on final line before eof"
+    ~: mkString "end"
+    ~=? (lexTeX "" "end% some comment")
   ]
 
 testsGrouping :: Test

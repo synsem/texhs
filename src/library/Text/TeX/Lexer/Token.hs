@@ -191,6 +191,9 @@ ordPrefix = mkOther '`'
 -------------------- TeX constants: Control sequences
 
 -- | TeX paragraph break.
+--
+-- Note: This token is used by the lexer to represent
+-- any inter-paragraph whitespace.
 parTok :: Token
 parTok = mkCtrlSeq "par"
 
@@ -234,6 +237,10 @@ alignTok :: Token
 alignTok = TeXChar '&' AlignTab
 
 -- | 'Eol' token.
+--
+-- Note: This token does not appear in the lexer output.
+-- All intra-paragraph whitespace is represented by 'spcTok', and
+-- all inter-paragraph whitespace is represented by 'parTok'.
 eolTok :: Token
 eolTok = TeXChar '\n' Eol
 
@@ -246,5 +253,8 @@ subTok :: Token
 subTok = TeXChar '_' Subscript
 
 -- | 'Space' token.
+--
+-- Note: This token is used by the lexer to represent
+-- any intra-paragraph whitespace.
 spcTok :: Token
 spcTok = TeXChar ' ' Space

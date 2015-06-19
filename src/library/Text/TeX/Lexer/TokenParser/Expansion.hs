@@ -66,7 +66,7 @@ parseArgspec = mapM parseArgtype
 
 -- Parse a single argument in a macro call.
 parseArgtype :: Monad m => ArgType -> LexerT m [Token]
-parseArgtype Mandatory = stripBraces <$> tokenNoExpand
+parseArgtype Mandatory = stripBraces <$> nextTokenNoExpand
 parseArgtype (Until [t]) = untilTok t
 parseArgtype (Until ts) = untilToks ts
 parseArgtype (UntilCC cc) = many (charccno cc)

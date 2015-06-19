@@ -40,7 +40,7 @@ import Text.TeX.Lexer.TokenParser.State
 
 -- | TeX Lexer: Convert TeX source document to a 'Token' stream.
 texLexer :: HandleTeXIO m => LexerT m [Token]
-texLexer = skipOptWhite *> tokens <* eof
+texLexer = optional anyWhite *> tokens <* eof
 
 ---------- Multi-token parsers with expansion
 
@@ -54,9 +54,8 @@ tokens = concat <$> many token
 -- structure as possible. Still we need to recognize groups because
 -- many lexer-level commands have group scope (e.g. @\\catcode@).
 token :: HandleTeXIO m => LexerT m [Token]
-token = skipOptCommentsPAR *>
-        (group <|> ctrlseq <|> count 1
-         (eolpar <|> param <|> someChar))
+token = anyWhite <|> group <|> ctrlseq <|>
+        count 1 (param <|> someChar)
 
 -- Parse a balanced TeX group as a flat token list including delimiters.
 group :: HandleTeXIO m => LexerT m [Token]
@@ -258,10 +257,9 @@ condRightBranch expandMode toks = do
 --
 -- Note: Grouping characters are parsed literally.
 tokenCond :: HandleTeXIO m => Bool -> LexerT m [Token]
-tokenCond expandMode = skipOptCommentsPAR *>
-            ((if expandMode then ctrlseq else count 1 ctrlseqNoExpand) <|>
-             count 1 (charcc Bgroup <|> charcc Egroup <|>
-                      eolpar <|> param <|> someChar))
+tokenCond expandMode = parseUntilNonEmpty $ anyWhite <|>
+  (if expandMode then ctrlseq else count 1 ctrlseqNoExpand) <|>
+  count 1 (charcc Bgroup <|> charcc Egroup <|> param <|> someChar)
 
 -- Evaluate an xparse-style conditional.
 --
@@ -303,8 +301,8 @@ def = do
 -- must not contain 'Bgroup' (so do not include 'group' parser).
 macroContextDefinition :: Monad m => LexerT m [Token]
 macroContextDefinition =
-  concat <$> many (skipOptCommentsPAR *> count 1
-                   (param <|> ctrlseqNoExpand <|> eolpar <|> someChar))
+  concat <$> many (anyWhite <|> count 1
+                   (param <|> ctrlseqNoExpand <|> someChar))
 
 -- Convert def-style macro context to an xparse argspec.
 --

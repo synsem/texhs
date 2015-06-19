@@ -30,8 +30,6 @@ module Text.TeX.Lexer.TokenParser.Basic
   , hexDigit
   , bgroup
   , egroup
-  , space
-  , eol
   , someChar
     -- ** 'CtrlSeq' Parsers
   , ctrlseqNoExpand
@@ -40,6 +38,7 @@ module Text.TeX.Lexer.TokenParser.Basic
   , param
     -- * Multi-token parsers
   , tokenNoExpand
+  , nextTokenNoExpand
   , tokensNoExpand
   , untilTok
   , untilToks
@@ -49,12 +48,11 @@ module Text.TeX.Lexer.TokenParser.Basic
   , grouped
   , optGrouped
   , bracketed
-    -- * Linebreak parsers
-  , eolpar
-    -- * Unit parsers
+  , parseUntilNonEmpty
+    -- * Whitespace parsers
+  , anyWhite
   , skipOptSpace
-  , skipOptWhite
-  , skipOptCommentsPAR
+    -- * Unit parsers
   , equals
     -- * Number parsers
   , number
@@ -83,9 +81,10 @@ import Text.TeX.Lexer.TokenParser.State
 --
 -- Does not accept a group and will not expand macros.
 singleToken :: Monad m => LexerT m Token
-singleToken = skipOptCommentsPAR *>
-              (ctrlseqNoExpand <|>
-               (eolpar <|> param <|> someChar))
+singleToken = option [] anyWhite >>= \xs ->
+  if null xs
+  then choice [ctrlseqNoExpand, param, someChar]
+  else return (head xs)
 
 -- | Parse the provided token.
 tok :: Monad m => Token -> LexerT m Token
@@ -205,14 +204,6 @@ bgroup = charcc Bgroup <* modifyState (pushGroup AnonymousGroup)
 egroup :: Monad m => LexerT m Token
 egroup = charcc Egroup <* modifyState (popGroup AnonymousGroup)
 
--- | Parse an explicit space token.
-space :: Monad m => LexerT m Token
-space = charcc Space
-
--- | Parse an explicit end-of-line token.
-eol :: Monad m => LexerT m Token
-eol = charcc Eol
-
 
 -- | Parse any character if its catcode is in the provided list.
 anyCharCC :: Monad m => [Catcode] -> LexerT m Token
@@ -258,7 +249,7 @@ ctrlseqC = do
   -- Note: we are using the internal plain char parsers here
   -- because parsed tokens cannot compose to a 'CtrlSeq'.
   void $ charccC Escape
-  cs <- (many1 (charccC Letter) <* skipSpacePAR)
+  cs <- (many1 (charccC Letter) <* skipSpaceExceptPar)
         <|> count 1 anyChar
         <?> "control sequence"
   return (CtrlSeq (map getRawChar cs) False)
@@ -278,7 +269,7 @@ ctrlseqEqC name True = let c = head name -- for active chars @length name == 1@
                        in char c Active *> return (CtrlSeq [c] True)
 ctrlseqEqC name False = do
   void $ charccC Escape
-  cs <- string name <* skipSpacePAR
+  cs <- string name <* skipSpaceExceptPar
   return (CtrlSeq cs False)
 
 -------------------- 'Param' Parsers
@@ -302,13 +293,23 @@ paramC = do
 -------------------- Multi-token parsers
 
 -- | Parse a /logical unit/ of tokens without expanding them.
--- This is either a single 'Token' or a group of tokens.
+--
+-- Possible return values:
+--
+-- * empty list: resulting from an intra-paragraph comment
+-- * singleton list: e.g. control sequence, whitespace, letter
+-- * multi-element list: group of tokens
+--
+-- If you need a non-empty return value, use 'nextTokenNoExpand'.
 tokenNoExpand :: Monad m => LexerT m [Token]
-tokenNoExpand =
-  skipOptCommentsPAR *>
-  (groupNoExpand <|> count 1
-   (ctrlseqNoExpand <|> eolpar <|>
-    param <|> someChar))
+tokenNoExpand = anyWhite <|> groupNoExpand <|> count 1
+  (ctrlseqNoExpand <|> param <|> someChar)
+
+-- | Parse a /logical unit/ of tokens without expanding them.
+--
+-- Like 'tokenNoExpand' but never returns the empty list.
+nextTokenNoExpand :: Monad m => LexerT m [Token]
+nextTokenNoExpand = parseUntilNonEmpty tokenNoExpand
 
 -- | Parse many logical units of tokens without expanding them.
 -- (See 'tokenNoExpand'.)
@@ -397,64 +398,86 @@ optGrouped p = grouped p <|> p
 bracketed :: Monad m => LexerT m a -> LexerT m a
 bracketed = between (char '[' Other) (char ']' Other)
 
--------------------- Linebreak parsers
+-- | Apply a list parser until the result is non-empty.
+parseUntilNonEmpty :: Monad m => LexerT m [Token] -> LexerT m [Token]
+parseUntilNonEmpty p = p >>= \xs ->
+  if null xs then parseUntilNonEmpty p else return xs
 
--- | Parse an 'Eol' char or, if followed by an empty line, a par token.
--- This also skips leading space on the following line.
-eolpar :: Monad m => LexerT m Token
-eolpar = parT <|> ((eol <* skipOptSpace) >>= flip option par)
+-------------------- Whitespace parsers
 
--- Parse a paragraph break (via a 'parTok' token or via an empty line
--- after a previously seen 'Eol' character).
-par :: Monad m => LexerT m Token
-par = parT <|> (parTok <$ (eol <* skipOptWhite))
+-- | Parse whitespace-like tokens: comments, space, eol, par.
+--
+-- Returns the empty list or a single whitespace token ('spcTok' or 'parTok').
+-- A single application will consume all leading whitespace.
+--
+-- Intra-paragraph whitespace is represented by 'spcTok'.
+-- Inter-paragraph whitespace is represented by 'parTok'.
+anyWhite :: Monad m => LexerT m [Token]
+anyWhite = comment <|> space <|> eol <|> parT
 
--- Parse a par token (and skip all subsequent whitespace).
-parT :: Monad m => LexerT m Token
-parT = tokT parTok <* skipOptWhite
+-- Parse a Comment.
+-- Returns [], or [parTok] if followed by an empty line.
+comment :: Monad m => LexerT m [Token]
+comment = skipSingleComment *> skipOptSpacesAndComments *>
+  option [] (emptyLine <|> parT)
 
--------------------- Unit parsers
+-- Parse a Space token.
+-- Returns [spcTok], or [parTok] if followed by an empty line.
+space :: Monad m => LexerT m [Token]
+space = charcc Space *> skipOptSpacesAndComments *>
+  option [spcTok] (eol <|> parT)
+
+-- Parse an Eol token.
+-- Skips leading space on the following line.
+-- Returns [spcTok], or [parTok] if followed by an empty line.
+eol :: Monad m => LexerT m [Token]
+eol = charcc Eol *> skipOptSpacesAndComments *>
+  option [spcTok] (emptyLine <|> parT)
+
+-- If this parser succeeds after a previously seen line break,
+-- we hit an empty line and thus return [parTok].
+-- This also skips any subsequent whitespace.
+emptyLine :: Monad m => LexerT m [Token]
+emptyLine = [parTok] <$ (charcc Eol <* skipOptWhite)
+
+-- Parse a Par token.
+-- This also skips any subsequent whitespace.
+parT :: Monad m => LexerT m [Token]
+parT = count 1 (tokT parTok) <* skipOptWhite
+
+-- Skip optional spaces (no eol or par) and comments.
+skipOptSpacesAndComments :: Monad m => LexerT m ()
+skipOptSpacesAndComments = void . many $
+  void (charcc Space) <|> skipSingleComment
 
 -- | Skip optional 'Space' chars.
 skipOptSpace :: Monad m => LexerT m ()
-skipOptSpace = void $ many space
+skipOptSpace = void . many $ charcc Space
 
--- | Skip all whitespace ('Space' and 'Eol' chars) and comments.
+-- | Skip all whitespace, intra-paragraph and inter-paragraph alike.
+--
+-- In particular, skip 'Space' and 'Eol' chars, Par tokens and comments.
+-- This is typically used after encountering a paragraph break.
 skipOptWhite :: Monad m => LexerT m ()
-skipOptWhite = void $ many (void (space <|> eol) <|> skipComments)
+skipOptWhite = void . many $
+  skipSingleComment <|> void (charcc Space <|> charcc Eol <|> tokT parTok)
 
 -- Skip a single comment, including the trailing 'Eol' and any leading
 -- space on the following line.
 skipSingleComment :: Monad m => LexerT m ()
-skipSingleComment = charcc Comment *> many (charccno Eol) *> eol *> skipOptSpace
+skipSingleComment = charcc Comment *> many (charccno Eol) *>
+  ((charcc Eol *> skipOptSpace) <|> lookAhead eof)
 
--- Skip at least one comment.
-skipComments :: Monad m => LexerT m ()
-skipComments = void $ many1 skipSingleComment
+-- Skip optional intra-paragraph whitespace.
+-- However, on encountering a paragraph break,
+-- push a Par token back into the stream.
+skipSpaceExceptPar :: Monad m => LexerT m ()
+skipSpaceExceptPar = optional (anyWhite >>= injectParTok)
+  where
+    injectParTok xs@(w:_) = when (w == parTok) (prependTokens xs)
+    injectParTok _ = return ()
 
--- Skip at least one comment.
---
--- NOTE: If followed by an empty line, push a par token back into the stream.
-skipCommentsPAR :: Monad m => LexerT m ()
-skipCommentsPAR = do
-  t <- many1 skipSingleComment *> option eolTok par
-  when (isCtrlSeq t) -- true iff par token
-    (prependTokens [t])
-
--- | Skip optional comments.
---
--- NOTE: If followed by an empty line, push a par token back into the stream.
-skipOptCommentsPAR :: Monad m => LexerT m ()
-skipOptCommentsPAR = option () skipCommentsPAR
-
--- Skip an optional 'Eol' character and surrounding space.
---
--- NOTE: If followed by an empty line, push a par token back into the stream.
-skipSpacePAR :: Monad m => LexerT m ()
-skipSpacePAR = do
-  t <- skipOptSpace *> option eolTok eolpar
-  when (isCtrlSeq t) -- true iff par token
-    (prependTokens [t])
+-------------------- Unit parsers
 
 -- | Parse an optional equals sign.
 equals :: Monad m => LexerT m ()
