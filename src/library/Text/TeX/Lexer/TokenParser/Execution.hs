@@ -24,6 +24,7 @@ module Text.TeX.Lexer.TokenParser.Execution
 import Control.Applicative ((<*), (<*>), (*>), (<$), (<$>))
 #endif
 import Control.Monad ((>=>))
+import Data.Maybe (fromMaybe)
 
 import Text.TeX.Lexer.Catcode
 import Text.TeX.Lexer.Macro
@@ -68,7 +69,7 @@ ctrlseq = do
   t@(CtrlSeq name active) <- ctrlseqNoExpand
   st <- getState
   case lookupMacroCmd (name, active) st of
-    Just m@(MacroCmdUser _ _ _) -> [] <$ expand m
+    Just m@(MacroCmdUser{}) -> [] <$ expand m
     Just (MacroCmdPrim p) -> executePrimitive p
     Nothing -> return [t]
 
@@ -114,11 +115,13 @@ primitiveMeanings =
   , ("input", readInputFile)
   , ("include", readInputFile)
   , ("date", mkString <$> handleReadDate)
+  , ("meaning", meaning)
+  , ("undefined", error "undefined control sequence")
   ]
 
 -- | Execute a primitive command.
 executePrimitive :: HandleTeXIO m => Primitive -> LexerT m [Token]
-executePrimitive name = maybe throwError id $ lookup name primitiveMeanings
+executePrimitive name = fromMaybe throwError $ lookup name primitiveMeanings
   where
     throwError = error $ "Call to undefined primitive: " ++ name
 
@@ -128,6 +131,16 @@ executePrimitive name = maybe throwError id $ lookup name primitiveMeanings
 
 readInputFile :: HandleTeXIO m => LexerT m [Token]
 readInputFile = [] <$ (filename >>= (handleReadFile >=> prependString))
+
+---------- Builtin macros: meaning
+
+-- Show the current meaning of a control sequence or a character.
+meaning :: HandleTeXIO m => LexerT m [Token]
+meaning =
+  (mkQuote . showMeaning) <$> (getState >>= \st ->
+    ((ctrlseqNoExpand >>= \(CtrlSeq name active) ->
+       return (getMacroMeaning st (name, active))) <|>
+     (getCharMeaning st <$> rawChar)))
 
 ---------- Builtin macros: numbers
 

@@ -15,6 +15,7 @@
 module Text.TeX.Lexer.Catcode
   ( -- * Catcodes
     Catcode(..)
+  , showCatcodePP
     -- * Catcode groups
   , catcodesAllowed
   , catcodesNonescaped
@@ -24,12 +25,14 @@ module Text.TeX.Lexer.Catcode
   , defaultCatcodeTable
     -- ** Catcode table lookup (read)
   , catcodeOf
+  , defaultCatcodeOf
+  , quoteCatcodeOf
   , hasCatcode
     -- ** Catcode table modifications (write)
   , updateCatcodeTable
   ) where
 
-import Data.Char (isAlpha)
+import Data.Char (isAlpha, isSpace)
 import Data.Maybe (fromMaybe)
 
 
@@ -52,7 +55,31 @@ data Catcode
   | Active
   | Comment
   | Invalid
-  deriving (Eq, Show, Ord, Enum)
+  deriving (Eq, Ord, Enum)
+
+instance Show Catcode where
+  show = show . fromEnum
+
+-- | Show the name of a category code,
+-- mostly as reported by TeX's @\\meaning@.
+-- See TeX82, §298.
+showCatcodePP :: Catcode -> String
+showCatcodePP Escape = "escape character"
+showCatcodePP Bgroup = "begin-group character"
+showCatcodePP Egroup = "end-group character"
+showCatcodePP Mathshift = "math shift character"
+showCatcodePP AlignTab = "alignment tab character"
+showCatcodePP Eol = "end of line character"
+showCatcodePP ParamPrefix = "macro parameter character"
+showCatcodePP Supscript = "superscript character"
+showCatcodePP Subscript = "subscript character"
+showCatcodePP Ignored = "ignored character"
+showCatcodePP Space = "space character"
+showCatcodePP Letter = "the letter"
+showCatcodePP Other = "the character"
+showCatcodePP Active = "active character"
+showCatcodePP Comment = "comment character"
+showCatcodePP Invalid = "invalid character"
 
 -- | A catcode table is a (typically partial) assignment of catcodes to
 -- characters. If a character has no entry in this table, its catcode
@@ -119,6 +146,21 @@ catcodeOf :: Char -> CatcodeTable -> Catcode
 catcodeOf ch t = fromMaybe
                  (if isAlpha ch then Letter else Other)
                  (lookup ch t)
+
+-- | Lookup the default catcode for a character,
+-- using 'defaultCatcodeTable'.
+defaultCatcodeOf :: Char -> Catcode
+defaultCatcodeOf = flip catcodeOf defaultCatcodeTable
+
+-- | Lookup the default quoting catcode for a character:
+-- letters are treated are 'Letter' tokens,
+-- whitespace characters as 'Space' tokens (no 'Eol') and
+-- all other characters as 'Other' tokens.
+quoteCatcodeOf :: Char -> Catcode
+quoteCatcodeOf ch
+  | isAlpha ch = Letter
+  | isSpace ch = Space
+  | otherwise = Other
 
 -- | Test whether character @ch@ has catcode @cc@ relative to catcode
 -- table @t@.

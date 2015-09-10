@@ -23,11 +23,6 @@ module Text.TeX.Lexer.TokenParser.Basic
   , charcc
   , charccno
   , letter
-  , string
-  , filename
-  , digit
-  , octDigit
-  , hexDigit
   , bgroup
   , egroup
   , someChar
@@ -55,6 +50,13 @@ module Text.TeX.Lexer.TokenParser.Basic
   , skipSpaceExceptPar
     -- * Unit parsers
   , equals
+    -- * Char parsers
+  , rawChar
+  , string
+  , filename
+  , digit
+  , octDigit
+  , hexDigit
     -- * Number parsers
   , number
   , singleDigit
@@ -161,41 +163,6 @@ charccCno i = do
 -- | Parse the provided character if it has catcode 'Letter'.
 letter :: Monad m => Char -> LexerT m Token
 letter = flip char Letter
-
--- | Parse the provided string.
---
--- This will only accept characters with catcode 'Letter'.
-string :: Monad m => String -> LexerT m String
-string = foldr op (return "")
-  where op = \c -> (<*>) ((:) <$> plainLetter c)
-        plainLetter = \c -> (c <$ letter c)
-
--- | Parse a valid filename.
-filename :: Monad m => LexerT m String
-filename =
-  optGrouped (strip (many1
-    (satisfyCharCC isFilenameChar filenameCCs
-     <?> "valid filename character")))
-  where
-    strip p = skipOptSpace *> p <* skipOptSpace
-    isFilenameChar = \x -> not (isSpace x || isControl x)
-    filenameCCs = [Letter, Other, Mathshift, AlignTab,
-                   ParamPrefix, Supscript, Subscript, Active]
-
--- | Parse a decimal digit.
-digit :: Monad m => LexerT m Char
-digit = satisfyCharCC isDigit [Other]
-
--- | Parse an octal digit.
-octDigit :: Monad m => LexerT m Char
-octDigit = satisfyCharCC isOctDigit [Other]
-
--- | Parse a hexadecimal digit.
---
--- Note: TeX wants cc(0-9) = Other, cc(a-f)= Other|Letter.
--- We are more liberal and only require cc(0-9a-f) = Other|Letter.
-hexDigit :: Monad m => LexerT m Char
-hexDigit = satisfyCharCC isHexDigit [Other, Letter]
 
 -- | Parse an explicit bgroup token.
 bgroup :: Monad m => LexerT m Token
@@ -484,6 +451,52 @@ skipSpaceExceptPar = optional (anyWhite >>= injectParTok)
 -- | Parse an optional equals sign.
 equals :: Monad m => LexerT m ()
 equals = skipOptSpace *> optional (char '=' Other) *> skipOptSpace
+
+-------------------- Char parsers
+
+-- | Parse a raw character, ignoring category codes.
+-- This will deconstruct pre-parsed tokens to raw strings.
+rawChar :: Monad m => LexerT m Char
+rawChar = satisfyChar (const True) <|>
+  (detokenize <$> satisfyToken (const True) >>= getFirst)
+  where
+    getFirst (c:cs) = prependString cs *> return c
+    getFirst [] = error "token was deconstructed to empty string"
+
+-- | Parse the provided string.
+--
+-- This will only accept characters with catcode 'Letter'.
+string :: Monad m => String -> LexerT m String
+string = foldr op (return "")
+  where op = \c -> (<*>) ((:) <$> plainLetter c)
+        plainLetter = \c -> (c <$ letter c)
+
+-- | Parse a valid filename.
+filename :: Monad m => LexerT m String
+filename =
+  optGrouped (strip (many1
+    (satisfyCharCC isFilenameChar filenameCCs
+     <?> "valid filename character")))
+  where
+    strip p = skipOptSpace *> p <* skipOptSpace
+    isFilenameChar = \x -> not (isSpace x || isControl x)
+    filenameCCs = [Letter, Other, Mathshift, AlignTab,
+                   ParamPrefix, Supscript, Subscript, Active]
+
+-- | Parse a decimal digit.
+digit :: Monad m => LexerT m Char
+digit = satisfyCharCC isDigit [Other]
+
+-- | Parse an octal digit.
+octDigit :: Monad m => LexerT m Char
+octDigit = satisfyCharCC isOctDigit [Other]
+
+-- | Parse a hexadecimal digit.
+--
+-- Note: TeX wants cc(0-9) = Other, cc(a-f)= Other|Letter.
+-- We are more liberal and only require cc(0-9a-f) = Other|Letter.
+hexDigit :: Monad m => LexerT m Char
+hexDigit = satisfyCharCC isHexDigit [Other, Letter]
 
 -------------------- Number parsers
 

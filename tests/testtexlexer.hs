@@ -675,6 +675,31 @@ testsNumber = TestLabel "number command" $ test
     ~=? (lexTeX "" "\\number\\catcode`\\\\")
   ]
 
+testsMeaning :: Test
+testsMeaning = TestLabel "meaning command" $ test
+  [ "meaning of a letter"
+    ~: mkQuote "the letter a"
+    ~=? (lexTeX "" "\\meaning a")
+  , "meaning of a parameter character"
+    ~: mkQuote "macro parameter character #"
+    ~=? (lexTeX "" "\\meaning#")
+  , "meaning of a control sequence that denotes a primitive command"
+    ~: mkQuote "primitive:def"
+    ~=? (lexTeX "" "\\meaning \\def")
+  , "meaning of a user-defined macro"
+    ~: mkQuote "macro:[Mandatory]->(#1)"
+    ~=? (lexTeX "" "\\def\\a#1{(#1)}\\meaning\\a")
+  , "meaning of an undefined macro"
+    ~: mkQuote "undefined"
+    ~=? (lexTeX "" "\\meaning\\a")
+  , "meaning of the primitive \\undefined"
+    ~: mkQuote "primitive:undefined"
+    ~=? (lexTeX "" "\\meaning\\undefined")
+  , "the meaning of meaning"
+    ~: mkQuote "primitive:meaning"
+    ~=? (lexTeX "" "\\meaning\\meaning")
+  ]
+
 -- these tests run with 'lexTeX' over the identity monad, so @\\input@
 -- and @\\include@ commands are ignored, but we can test the filename parser.
 testsIncludes :: Test
@@ -711,6 +736,7 @@ tests = TestList
   , testsActiveChars
   , testsChar
   , testsNumber
+  , testsMeaning
   , testsIncludes
   ]
 

@@ -27,7 +27,11 @@ module Text.TeX.Lexer.Token
   , hasCC
     -- ** Token list manipulation
   , stripBraces
+    -- * Token deconstruction
+  , detokenize
     -- * Token builder functions
+  , mkDefault
+  , mkQuote
   , mkLetter
   , mkString
   , mkOther
@@ -56,7 +60,7 @@ module Text.TeX.Lexer.Token
   , spcTok
   ) where
 
-import Text.TeX.Lexer.Catcode (Catcode(..))
+import Text.TeX.Lexer.Catcode
 
 
 -------------------- Token types
@@ -138,7 +142,24 @@ stripBraces toks@(x:xs) = if hasCC Bgroup x && hasCC Egroup (last toks)
                           then init xs
                           else toks
 
+-------------------- Token deconstruction
+
+-- | Deconstruct a token to its string representation.
+detokenize :: Token -> String
+detokenize (TeXChar ch _) = [ch]
+detokenize (CtrlSeq name _) = name
+detokenize p@(Param _ _) = show p
+
 -------------------- Token builder functions
+
+-- | Assign default catcodes to a list of characters.
+mkDefault :: String -> [Token]
+mkDefault = map (\c -> TeXChar c (defaultCatcodeOf c))
+
+-- | Assign quote catcodes to a list of characters.
+-- See 'quoteCatcodeOf'.
+mkQuote :: String -> [Token]
+mkQuote = map (\c -> TeXChar c (quoteCatcodeOf c))
 
 -- | Create a 'Letter' token.
 mkLetter :: Char -> Token

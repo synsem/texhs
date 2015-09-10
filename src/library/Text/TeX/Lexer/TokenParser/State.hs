@@ -45,6 +45,9 @@ module Text.TeX.Lexer.TokenParser.State
     -- *** Environments
   , lookupMacroEnv
   , registerMacroEnv
+    -- ** Meaning
+  , getCharMeaning
+  , getMacroMeaning
   ) where
 
 import Text.TeX.Lexer.Catcode
@@ -253,3 +256,13 @@ registerMacroCmd = registerMacro
 registerMacroEnv :: MacroDefinitionMode -> (MacroEnvKey, MacroEnv) ->
                     LexerState -> ThrowsError LexerState
 registerMacroEnv = registerMacro
+
+---------- Meanings
+
+-- | Lookup the current meaning of the provided character.
+getCharMeaning :: LexerState -> Char -> Meaning
+getCharMeaning l ch = MeaningChar ch (catcodeOf ch (getCatcodes l))
+
+-- | Lookup the current meaning of the provided control sequence.
+getMacroMeaning :: LexerState -> MacroCmdKey -> Meaning
+getMacroMeaning l k = maybe MeaningUndef MeaningMacro $ lookupMacroCmd k l

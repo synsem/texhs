@@ -31,10 +31,13 @@ module Text.TeX.Lexer.Macro
     -- * Primitive commands
   , Primitive
   , defaultPrimitives
+    -- * Meanings
+  , Meaning(..)
+  , showMeaning
   ) where
 
-import Text.TeX.Lexer.Token (Token(..))
-import Text.TeX.Lexer.Catcode (Catcode)
+import Text.TeX.Lexer.Token (Token(..), detokenize)
+import Text.TeX.Lexer.Catcode (Catcode, showCatcodePP)
 
 -------------------- Argument Specification
 
@@ -109,6 +112,8 @@ defaultPrimitives = map wrapPrim
   , "input"
   , "include"
   , "date"
+  , "meaning"
+  , "undefined"
   ]
   where wrapPrim t = ((t, False), MacroCmdPrim t)
 
@@ -131,12 +136,12 @@ data MacroCmd
 
 -- | Test whether a 'MacroCmd' is a user-defined command.
 isMacroCmdUser :: MacroCmd -> Bool
-isMacroCmdUser (MacroCmdUser _ _ _) = True
+isMacroCmdUser (MacroCmdUser{}) = True
 isMacroCmdUser _ = False
 
 -- | Test whether a 'MacroCmd' is a primitive command.
 isMacroCmdPrim :: MacroCmd -> Bool
-isMacroCmdPrim (MacroCmdPrim _) = True
+isMacroCmdPrim (MacroCmdPrim{}) = True
 isMacroCmdPrim _ = False
 
 -------------------- Macro Environments
@@ -176,3 +181,23 @@ data MacroDefinitionMode
   | MacroRenew
   | MacroProvide
   | MacroDeclare
+
+-------------------- Meanings
+
+-- | The meaning of a control sequence or a character.
+data Meaning
+  = MeaningChar Char Catcode
+  | MeaningMacro MacroCmd
+  | MeaningUndef
+  deriving (Eq, Show)
+
+-- | Describe the meaning of a token.
+showMeaning :: Meaning -> String
+showMeaning (MeaningChar c cc)
+  = showCatcodePP cc ++ " " ++ [c]
+showMeaning (MeaningMacro (MacroCmdUser _ ctx body))
+  = "macro:" ++ show ctx ++ "->" ++ concatMap detokenize body
+showMeaning (MeaningMacro (MacroCmdPrim p))
+  = "primitive:" ++ p
+showMeaning MeaningUndef
+  = "undefined"
