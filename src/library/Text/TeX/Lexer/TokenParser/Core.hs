@@ -51,9 +51,9 @@ module Text.TeX.Lexer.TokenParser.Core
   ) where
 
 #if MIN_VERSION_base(4,8,0)
--- Prelude already exports everything required from Control.Applicative
+import Control.Applicative (Alternative)
 #else
-import Control.Applicative (Applicative, (<$>))
+import Control.Applicative (Alternative, Applicative, (<$>))
 #endif
 import Control.Monad (MonadPlus)
 import Control.Monad.IO.Class (liftIO)
@@ -111,7 +111,8 @@ instance HandleTeXIO m => HandleTeXIO (ParsecT s u m) where
 -- | Lexer for TeX input streams.
 newtype LexerT m a = LexerT {
     runLexerT :: TeXParsecT m a
-  } deriving (Functor, Applicative, Monad, MonadPlus, MonadTrans, HandleTeXIO)
+  } deriving (Functor, Applicative, Alternative, Monad, MonadPlus,
+              MonadTrans, HandleTeXIO)
 
 -- | Run a TeX lexer on a 'Char' input stream over the Identity monad, ignoring IO requests.
 runLexer :: LexerT Identity a -> LexerState -> String -> String -> Either ParseError a
