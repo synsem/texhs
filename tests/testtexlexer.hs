@@ -193,6 +193,18 @@ testsMacrosDef = TestLabel "def macro definitions" $ test
     ~: [(TeXChar '{' Bgroup), (TeXChar 'a' Letter), (TeXChar '}' Egroup),
         (CtrlSeq "a" False)]
     ~=? (lexTeX "" "{\\def\\a{a}\\a}\\a")
+  , "mandatory undelimited parameters skip optional leading space"
+    ~: [(TeXChar '(' Other), (TeXChar 'a' Letter), (TeXChar ':' Other),
+        (TeXChar 'b' Letter), (TeXChar ':' Other), (TeXChar 'c' Letter),
+        (TeXChar ')' Other), (TeXChar ' ' Space)]
+    ~=? (lexTeX "" "\\def\\a#1#2#3{(#1:#2:#3)}\\a a  b c ")
+  , "mandatory undelimited parameters skip optional leading space"
+    ~: [(TeXChar '(' Other), (TeXChar 'a' Letter), (TeXChar ':' Other),
+        (TeXChar 'd' Letter), (TeXChar 'd' Letter), (TeXChar ')' Other)]
+    ~=? (lexTeX "" "\\def\\a#1#2{(#1:#2)}\\a a  {dd}")
+  , "delimited parameters accept empty arguments"
+    ~: [(TeXChar '(' Other), (TeXChar ')' Other)]
+    ~=? (lexTeX "" "\\def\\a#1\\b{(#1)}\\a\\b")
   , "nested macro call: expand user-defined macro recursively"
     ~: replicate 3 (TeXChar 'a' Letter)
     ~=? (lexTeX "" "\\def\\a{a}\\def\\b{\\a\\a\\a}\\b")

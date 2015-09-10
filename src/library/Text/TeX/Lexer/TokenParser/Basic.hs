@@ -52,6 +52,7 @@ module Text.TeX.Lexer.TokenParser.Basic
     -- * Whitespace parsers
   , anyWhite
   , skipOptSpace
+  , skipSpaceExceptPar
     -- * Unit parsers
   , equals
     -- * Number parsers
@@ -468,7 +469,8 @@ skipSingleComment :: Monad m => LexerT m ()
 skipSingleComment = charcc Comment *> many (charccno Eol) *>
   ((charcc Eol *> skipOptSpace) <|> lookAhead eof)
 
--- Skip optional intra-paragraph whitespace.
+-- | Skip optional intra-paragraph whitespace.
+--
 -- However, on encountering a paragraph break,
 -- push a Par token back into the stream.
 skipSpaceExceptPar :: Monad m => LexerT m ()

@@ -23,7 +23,7 @@ module Text.TeX.Lexer.TokenParser.Expansion
 #if MIN_VERSION_base(4,8,0)
 -- Prelude exports all required operators from Control.Applicative
 #else
-import Control.Applicative ((<$), (<$>))
+import Control.Applicative ((<$), (<$>), (*>))
 #endif
 import Control.Monad ((>=>))
 import Data.Maybe (fromMaybe)
@@ -66,7 +66,8 @@ parseArgspec = mapM parseArgtype
 
 -- Parse a single argument in a macro call.
 parseArgtype :: Monad m => ArgType -> LexerT m [Token]
-parseArgtype Mandatory = stripBraces <$> nextTokenNoExpand
+parseArgtype Mandatory = stripBraces <$>
+  (skipSpaceExceptPar *> nextTokenNoExpand)
 parseArgtype (Until [t]) = untilTok t
 parseArgtype (Until ts) = untilToks ts
 parseArgtype (UntilCC cc) = many (charccno cc)
