@@ -62,62 +62,21 @@ group :: HandleTeXIO m => LexerT m [Token]
 group = (fmap (++) . (:)) <$> bgroup <*> tokens <*> count 1 egroup
 
 -- Parse a control sequence and try to expand or execute it.
+-- If no definition is known, return the token unmodified.
 ctrlseq :: HandleTeXIO m => LexerT m [Token]
 ctrlseq = do
   t@(CtrlSeq name active) <- ctrlseqNoExpand
   st <- getState
   case lookupMacroCmd (name, active) st of
-    Just m -> [] <$ expand m
-    Nothing -> execute t
+    Just m@(MacroCmdUser _ _ _) -> [] <$ expand m
+    Just (MacroCmdPrim p) -> executePrimitive p
+    Nothing -> return [t]
 
 ---------------------------------------- Execute TeX primitives
 
--- | Primitives are internal names of executable commands
--- and possible meanings of control sequences.
-type Primitive = String
-
--- | Default mapping of tokens (control sequences) to primitives.
-defaultPrimitives :: [(Token, Primitive)]
-defaultPrimitives = map wrapCtrlSeq
-  [ "begingroup"
-  , "endgroup"
-  , "bgroup"
-  , "egroup"
-  , "("
-  , ")"
-  , "["
-  , "]"
-  , "begin"
-  , "end"
-  , "catcode"
-  , "def"
-  , "iftrue"
-  , "iffalse"
-  , "char"
-  , "number"
-  , "NewDocumentCommand"
-  , "RenewDocumentCommand"
-  , "ProvideDocumentCommand"
-  , "DeclareDocumentCommand"
-  , "NewDocumentEnvironment"
-  , "RenewDocumentEnvironment"
-  , "ProvideDocumentEnvironment"
-  , "DeclareDocumentEnvironment"
-  , "IfBooleanTF"
-  , "IfNoValueTF"
-  , "newcommand"
-  , "renewcommand"
-  , "providecommand"
-  , "DeclareRobustCommand"
-  , "newenvironment"
-  , "renewenvironment"
-  , "input"
-  , "include"
-  , "date"
-  ]
-  where wrapCtrlSeq t = (mkCtrlSeq t, t)
-
 -- | Meanings of primitives.
+--
+-- These internal executable commands cannot be changed by the user.
 primitiveMeanings :: HandleTeXIO m => [(Primitive, LexerT m [Token])]
 primitiveMeanings =
   [ ("begingroup", [bgroupTok] <$ modifyState (pushGroup NativeGroup))
@@ -157,18 +116,11 @@ primitiveMeanings =
   , ("date", mkString <$> handleReadDate)
   ]
 
--- | Execute a token if its meaning is a primitive,
--- else return the token unmodified.
-execute :: HandleTeXIO m => Token -> LexerT m [Token]
-execute t = case lookup t defaultPrimitives of
-  Just p -> executePrimitive p
-  Nothing -> return [t]
-
 -- | Execute a primitive command.
 executePrimitive :: HandleTeXIO m => Primitive -> LexerT m [Token]
-executePrimitive name = case lookup name primitiveMeanings of
-  Just p -> p
-  Nothing -> error $ "Call to undefined primitive: " ++ name
+executePrimitive name = maybe throwError id $ lookup name primitiveMeanings
+  where
+    throwError = error $ "Call to undefined primitive: " ++ name
 
 -------------------- Handle builtin macros
 
@@ -294,7 +246,7 @@ def = do
   body <- grouped tokensNoExpand
   let key = (name, active)
   modifyState (registerLocalMacroCmd
-               (key, MacroCmd key (def2xparse context) body))
+               (key, MacroCmdUser key (def2xparse context) body))
   return []
 
 -- Parse a macro context definition. Similar to 'tokens', but
@@ -327,7 +279,7 @@ declareDocumentCommand defMode = do
   body <- grouped tokensNoExpand
   let key = (name, active)
   modifyState $ registerMacroCmd defMode
-    (key, MacroCmd key context body)
+    (key, MacroCmdUser key context body)
   return []
 
 -- Parse and register an xparse environment definition.
@@ -394,7 +346,7 @@ newcommand defMode = do
   body <- grouped tokensNoExpand <|> count 1 singleToken
   let key = (name, active)
   modifyState $ registerMacroCmd defMode
-    (key, MacroCmd key context body)
+    (key, MacroCmdUser key context body)
   return []
 
 -- Parse and register a LaTeX2e environment definition.

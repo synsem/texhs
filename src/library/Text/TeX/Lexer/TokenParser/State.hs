@@ -39,6 +39,7 @@ module Text.TeX.Lexer.TokenParser.State
 --  , registerMacro
     -- *** Commands
   , lookupMacroCmd
+  , lookupMacroCmdUser
   , registerMacroCmd
   , registerLocalMacroCmd
     -- *** Environments
@@ -50,6 +51,7 @@ import Text.TeX.Lexer.Catcode
 import Text.TeX.Lexer.Macro
 import Text.TeX.Lexer.Token
 
+import Control.Monad (guard)
 
 ---------- Types
 
@@ -96,11 +98,11 @@ throwE = Left . LexerStateError
 ---------- Constructors
 
 -- | The initial lexer state contains the default catcode table
--- and no registered macros.
+-- and no registered macros except for primitive commands.
 defaultLexerState :: LexerState
 defaultLexerState = LexerState [Scope
   { localCatcodes = defaultCatcodeTable
-  , localMacroCmds = []
+  , localMacroCmds = defaultPrimitives
   , localMacroEnvs = []
   , localGroup = AnonymousGroup
   }]
@@ -187,9 +189,15 @@ type MacroEnvMap = [(MacroEnvKey, MacroEnv)]
 lookupMacro :: Macro k a => k -> LexerState -> Maybe a
 lookupMacro k = lookup k . getMacros
 
--- | Lookup macro command definition.
+-- | Lookup macro command definition (user-defined or primitive).
 lookupMacroCmd :: MacroCmdKey -> LexerState -> Maybe MacroCmd
 lookupMacroCmd = lookupMacro
+
+-- | Lookup macro command definition,
+-- restricted to user-defined macros ('MacroCmdUser').
+lookupMacroCmdUser :: MacroCmdKey -> LexerState -> Maybe MacroCmd
+lookupMacroCmdUser k l = lookupMacroCmd k l >>= \m ->
+  guard (isMacroCmdUser m) >> return m
 
 -- | Lookup macro environment definition.
 lookupMacroEnv :: MacroEnvKey -> LexerState -> Maybe MacroEnv

@@ -16,6 +16,8 @@ module Text.TeX.Lexer.Macro
   ( -- * Macro commands
     MacroCmd(..)
   , MacroCmdKey
+  , isMacroCmdUser
+  , isMacroCmdPrim
     -- * Macro environments
   , MacroEnv(..)
   , MacroEnvKey
@@ -26,6 +28,9 @@ module Text.TeX.Lexer.Macro
   , MacroDefinitionMode(..)
     -- * Macro expansion
   , applyMacro
+    -- * Primitive commands
+  , Primitive
+  , defaultPrimitives
   ) where
 
 import Text.TeX.Lexer.Token (Token(..))
@@ -60,17 +65,79 @@ data ArgType
   | LiteralToken Token
   deriving (Eq, Show)
 
+-------------------- Primitive Commands
+
+-- | Primitives are internal names of executable commands
+-- and possible meanings of control sequences.
+type Primitive = String
+
+-- | Default mapping of tokens (control sequences) to primitives.
+defaultPrimitives :: [(MacroCmdKey, MacroCmd)]
+defaultPrimitives = map wrapPrim
+  [ "begingroup"
+  , "endgroup"
+  , "bgroup"
+  , "egroup"
+  , "("
+  , ")"
+  , "["
+  , "]"
+  , "begin"
+  , "end"
+  , "catcode"
+  , "def"
+  , "iftrue"
+  , "iffalse"
+  , "char"
+  , "number"
+  , "NewDocumentCommand"
+  , "RenewDocumentCommand"
+  , "ProvideDocumentCommand"
+  , "DeclareDocumentCommand"
+  , "NewDocumentEnvironment"
+  , "RenewDocumentEnvironment"
+  , "ProvideDocumentEnvironment"
+  , "DeclareDocumentEnvironment"
+  , "IfBooleanTF"
+  , "IfNoValueTF"
+  , "newcommand"
+  , "renewcommand"
+  , "providecommand"
+  , "DeclareRobustCommand"
+  , "newenvironment"
+  , "renewenvironment"
+  , "input"
+  , "include"
+  , "date"
+  ]
+  where wrapPrim t = ((t, False), MacroCmdPrim t)
+
 -------------------- Macro Commands
 
 -- | Key for macro command lookup: name and active flag.
 type MacroCmdKey = (String, Bool)
 
 -- | Definition of a macro command.
-data MacroCmd = MacroCmd
-  { macroCmdName :: MacroCmdKey
-  , macroCmdContext :: ArgSpec
-  , macroCmdBody :: [Token]
-  } deriving (Eq, Show)
+data MacroCmd
+  = MacroCmdUser
+    { macroCmdName :: MacroCmdKey
+    , macroCmdContext :: ArgSpec
+    , macroCmdBody :: [Token]
+    }
+  | MacroCmdPrim
+    { macroCmdPrim :: Primitive
+    }
+  deriving (Eq, Show)
+
+-- | Test whether a 'MacroCmd' is a user-defined command.
+isMacroCmdUser :: MacroCmd -> Bool
+isMacroCmdUser (MacroCmdUser _ _ _) = True
+isMacroCmdUser _ = False
+
+-- | Test whether a 'MacroCmd' is a primitive command.
+isMacroCmdPrim :: MacroCmd -> Bool
+isMacroCmdPrim (MacroCmdPrim _) = True
+isMacroCmdPrim _ = False
 
 -------------------- Macro Environments
 

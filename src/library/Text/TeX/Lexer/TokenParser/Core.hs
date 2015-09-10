@@ -55,6 +55,7 @@ module Text.TeX.Lexer.TokenParser.Core
 #else
 import Control.Applicative (Applicative, (<$>))
 #endif
+import Control.Monad (MonadPlus)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (MonadTrans, lift)
 import Data.Functor.Identity (Identity, runIdentity)
@@ -110,7 +111,7 @@ instance HandleTeXIO m => HandleTeXIO (ParsecT s u m) where
 -- | Lexer for TeX input streams.
 newtype LexerT m a = LexerT {
     runLexerT :: TeXParsecT m a
-  } deriving (Functor, Applicative, Monad, MonadTrans, HandleTeXIO)
+  } deriving (Functor, Applicative, Monad, MonadPlus, MonadTrans, HandleTeXIO)
 
 -- | Run a TeX lexer on a 'Char' input stream over the Identity monad, ignoring IO requests.
 runLexer :: LexerT Identity a -> LexerState -> String -> String -> Either ParseError a

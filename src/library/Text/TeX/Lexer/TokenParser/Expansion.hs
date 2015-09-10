@@ -25,7 +25,7 @@ module Text.TeX.Lexer.TokenParser.Expansion
 #else
 import Control.Applicative ((<$), (<$>), (*>))
 #endif
-import Control.Monad ((>=>))
+import Control.Monad ((>=>), guard)
 import Data.Maybe (fromMaybe)
 
 import Text.TeX.Lexer.Macro
@@ -45,6 +45,7 @@ expand = expansion >=> prependTokens
 -- and return the expansion.
 expansion :: Monad m => MacroCmd -> LexerT m [Token]
 expansion m = do
+  guard $ isMacroCmdUser m
   args <- parseArgspec (macroCmdContext m)
   return $ applyMacro (macroCmdBody m) args
 
