@@ -71,6 +71,7 @@ ctrlseq = do
   case lookupMacroCmd (name, active) st of
     Just m@(MacroCmdUser{}) -> [] <$ expand m
     Just (MacroCmdPrim p) -> executePrimitive p
+    Just (MacroCmdChar ch cc) -> [] <$ prependTokens [TeXChar ch cc]
     Nothing -> return [t]
 
 ---------------------------------------- Execute TeX primitives
@@ -92,6 +93,7 @@ primitiveMeanings =
   , ("end", endEnvironment)
   , ("catcode", catcode)
   , ("def", def)
+  , ("let", letmeaning)
   , ("iftrue", iftrue)
   , ("iffalse", iffalse)
   , ("char", count 1 chr)
@@ -134,13 +136,34 @@ readInputFile = [] <$ (filename >>= (handleReadFile >=> prependString))
 
 ---------- Builtin macros: meaning
 
+-- Assign new meaning to a control sequence.
+letmeaning :: Monad m => LexerT m [Token]
+letmeaning = do
+  (CtrlSeq name active) <- ctrlseqNoExpand <?> "macro name"
+  equals
+  m <- meaningCtrlSeq <|> meaningChar
+  let val = case m of
+        MeaningChar ch cc -> MacroCmdChar ch cc
+        MeaningMacro cmd -> cmd
+        MeaningUndef -> MacroCmdPrim "undefined"
+  let key = (name, active)
+  modifyState (registerLocalMacroCmd (key, val))
+  return []
+
 -- Show the current meaning of a control sequence or a character.
-meaning :: HandleTeXIO m => LexerT m [Token]
-meaning =
-  (mkQuote . showMeaning) <$> (getState >>= \st ->
-    ((ctrlseqNoExpand >>= \(CtrlSeq name active) ->
-       return (getMacroMeaning st (name, active))) <|>
-     (getCharMeaning st <$> rawChar)))
+meaning :: Monad m => LexerT m [Token]
+meaning = (mkQuote . showMeaning) <$> (meaningCtrlSeq <|> meaningChar)
+
+-- Parse a control sequence and return its meaning.
+meaningCtrlSeq :: Monad m => LexerT m Meaning
+meaningCtrlSeq = do
+  (CtrlSeq name active) <- ctrlseqNoExpand
+  st <- getState
+  return (getMacroMeaning st (name, active))
+
+-- Parse a single raw character (catcode-independent) and return its meaning.
+meaningChar :: Monad m => LexerT m Meaning
+meaningChar = getCharMeaning <$> getState <*> rawChar
 
 ---------- Builtin macros: numbers
 

@@ -184,6 +184,36 @@ testsConditionals = TestLabel "conditionals" $ test
                       ++ "\\iftrue\\mkhi\\else\\fi" ++ "\\hi"))
   ]
 
+testsMacrosLet :: Test
+testsMacrosLet = TestLabel "meaning assignments with let" $ test
+  [ "let assignments disappear in the token stream"
+    ~: []
+    ~=? (lexTeX "" "\\let\\hello=\\bye")
+  , "assign digit to a macro"
+    ~: TeXChar '2' Other : (mkQuote "the character 1")
+    ~=? (lexTeX "" "\\let\\one12\\meaning\\one")
+  , "assign param char to a macro"
+    ~: [TeXChar '2' Other]
+    ~=? (lexTeX "" "\\let\\myhash=#2")
+  , "local scope"
+    ~: [TeXChar '{' Bgroup, TeXChar 'a' Letter, TeXChar '}' Egroup] ++
+       (mkQuote "undefined")
+    ~=? (lexTeX "" "{\\let\\ab=a\\ab}\\meaning\\ab")
+  , "let assignments are by value (by meaning) not by name"
+    ~: [TeXChar 'a' Letter, TeXChar 'b' Letter]
+    ~=? (lexTeX "" "\\def\\a{a}\\let\\l\\a\\def\\a{b}\\l\\a")
+  , "let overwrites def"
+    ~: [TeXChar 'b' Letter]
+    ~=? (lexTeX "" "\\def\\a{a}\\let\\a=b\\a")
+  , "def overwrites let"
+    ~: [TeXChar 'a' Letter]
+    ~=? (lexTeX "" "\\let\\a=b\\def\\a{a}\\a")
+  , "let vs def"
+    ~: [TeXChar 'a' Letter, TeXChar 'b' Letter, TeXChar 'b' Letter]
+    ~=? (lexTeX "" ("\\def\\a{a}\\def\\b{\\a}\\let\\c\\b\\c"
+                    ++ "\\def\\a{b}\\c\\def\\b{c}\\c"))
+  ]
+
 testsMacrosDef :: Test
 testsMacrosDef = TestLabel "def macro definitions" $ test
   [ "macro definitions disappear in the token stream"
@@ -726,6 +756,7 @@ tests = TestList
   , testsComments
   , testsGrouping
   , testsConditionals
+  , testsMacrosLet
   , testsMacrosDef
   , testsMacrosXparse
   , testsMacrosLaTeX2e

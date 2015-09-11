@@ -89,6 +89,7 @@ defaultPrimitives = map wrapPrim
   , "end"
   , "catcode"
   , "def"
+  , "let"
   , "iftrue"
   , "iffalse"
   , "char"
@@ -131,6 +132,10 @@ data MacroCmd
     }
   | MacroCmdPrim
     { macroCmdPrim :: Primitive
+    }
+  | MacroCmdChar
+    { macroCmdChar :: Char
+    , macroCmdCatcode :: Catcode
     }
   deriving (Eq, Show)
 
@@ -193,11 +198,13 @@ data Meaning
 
 -- | Describe the meaning of a token.
 showMeaning :: Meaning -> String
-showMeaning (MeaningChar c cc)
-  = showCatcodePP cc ++ " " ++ [c]
+showMeaning (MeaningChar ch cc)
+  = showCatcodePP cc ++ " " ++ [ch]
 showMeaning (MeaningMacro (MacroCmdUser _ ctx body))
   = "macro:" ++ show ctx ++ "->" ++ concatMap detokenize body
 showMeaning (MeaningMacro (MacroCmdPrim p))
   = "primitive:" ++ p
+showMeaning (MeaningMacro (MacroCmdChar ch cc))
+  = showMeaning (MeaningChar ch cc)
 showMeaning MeaningUndef
   = "undefined"
