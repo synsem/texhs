@@ -18,6 +18,7 @@ module Text.TeX.Lexer.Macro
   , MacroCmdKey
   , isMacroCmdUser
   , isMacroCmdPrim
+  , isMacroCmdChar
     -- * Macro environments
   , MacroEnv(..)
   , MacroEnvKey
@@ -148,6 +149,11 @@ isMacroCmdUser _ = False
 isMacroCmdPrim :: MacroCmd -> Bool
 isMacroCmdPrim (MacroCmdPrim{}) = True
 isMacroCmdPrim _ = False
+
+-- | Test whether a 'MacroCmd' is an implicit character.
+isMacroCmdChar :: MacroCmd -> Bool
+isMacroCmdChar (MacroCmdChar{}) = True
+isMacroCmdChar _ = False
 
 -------------------- Macro Environments
 
