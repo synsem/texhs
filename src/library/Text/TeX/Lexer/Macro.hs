@@ -35,6 +35,7 @@ module Text.TeX.Lexer.Macro
     -- * Meanings
   , Meaning(..)
   , showMeaning
+  , isPrimitive
   ) where
 
 import Text.TeX.Lexer.Token (Token(..), detokenize)
@@ -116,6 +117,9 @@ defaultPrimitives = map wrapPrim
   , "date"
   , "meaning"
   , "undefined"
+    -- primitive constants
+  , "else"
+  , "fi"
   ]
   where wrapPrim t = ((t, False), MacroCmdPrim t)
 
@@ -214,3 +218,8 @@ showMeaning (MeaningMacro (MacroCmdChar ch cc))
   = showMeaning (MeaningChar ch cc)
 showMeaning MeaningUndef
   = "undefined"
+
+-- | Test whether a meaning equals the provided primitive command.
+isPrimitive :: Primitive -> Meaning -> Bool
+isPrimitive n (MeaningMacro (MacroCmdPrim p)) = n == p
+isPrimitive _ _ = False

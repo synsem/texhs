@@ -70,7 +70,9 @@ ctrlseq = do
   st <- getState
   case lookupMacroCmd (name, active) st of
     Just m@(MacroCmdUser{}) -> [] <$ expand m
-    Just (MacroCmdPrim p) -> executePrimitive p
+    Just (MacroCmdPrim p)
+      | p `elem` primitiveConstants -> return [t]
+      | otherwise -> executePrimitive p
     Just (MacroCmdChar ch cc) -> [] <$ prependTokens [TeXChar ch cc]
     Nothing -> return [t]
 
@@ -120,6 +122,15 @@ primitiveMeanings =
   , ("meaning", meaning)
   , ("undefined", error "undefined control sequence")
   ]
+
+-- Primitive constants have no direct implementation,
+-- they are used as constants in restricted contexts.
+primitiveConstants :: [Primitive]
+primitiveConstants = ["else", "fi"]
+
+-- A list of primitives that start a new conditional.
+conditionalHeads :: [Primitive]
+conditionalHeads = ["iftrue", "iffalse"]
 
 -- | Execute a primitive command.
 executePrimitive :: HandleTeXIO m => Primitive -> LexerT m [Token]
@@ -209,13 +220,15 @@ conditional b = do
 condBranches :: HandleTeXIO m => (Bool, Bool) -> [Token] -> LexerT m ([Token], [Token])
 condBranches (expandLeft,expandRight) ltoks = do
   t <- tokenCond expandLeft
+  s <- getState
+  let means = meansPrimitive s
   case t of
-    [CtrlSeq name _]
-      | name == "fi" ->
+    [CtrlSeq n a]
+      | (n, a) `means` "fi" ->
           return (ltoks, [])
-      | name == "else" ->
+      | (n, a) `means` "else" ->
           (,) ltoks <$> condRightBranch expandRight []
-      | name `elem` ["iftrue", "iffalse"] ->
+      | any ((n, a) `means`) conditionalHeads ->
           -- handle embedded conditional in dead branch
           condBranches (False, False) [] *>
             condBranches (expandLeft, expandRight) ltoks
@@ -229,11 +242,13 @@ condBranches (expandLeft,expandRight) ltoks = do
 condRightBranch :: HandleTeXIO m => Bool -> [Token] -> LexerT m [Token]
 condRightBranch expandMode toks = do
   t <- tokenCond expandMode
+  s <- getState
+  let means = meansPrimitive s
   case t of
-    [CtrlSeq name _]
-      | name == "fi" ->
+    [CtrlSeq n a]
+      | (n, a) `means` "fi" ->
           return toks
-      | name `elem` ["iftrue", "iffalse"] ->
+      | any ((n, a) `means`) conditionalHeads ->
         -- handle embedded conditional in dead branch
           condBranches (False, False) [] *>
             condRightBranch expandMode toks

@@ -182,6 +182,15 @@ testsConditionals = TestLabel "conditionals" $ test
     ~: [(TeXChar 'h' Letter), (TeXChar 'i' Letter)]
     ~=? (lexTeX "" ("\\def\\mkhi{\\def\\hi{hi}}"
                       ++ "\\iftrue\\mkhi\\else\\fi" ++ "\\hi"))
+  , "conditionals look at meanings in dead branch: 'iftrue' alias"
+    ~: [(TeXChar '0' Other)]
+    ~=? (lexTeX "" ("\\let\\iif\\iftrue\\iftrue0\\else\\iif\\fi\\fi"))
+  , "conditionals look at meanings in dead branch: 'else' alias"
+    ~: [(TeXChar '1' Other)]
+    ~=? (lexTeX "" ("\\let\\ielse\\else\\iffalse0\\ielse1\\fi"))
+  , "no macro expansion in dead branch: unnoticed 'else' alias"
+    ~: []
+    ~=? (lexTeX "" ("\\def\\ielse{\\else}\\iffalse0\\ielse1\\fi"))
   ]
 
 testsMacrosLet :: Test

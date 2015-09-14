@@ -206,6 +206,7 @@ anyEscapedChar = do
 -------------------- 'CtrlSeq' Parsers
 
 -- | Parse a control sequence without trying to expand it.
+-- Always returns a 'CtrlSeq' token.
 ctrlseqNoExpand :: Monad m => LexerT m Token
 ctrlseqNoExpand = ctrlseqT <|> ctrlseqC <|> activeC
 

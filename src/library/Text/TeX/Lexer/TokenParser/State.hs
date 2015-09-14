@@ -48,6 +48,7 @@ module Text.TeX.Lexer.TokenParser.State
     -- ** Meaning
   , getCharMeaning
   , getMacroMeaning
+  , meansPrimitive
   ) where
 
 import Text.TeX.Lexer.Catcode
@@ -266,3 +267,7 @@ getCharMeaning l ch = MeaningChar ch (catcodeOf ch (getCatcodes l))
 -- | Lookup the current meaning of the provided control sequence.
 getMacroMeaning :: LexerState -> MacroCmdKey -> Meaning
 getMacroMeaning l k = maybe MeaningUndef MeaningMacro $ lookupMacroCmd k l
+
+-- | Test whether the meaning of a control sequence equals a certain primitive.
+meansPrimitive :: LexerState -> MacroCmdKey -> Primitive -> Bool
+meansPrimitive l k p = isPrimitive p $ getMacroMeaning l k
