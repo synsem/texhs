@@ -29,6 +29,11 @@ module Text.TeX.Parser.Types
   , isWhite
   , isNewline
   , isPar
+  , isCmd
+  , isGrp
+    -- * Access arguments
+  , getoptarg
+  , getmandarg
     -- * Utility functions
   , normalize
   ) where
@@ -121,6 +126,33 @@ isNewline _ = False
 isPar :: TeXAtom -> Bool
 isPar Par = True
 isPar _ = False
+
+
+-- | Test whether a 'TeXAtom' is a specific command.
+isCmd :: String -> TeXAtom -> Bool
+isCmd n (Command name _) = n == name
+isCmd _ _ = False
+
+-- | Test whether a 'TeXAtom' is a specific group.
+isGrp :: String -> TeXAtom -> Bool
+isGrp n (Group name _ _) = n == name
+isGrp _ _ = False
+
+
+-------------------- Access arguments
+
+-- | Retrieve the n-th optional argument (of a command or environment).
+getoptarg :: Int -> Args -> TeX
+getoptarg n (oargs, _)
+  | n >= 0 && length oargs > n = oargs !! n
+  | otherwise = []
+
+-- | Retrieve the n-th mandatory argument (of a command or environment).
+getmandarg :: Int -> Args -> TeX
+getmandarg n (_, margs)
+  | n >= 0 && length margs > n = margs !! n
+  | otherwise = []
+
 
 -------------------- Utility functions
 
