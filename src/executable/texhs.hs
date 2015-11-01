@@ -17,10 +17,12 @@ module Main where
 import System.Environment
 
 import Text.TeX (readTeXIO)
+import Text.Doc (tex2doc)
 
 main :: IO ()
 main = do
   argv <- getArgs
   case argv of
-    [filename] -> print =<< readTeXIO filename =<< readFile filename
+    [filename] -> print =<< (tex2doc filename `fmap`
+                             (readTeXIO filename =<< readFile filename))
     _ -> error "Usage: provide a texfile as single argument"
