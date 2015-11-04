@@ -25,8 +25,9 @@ module Text.TeX.Parser.Basic
 import Control.Applicative ((<*), (<*>), (*>), (<$), (<$>))
 #endif
 import Control.Monad (void)
+import Data.Maybe (catMaybes)
 import Text.Parsec
-  ((<|>), choice, option, optional, many, many1, manyTill,
+  ((<|>), choice, optional, optionMaybe, many, many1, manyTill,
    count, between, (<?>), eof)
 
 import Text.TeX.Lexer.Catcode
@@ -50,11 +51,11 @@ atom = choice [plain, group, command, white, alignMark,
 
 -- | Parse subscripted content.
 subscript :: TeXParser TeXAtom
-subscript = SubScript <$> (charCC Subscript *> arg)
+subscript = SubScript <$> (charCC Subscript *> argbody)
 
 -- | Parse superscripted content.
 supscript :: TeXParser TeXAtom
-supscript = SupScript <$> (charCC Supscript *> arg)
+supscript = SupScript <$> (charCC Supscript *> argbody)
 
 -- | Parse an align tab.
 alignMark :: TeXParser TeXAtom
@@ -100,7 +101,11 @@ egroup = void $ charCC Egroup
 
 -- | Parse an anonymous TeX group.
 group :: TeXParser TeXAtom
-group = Group "" ([],[]) <$> between bgroup egroup atoms
+group = Group "" [] <$> groupbody
+
+-- | Parse the content of a group.
+groupbody :: TeXParser TeX
+groupbody = between bgroup egroup atoms
 
 -- | Parse a TeX math group.
 mathgroup :: TeXParser TeXAtom
@@ -121,19 +126,25 @@ mathInner = many $ choice [plain, group, command, white, alignMark,
                            subscript, supscript]
 
 -- Use this parser if you know the control sequence requires an argument.
--- | Parse a mandatory argument: the content of a group or a single atom.
-arg :: TeXParser TeX
-arg = mandarg <|> count 1 plainChar
+-- (Like 'argbody' but wrapped in 'Arg'.)
+-- | Parse an obligatory argument: the content of a group or a single atom.
+arg :: TeXParser Arg
+arg = OblArg <$> argbody
 
--- Use this parser as a heuristic to eat up possible mandatory
+-- | Parse the content of an obligatory argument:
+-- the content of a group or a single atom.
+argbody :: TeXParser TeX
+argbody = groupbody <|> count 1 plainChar
+
+-- Use this parser as a heuristic to eat up possible obligatory
 -- arguments of unknown control sequences.
--- | Parse a mandatory group argument: the content of a group.
-mandarg :: TeXParser TeX
-mandarg = between bgroup egroup atoms
+-- | Parse an obligatory group argument: the content of a group.
+oblarg :: TeXParser Arg
+oblarg = OblArg <$> groupbody
 
 -- | Parse a traditional-style optional argument in square brackets.
-optarg :: TeXParser TeX
-optarg = (char '[') *> manyTill optargInner (char ']')
+optarg :: TeXParser Arg
+optarg = OptArg <$> (char '[' *> manyTill optargInner (char ']'))
 
 -- Like 'atom' but stops on square brackets.
 -- (Stub. Use 'balanced' parsers.)
@@ -157,7 +168,7 @@ processCtrlseq name = case name of
 -- Lookup table for the ArgSpec of known commands. Stub.
 -- (To be replaced by a more general external database.)
 --
--- We use a pair @(nrOptArgs, nrMandArgs)@ as a simplified
+-- We use a pair @(nrOptArgs, nrOblArgs)@ as a simplified
 -- ArgSpec representation here.
 commandDB :: [(String, (Int, Int))]
 commandDB =
@@ -175,19 +186,19 @@ envDB =
 
 -- Parse a given ArgSpec.
 parseArgSpec :: (Int, Int) -> TeXParser Args
-parseArgSpec (nrOpt, nrMand) = do
-  opt <- count nrOpt (option [] optarg)
-  mand <- count nrMand arg
-  return (opt, mand)
+parseArgSpec (nrOpt, nrObl) = do
+  opt <- catMaybes <$> count nrOpt (optionMaybe optarg)
+  obl <- count nrObl arg
+  return (opt ++ obl)
 
 -- Heuristic for arguments of unknown control sequences: consume any
--- number of subsequent tokens that look like optional or mandatory
+-- number of subsequent tokens that look like optional or obligatory
 -- arguments, think: ([...])*({...})*.
 parseUnknownArgSpec :: TeXParser Args
 parseUnknownArgSpec = do
   opt <- many optarg
-  mand <- many mandarg
-  return (opt, mand)
+  obl <- many oblarg
+  return (opt ++ obl)
 
 -- | Parse the name of an environment.
 envName :: TeXParser String

@@ -14,7 +14,7 @@ import Test.HUnit (Test(..), Counts(..), test, (~:), (~=?), runTestTT)
 
 import Text.TeX.Lexer.Token
 import Text.TeX.Parser (parseTeX)
-import Text.TeX.Parser.Types (TeXAtom(..), MathType(..))
+import Text.TeX.Parser.Types (TeXAtom(..), Arg(..), MathType(..))
 
 
 -------------------- tests
@@ -28,10 +28,10 @@ testsBasic = TestLabel "basic" $ test
          [eolTok, spcTok] ++
          mkString "world")
   , "command with no arguments"
-    ~: [Command "hello" ([],[])]
+    ~: [Command "hello" []]
     ~=? (parseTeX "" [mkCtrlSeq "hello"])
   , "command with no arguments between letters"
-    ~: [Plain "a", Command "hello" ([],[]), Plain "z"]
+    ~: [Plain "a", Command "hello" [], Plain "z"]
     ~=? (parseTeX "" $
          [ mkLetter 'a'
          , mkCtrlSeq "hello"
@@ -39,9 +39,11 @@ testsBasic = TestLabel "basic" $ test
          ])
   , "unknown command with optional and mandatory arguments"
     ~: [Command "cmd"
-        ([[Plain "opt1"], [Plain "opt2"]],
-         [[Plain "man1"], [Plain "man2"]]),
-        Plain "z"]
+        [ OptArg [Plain "opt1"]
+        , OptArg [Plain "opt2"]
+        , OblArg [Plain "man1"]
+        , OblArg [Plain "man2"]
+        ], Plain "z"]
     ~=? (parseTeX "" $ mkCtrlSeq "cmd" :
           mkOptArg (mkString "opt" ++ [mkOther '1']) ++
           mkOptArg (mkString "opt" ++ [mkOther '2']) ++
@@ -49,12 +51,12 @@ testsBasic = TestLabel "basic" $ test
           mkGroup (mkString "man" ++ [mkOther '2']) ++
           [mkLetter 'z'])
   , "known command which takes no arguments ignores following group"
-    ~: [Command "rm" ([],[]), Group "" ([],[]) [Plain "no arg"]]
+    ~: [Command "rm" [], Group "" [] [Plain "no arg"]]
     ~=? (parseTeX "" $
          mkCtrlSeq "rm" :
          mkGroup (mkString "no arg"))
   , "known command which takes no arguments ignores following optgroup"
-    ~: [Command "rm" ([],[]), Plain "[no arg]"]
+    ~: [Command "rm" [], Plain "[no arg]"]
     ~=? (parseTeX "" $
          mkCtrlSeq "rm" :
          mkOptArg (mkString "no arg"))
@@ -79,16 +81,16 @@ testsBasic = TestLabel "basic" $ test
          mkOptArg (mkOther '2' : mkString "cm") ++
          mkString "cd" ++ [mkCtrlSeq "\\"] ++ mkString "x")
   , "simple 2x2 tabular"
-    ~: [Group "tabular" ([[]], [[Plain "ll"]])
+    ~: [Group "tabular" [OblArg [Plain "ll"]]
         [Plain "a", AlignMark, Plain "b", Newline,
          Plain "c", AlignMark, Plain "d", Newline]]
     ~=? (parseTeX "" $ mkEnv "tabular" (mkGroup (mkString "ll") ++
          mkString "a" ++ [alignTok] ++ mkString "b" ++ [mkCtrlSeq "\\"] ++
          mkString "c" ++ [alignTok] ++ mkString "d" ++ [mkCtrlSeq "\\"]))
   , "nested environments"
-    ~: [Group "a" ([],[])
-        [Group "b" ([],[])
-         [Group "c" ([],[]) []]]]
+    ~: [Group "a" []
+        [Group "b" []
+         [Group "c" [] []]]]
     ~=? (parseTeX "" $ mkEnv "a" (mkEnv "b" (mkEnv "c" [])))
   , "simple inline math"
     ~: [MathGroup MathInline [Plain "a"]]
@@ -100,7 +102,7 @@ testsBasic = TestLabel "basic" $ test
   , "embedded math"
     ~: [MathGroup MathInline
         [ Command "text"
-          ([], [[Plain "t", MathGroup MathDisplay [Plain "a"]]])
+          [OblArg [Plain "t", MathGroup MathDisplay [Plain "a"]]]
         , Plain "b"]]
     ~=? (parseTeX "" $ mathTok : mkCtrlSeq "text" :
          mkGroup (mkString "t" ++ replicate 2 mathTok ++
@@ -138,22 +140,22 @@ testsWhitespace = TestLabel "whitespace" $ test
     ~: [White, Plain "a", White]
     ~=? (parseTeX "" [eolTok, spcTok, mkLetter 'a', spcTok, eolTok])
   , "conflate whitespace within a group"
-    ~: [Group "" ([],[]) [White, Plain "a", Par]]
+    ~: [Group "" [] [White, Plain "a", Par]]
     ~=? (parseTeX "" $ mkGroup
          [eolTok, spcTok, mkLetter 'a', spcTok, parTok, eolTok])
   , "conflate whitespace within nested groups"
-    ~: [Group "" ([],[])
-        [White, Group "" ([],[])
-         [Group "" ([],[])
+    ~: [Group "" []
+        [White, Group "" []
+         [Group "" []
           [White, Plain "a", Par]]]]
     ~=? (parseTeX "" $ mkGroup ([spcTok, eolTok] ++ mkGroup (mkGroup
          [eolTok, spcTok, mkLetter 'a', spcTok, parTok, eolTok])))
   , "conflate whitespace within command arguments"
     ~: [Command "cmd"
-        ([[White, Plain "a", Par],
-          [Group "" ([],[])
-           [Group "" ([],[])
-            [White, Plain "b", Par]]]],[])]
+        [OptArg [White, Plain "a", Par]
+        ,OptArg [Group "" []
+                 [Group "" []
+                  [White, Plain "b", Par]]]]]
     ~=? (parseTeX "" $ mkCtrlSeq "cmd" :
          mkOptArg
            [eolTok, spcTok, mkLetter 'a', spcTok, parTok, eolTok] ++

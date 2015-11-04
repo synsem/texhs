@@ -64,8 +64,8 @@ testsInlines = TestLabel "inline elements" $ test
     ~: Right (Emph [Str "one",Space,Str "two"])
     ~=? runParser em example7
   , "failing em"
-    ~: Left [Unexpected (Group "" ([],[])
-             [ Command "em" ([], []), Plain "one", White, Plain "two"])]
+    ~: Left [Unexpected (Group "" []
+             [ Command "em" [], Plain "one", White, Plain "two"])]
     ~=? runParser em example8
   , "nested em"
     ~: Right (Emph [Str "one",Space,Str "two"])
@@ -120,31 +120,31 @@ example1 = [Plain "hello", White, Plain "world!"]
 
 -- >> {hello} world{!}
 example2 :: TeX
-example2 = [ Group "" ([],[]) [Plain "hello"]
+example2 = [ Group "" [] [Plain "hello"]
            , White
            , Plain "world"
-           , Group "" ([],[]) [Plain "!"]
+           , Group "" [] [Plain "!"]
            ]
 
 -- >> \emph{hello} world{!}
 example3 :: TeX
-example3 = [ Command "emph" ([], [[Plain "hello"]])
+example3 = [ Command "emph" [OblArg [Plain "hello"]]
            , White
            , Plain "world"
-           , Group "" ([],[]) [Plain "!"]
+           , Group "" [] [Plain "!"]
            ]
 
 -- >> H_2{O}
 example4 :: TeX
 example4 = [ Plain "H"
            , SubScript [Plain "2"]
-           , Group "" ([],[]) [Plain "O"]
+           , Group "" [] [Plain "O"]
            ]
 
 -- simple "emph" command
 -- >> \emph{hello} world
 example5 :: TeX
-example5 = [ Command "emph" ([], [[Plain "hello"]])
+example5 = [ Command "emph" [OblArg [Plain "hello"]]
            , White
            , Plain "world"
            ]
@@ -152,7 +152,7 @@ example5 = [ Command "emph" ([], [[Plain "hello"]])
 -- multiple TeXAtoms in mandarg of "emph" cmd
 -- >> \emph{one two} three
 example6 :: TeX
-example6 = [ Command "emph" ([], [[Plain "one", White, Plain "two"]])
+example6 = [ Command "emph" [OblArg [Plain "one", White, Plain "two"]]
            , White
            , Plain "three"
            ]
@@ -160,7 +160,7 @@ example6 = [ Command "emph" ([], [[Plain "one", White, Plain "two"]])
 -- font switch "em" (without enclosing group)
 -- >> \em one two
 example7 :: TeX
-example7 = [ Command "em" ([], [])
+example7 = [ Command "em" []
            , Plain "one"
            , White
            , Plain "two"
@@ -169,8 +169,8 @@ example7 = [ Command "em" ([], [])
 -- font switch "em" (with enclosing group)
 -- >> {\em one two} three
 example8 :: TeX
-example8 = [ Group "" ([],[])
-             [ Command "em" ([], [])
+example8 = [ Group "" []
+             [ Command "em" []
              , Plain "one"
              , White
              , Plain "two"
@@ -182,11 +182,11 @@ example8 = [ Group "" ([],[])
 -- font switches "em" and "rm"
 -- >> \em one\rm two\em three
 example9 :: TeX
-example9 = [ Command "em" ([], [])
+example9 = [ Command "em" []
            , Plain "one"
-           , Command "rm" ([], [])
+           , Command "rm" []
            , Plain "two"
-           , Command "em" ([], [])
+           , Command "em" []
            , Plain "three"
            ]
 
@@ -205,16 +205,16 @@ example9 = [ Command "em" ([], [])
 exampleList1 :: TeX
 exampleList1 = [ Plain "pre-list"
                , White
-               , Group "itemize" ([],[])
-                 [ Command "item" ([], [])
+               , Group "itemize" []
+                 [ Command "item" []
                  , Plain "one"
                  , White
                  , Plain "one"
                  , Par
-                 , Command "item" ([], [])
+                 , Command "item" []
                  , Plain "two"
                  , White
-                 , Command "item" ([], [])
+                 , Command "item" []
                  , Plain "three"
                  ]
                , Plain "after"
@@ -240,22 +240,22 @@ exampleList1 = [ Plain "pre-list"
 exampleList2 :: TeX
 exampleList2 = [ Plain "pre-list"
                , White
-               , Group "itemize" ([],[])
-                 [ Command "item" ([], [])
+               , Group "itemize" []
+                 [ Command "item" []
                  , Plain "up-one"
                  , Par
-                 , Command "item" ([], [])
+                 , Command "item" []
                  , Plain "up-two"
                  , White
-                 , Group "itemize" ([],[])
-                   [ Command "item" ([], [])
+                 , Group "itemize" []
+                   [ Command "item" []
                    , Plain "down-one"
                    , White
-                   , Command "item" ([], [])
+                   , Command "item" []
                    , Plain "down-two"
                    , White
                    ]
-                 , Command "item" ([], [])
+                 , Command "item" []
                  , Plain "up-three"
                  ]
                , Plain "after"

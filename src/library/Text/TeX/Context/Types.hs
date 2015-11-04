@@ -105,7 +105,7 @@ up (Context _ []) = Left NoParent
 -- (all other arguments are dropped).
 intoCmdArg :: TeXStep
 intoCmdArg (Context ((Command _ args):xs) nxt) =
-  return (Context (getmandarg 0 args) (xs:nxt))
+  return (Context (getOblArg 0 args) (xs:nxt))
 intoCmdArg ctx = failStep ctx
 
 -- | Extract head of focus.

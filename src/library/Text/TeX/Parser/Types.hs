@@ -16,6 +16,7 @@ module Text.TeX.Parser.Types
   ( -- * TeX types
     TeX
   , TeXAtom(..)
+  , Arg(..)
   , Args
   , MathType(..)
     -- * TeXAtom predicates
@@ -32,8 +33,8 @@ module Text.TeX.Parser.Types
   , isCmd
   , isGrp
     -- * Access arguments
-  , getoptarg
-  , getmandarg
+  , getOptArg
+  , getOblArg
     -- * Utility functions
   , normalize
   ) where
@@ -43,9 +44,12 @@ module Text.TeX.Parser.Types
 -- | A TeX document consist of a list of TeX atoms.
 type TeX = [TeXAtom]
 
--- | A pair of optional and mandatory arguments
--- of a TeX command or environment.
-type Args = ([TeX], [TeX])
+-- | An obligatory or optional argument of a TeX command.
+data Arg = OblArg TeX | OptArg TeX
+  deriving (Show, Eq)
+
+-- | Arguments of a TeX command.
+type Args = [Arg]
 
 -- | Type of a 'MathGroup'.
 data MathType = MathInline | MathDisplay
@@ -139,19 +143,40 @@ isGrp n (Group name _ _) = n == name
 isGrp _ _ = False
 
 
+-- | Test whether an 'Arg' is obligatory.
+isOblArg :: Arg -> Bool
+isOblArg (OblArg _) = True
+isOblArg (OptArg _) = False
+
+-- | Test whether an 'Arg' is optional.
+isOptArg :: Arg -> Bool
+isOptArg = not . isOblArg
+
+
 -------------------- Access arguments
 
 -- | Retrieve the n-th optional argument (of a command or environment).
-getoptarg :: Int -> Args -> TeX
-getoptarg n (oargs, _)
-  | n >= 0 && length oargs > n = oargs !! n
-  | otherwise = []
+getOptArg :: Int -> Args -> TeX
+getOptArg n args = getArg isOptArg n args
 
--- | Retrieve the n-th mandatory argument (of a command or environment).
-getmandarg :: Int -> Args -> TeX
-getmandarg n (_, margs)
-  | n >= 0 && length margs > n = margs !! n
-  | otherwise = []
+-- | Retrieve the n-th obligatory argument (of a command or environment).
+getOblArg :: Int -> Args -> TeX
+getOblArg n args = getArg isOblArg n args
+
+-- Retrieve the n-th argument (of a command or environment).
+-- Expects an 'Arg' parameter for filtering an argument list.
+-- Used as helper for 'getOptArg' and 'getOblArg'.
+getArg :: (Arg -> Bool) -> Int -> Args -> TeX
+getArg p n args =
+  let subArgs = filter p args
+  in if n >= 0 && length subArgs > n
+     then unArg (subArgs !! n)
+     else []
+
+-- Extract content of an argument.
+unArg :: Arg -> TeX
+unArg (OblArg xs) = xs
+unArg (OptArg xs) = xs
 
 
 -------------------- Utility functions
@@ -173,7 +198,12 @@ normalize (x:xs) = fmapAtom normalize x : normalize xs
 
 -- Lift a 'TeX' function to an 'Args' function.
 fmapArgs :: (TeX -> TeX) -> Args -> Args
-fmapArgs f (oargs, margs) = (map f oargs, map f margs)
+fmapArgs f = map (fmapArg f)
+
+-- Lift a 'TeX' function to an 'Arg' function.
+fmapArg :: (TeX -> TeX) -> Arg -> Arg
+fmapArg f (OblArg xs) = OblArg (f xs)
+fmapArg f (OptArg xs) = OptArg (f xs)
 
 -- Apply a 'TeX' function to a 'TeXAtom'.
 fmapAtom :: (TeX -> TeX) -> TeXAtom -> TeXAtom
