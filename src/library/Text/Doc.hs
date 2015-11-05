@@ -17,7 +17,10 @@ module Text.Doc
     tex2doc
     -- * HTML Writer
   , doc2html
+    -- * XML Writer
+  , doc2xml
   ) where
 
 import Text.Doc.Reader.TeX (tex2doc)
 import Text.Doc.Writer.Html (doc2html)
+import Text.Doc.Writer.Xml (doc2xml)
