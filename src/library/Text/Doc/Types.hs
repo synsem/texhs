@@ -22,6 +22,10 @@ module Text.Doc.Types
   , Level
   , Block(..)
   , Inline(..)
+    -- * Accessor functions
+  , docTitle
+  , docAuthor
+  , docDate
   , plain
   ) where
 
@@ -66,6 +70,25 @@ data Inline
   | Emph [Inline]
   | Space
   deriving (Eq, Show)
+
+-------------------- Accessor functions
+
+-- | Extract document title.
+docTitle :: Doc -> MetaValue
+docTitle = lookupMeta "title"
+
+-- | Extract document author.
+docAuthor :: Doc -> MetaValue
+docAuthor = lookupMeta "author"
+
+-- | Extract document date.
+docDate :: Doc -> MetaValue
+docDate = lookupMeta "date"
+
+-- Retrieve value for a given meta key.
+-- Returns the empty string if lookup failed.
+lookupMeta :: MetaKey -> Doc -> MetaValue
+lookupMeta key (Doc docmeta _) = maybe "" id (lookup key docmeta)
 
 -- | Extract plain character data from an 'Inline' element.
 plain :: Inline -> String
