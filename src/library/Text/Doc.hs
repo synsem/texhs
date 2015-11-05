@@ -15,6 +15,9 @@
 module Text.Doc
   ( -- * TeX Reader
     tex2doc
+    -- * HTML Writer
+  , doc2html
   ) where
 
 import Text.Doc.Reader.TeX (tex2doc)
+import Text.Doc.Writer.Html (doc2html)
