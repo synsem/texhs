@@ -22,6 +22,15 @@ module Text.Doc.Types
   , Level
   , Block(..)
   , Inline(..)
+    -- * Block predicates
+  , isPara
+  , isHeader
+  , isList
+    -- * Inline predicates
+  , isStr
+  , isNormal
+  , isEmph
+  , isSpace
     -- * Accessor functions
   , docTitle
   , docAuthor
@@ -70,6 +79,48 @@ data Inline
   | Emph [Inline]
   | Space
   deriving (Eq, Show)
+
+
+-------------------- Block predicates
+
+-- | Test whether a 'Block' is a 'Para'.
+isPara :: Block -> Bool
+isPara (Para _) = True
+isPara _ = False
+
+-- | Test whether a 'Block' is a 'Header'.
+isHeader :: Block -> Bool
+isHeader (Header _ _) = True
+isHeader _ = False
+
+-- | Test whether a 'Block' is a 'List'.
+isList :: Block -> Bool
+isList (List _) = True
+isList _ = False
+
+
+-------------------- Inline predicates
+
+-- | Test whether an 'Inline' is a 'Str'.
+isStr :: Inline -> Bool
+isStr (Str _) = True
+isStr _ = False
+
+-- | Test whether an 'Inline' is a 'Normal'.
+isNormal :: Inline -> Bool
+isNormal (Normal _) = True
+isNormal _ = False
+
+-- | Test whether an 'Inline' is an 'Emph'.
+isEmph :: Inline -> Bool
+isEmph (Emph _) = True
+isEmph _ = False
+
+-- | Test whether an 'Inline' is a 'Space'.
+isSpace :: Inline -> Bool
+isSpace Space = True
+isSpace _ = False
+
 
 -------------------- Accessor functions
 
