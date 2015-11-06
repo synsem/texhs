@@ -26,16 +26,17 @@ import Text.Blaze.Internal
 import Text.Blaze.Renderer.Text (renderMarkup)
 
 import Text.Doc.Types
+import Text.Doc.Section
 
 
 ---------- main: Doc to XML conversion
 
 -- | Convert a 'Doc' document to a TEI-based XML format.
 doc2xml :: Doc -> LT.Text
-doc2xml = renderMarkup . convertDoc
+doc2xml = renderMarkup . convertDoc . doc2secdoc
 
--- Convert 'Doc' to XML 'Markup'.
-convertDoc :: Doc -> Markup
+-- Convert 'SectionDoc' to XML 'Markup'.
+convertDoc :: SectionDoc -> Markup
 convertDoc doc =
   el "TEI" ! (attr "xmlns" "http://www.tei-c.org/ns/1.0") $
   header doc <> content doc
@@ -44,15 +45,15 @@ convertDoc doc =
 ---------- meta
 
 -- Create TEI header.
-header :: Doc -> Markup
+header :: SectionDoc -> Markup
 header doc = el "teiHeader" $ fileDesc doc
 
 -- Create @<fileDesc>@ element for TEI header.
-fileDesc :: Doc -> Markup
+fileDesc :: SectionDoc -> Markup
 fileDesc doc = el "fileDesc" $ do
   el "titleStmt" $ do
-    el "title" (textP (docTitle doc))
-    el "author" (textP (docAuthor doc))
+    el "title" (textP (sdocTitle doc))
+    el "author" (textP (sdocAuthor doc))
   el "publicationStmt" $ p (text "Unknown")
   el "sourceDesc" $ p (text "Born digital.")
 
@@ -60,36 +61,40 @@ fileDesc doc = el "fileDesc" $ do
 ---------- content
 
 -- Create main content as TEI @<text>@ element.
-content :: Doc -> Markup
+content :: SectionDoc -> Markup
 content doc = el "text" $ front doc <> body doc <> back doc
 
 
 ---------- front matter
 
 -- Create front matter as TEI @<front>@ element.
-front :: Doc -> Markup
+front :: SectionDoc -> Markup
 front doc = el "front" (titlePage doc)
 
 -- Create title page for TEI front matter.
-titlePage :: Doc -> Markup
+titlePage :: SectionDoc -> Markup
 titlePage doc = el "titlePage" $ do
   el "docTitle" $
-    el "titlePart" ! attr "type" "main" $ (textP (docTitle doc))
-  el "byline" $ el "docAuthor" (textP (docAuthor doc))
+    el "titlePart" ! attr "type" "main" $ (textP (sdocTitle doc))
+  el "byline" $ el "docAuthor" (textP (sdocAuthor doc))
 
 
 ---------- back matter
 
 -- Create back matter as TEI @<back>@ element.
-back :: Doc -> Markup
+back :: SectionDoc -> Markup
 back _ = leaf "back"
 
 
 ---------- main matter
 
 -- Create main matter as TEI @<body>@ element.
-body :: Doc -> Markup
-body (Doc _ docbody) = el "body" $ blocks docbody
+body :: SectionDoc -> Markup
+body (SectionDoc _ docbody) = el "body" $ sections docbody
+
+-- Convert 'Section' elements to XML.
+sections :: [Section] -> Markup
+sections = mapM_ section
 
 -- Convert 'Block' elements to XML.
 blocks :: [Block] -> Markup
@@ -99,7 +104,25 @@ blocks = mapM_ block
 inlines :: [Inline] -> Markup
 inlines = mapM_ inline
 
+-- Convert a single 'Section' element to XML.
+section :: Section -> Markup
+section (Section hlevel htitle secbody subsecs) =
+  el "div" ! attr "type" (textValue (levelname hlevel)) $ do
+    el "head" $ inlines htitle
+    blocks secbody
+    sections subsecs
+
+-- Convert a numeric header level to a textual description.
+levelname :: Level -> Text
+levelname i = maybe "unknown" id (lookup i (zip [1..] levels))
+  where
+    levels = [ "part", "chapter", "section"
+             , "subsection", "subsubsection" ]
+
 -- Convert a single 'Block' element to XML.
+--
+-- Note: SectionDoc documents should not contain Header elements,
+-- all header information is collected in Section elements.
 block :: Block -> Markup
 block (Para xs) = p $ inlines xs
 block (Header _ xs) = el "head" $ inlines xs
