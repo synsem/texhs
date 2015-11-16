@@ -26,15 +26,16 @@ import Control.Applicative ((<*), (<*>), (*>), (<$), (<$>))
 #endif
 import Control.Monad (void)
 import Data.Maybe (catMaybes)
+import qualified Data.Map.Strict as M
 import Text.Parsec
   ((<|>), choice, optional, optionMaybe, many, many1, manyTill,
    count, between, (<?>), eof)
 
+import Text.TeX.Filter (symbols, accents)
 import Text.TeX.Lexer.Catcode
 import Text.TeX.Lexer.Token
 import Text.TeX.Parser.Core
 import Text.TeX.Parser.Types
-
 
 -- | Main 'TeX' document parser.
 texParser :: TeXParser TeX
@@ -165,8 +166,7 @@ processCtrlseq name = case name of
     args <- maybe parseUnknownArgSpec parseArgSpec (lookup name commandDB)
     return (Command name args)
 
--- Lookup table for the ArgSpec of known commands. Stub.
--- (To be replaced by a more general external database.)
+-- Lookup table for the ArgSpec of known commands.
 --
 -- We use a pair @(nrOptArgs, nrOblArgs)@ as a simplified
 -- ArgSpec representation here.
@@ -177,6 +177,8 @@ commandDB =
   , ("textrm", (0,1))
   , ("textit", (0,1))
   ]
+  ++ zip (M.keys symbols) (repeat (0,0))
+  ++ zip (M.keys accents) (repeat (0,1))
 
 -- Lookup table for the ArgSpec of known environments. Stub.
 envDB :: [(String, (Int, Int))]

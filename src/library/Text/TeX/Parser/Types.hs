@@ -35,8 +35,6 @@ module Text.TeX.Parser.Types
     -- * Access arguments
   , getOptArg
   , getOblArg
-    -- * Utility functions
-  , normalize
   ) where
 
 -------------------- TeX types
@@ -177,43 +175,3 @@ getArg p n args =
 unArg :: Arg -> TeX
 unArg (OblArg xs) = xs
 unArg (OptArg xs) = xs
-
-
--------------------- Utility functions
-
--- | Conflate intra-level adjacent whitespace.
---
--- This will not remove redundant whitespace completely. In
--- particular, it will not strip leading or trailing whitespace and it
--- will not collapse inter-level adjacent whitespace. For example,
--- both spaces in \"@a { }b@\" and in \"@a{ }{ }b@\" will be kept.
-normalize :: TeX -> TeX
-normalize [] = []
-normalize (White:xs) = case dropWhile isWhite xs of
-  (Newline:ys) -> Newline : normalize (dropWhile isWhite ys)
-  ys@(Par:_) -> normalize ys
-  ys -> White : normalize ys
-normalize (Par:xs) = Par : normalize (dropWhile (\x -> isWhite x || isPar x) xs)
-normalize (x:xs) = fmapAtom normalize x : normalize xs
-
--- Lift a 'TeX' function to an 'Args' function.
-fmapArgs :: (TeX -> TeX) -> Args -> Args
-fmapArgs f = map (fmapArg f)
-
--- Lift a 'TeX' function to an 'Arg' function.
-fmapArg :: (TeX -> TeX) -> Arg -> Arg
-fmapArg f (OblArg xs) = OblArg (f xs)
-fmapArg f (OptArg xs) = OptArg (f xs)
-
--- Apply a 'TeX' function to a 'TeXAtom'.
-fmapAtom :: (TeX -> TeX) -> TeXAtom -> TeXAtom
-fmapAtom _ (Plain content) = Plain content
-fmapAtom f (Command name args) = Command name (fmapArgs f args)
-fmapAtom f (Group name args body) = Group name (fmapArgs f args) (f body)
-fmapAtom f (MathGroup mtype body) = MathGroup mtype (f body)
-fmapAtom f (SupScript body) = SupScript (f body)
-fmapAtom f (SubScript body) = SubScript (f body)
-fmapAtom _ AlignMark = AlignMark
-fmapAtom _ White = White
-fmapAtom _ Newline = Newline
-fmapAtom _ Par = Par

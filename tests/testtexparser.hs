@@ -163,11 +163,50 @@ testsWhitespace = TestLabel "whitespace" $ test
            [eolTok, spcTok, mkLetter 'b', spcTok, parTok, eolTok])))
   ]
 
+testsSymbols :: Test
+testsSymbols = TestLabel "symbols" $ test
+  [ "top-level dagger"
+    ~: [Plain "\x2020"]
+    ~=? (parseTeX "" [mkCtrlSeq "dagger"])
+  , "dagger in cmd arg"
+    ~: [Command "emph" [OblArg [Plain "\x2020"]]]
+    ~=? (parseTeX "" (mkCtrlSeq "emph" : mkGroup [mkCtrlSeq "dagger"]))
+  , "dagger in nested group"
+    ~: [Group "" [] [Group "" [] [Group "" [] [Plain "\x2020"]]]]
+    ~=? (parseTeX "" (mkGroup (mkGroup (mkGroup [mkCtrlSeq "dagger"]))))
+  , "dagger within word"
+    ~: [Plain "bet", Plain "\x2020", Plain "er"]
+    ~=? (parseTeX "" (mkString "bet" ++ [mkCtrlSeq "dagger"] ++ mkString "er"))
+  ]
+
+testsAccents :: Test
+testsAccents = TestLabel "accents" $ test
+  [ "top-level diaeresis applied to single char"
+    ~: [Plain "a\x0308", Plain "b"]
+    ~=? (parseTeX "" (mkCtrlSeq "\"": mkString "ab"))
+  , "diaeresis applied to multi-character group argument"
+    ~: [Plain "a\x0308\&b"]
+    ~=? (parseTeX "" (mkCtrlSeq "\"": mkGroup (mkString "ab")))
+  , "diaeresis applied to dotless i in singleton group argument"
+    ~: [Plain "\x0131\x0308"]
+    ~=? (parseTeX "" (mkCtrlSeq "\"": mkGroup [mkCtrlSeq "i"]))
+  , "double accent in text mode: diaeresis and circumflex"
+    ~: [Plain "a\x0302\x0308"]
+    ~=? (parseTeX "" (mkCtrlSeq "\"": mkGroup (mkCtrlSeq "^" : mkString "a")))
+  , "double accent in math mode: diaeresis and circumflex"
+    ~: [MathGroup MathInline [Plain "a\x0302\x0308"]]
+    ~=? (parseTeX "" (mathTok: mkCtrlSeq "ddot":
+                      mkGroup (mkCtrlSeq "hat" : mkString "a") ++
+                      [mathTok]))
+  ]
+
 -- collect all tests
 tests :: Test
 tests = TestList
   [ testsBasic
   , testsWhitespace
+  , testsSymbols
+  , testsAccents
   ]
 
 -- run tests
