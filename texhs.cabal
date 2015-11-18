@@ -41,6 +41,7 @@ library
                        Text.TeX.Parser.Basic
                        Text.TeX.Parser.Core
                        Text.TeX.Parser.Types
+                       Text.Bib.Reader.BibTeX
                        Text.Doc
                        Text.Doc.Types
                        Text.Doc.Section
