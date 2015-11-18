@@ -31,7 +31,7 @@ import Text.Parsec
   ((<|>), choice, optional, optionMaybe, many, many1, manyTill,
    count, between, (<?>), eof)
 
-import Text.TeX.Filter (symbols, accents)
+import Text.TeX.Filter (symbols, diacritics, dbldiacritics)
 import Text.TeX.Lexer.Catcode
 import Text.TeX.Lexer.Token
 import Text.TeX.Parser.Core
@@ -178,7 +178,8 @@ commandDB =
   , ("textit", (0,1))
   ]
   ++ zip (M.keys symbols) (repeat (0,0))
-  ++ zip (M.keys accents) (repeat (0,1))
+  ++ zip (M.keys diacritics) (repeat (0,1))
+  ++ zip (M.keys dbldiacritics) (repeat (0,2))
 
 -- Lookup table for the ArgSpec of known environments. Stub.
 envDB :: [(String, (Int, Int))]

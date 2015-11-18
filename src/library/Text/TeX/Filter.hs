@@ -10,19 +10,20 @@
 -- Portability :  portable
 --
 -- Filters for normalizing whitespace and for resolving syntactic
--- TeX and LaTeX macros (symbols and accents).
+-- TeX and LaTeX macros (symbols and diacritics).
 ----------------------------------------------------------------------
 
 module Text.TeX.Filter
   ( -- * Normalization
     normalize
-    -- * Symbols and accents
+    -- * Symbols and diacritics
     -- ** Resolver functions
   , resolveSymbols
     -- ** Data maps
   , SymbolMap
   , symbols
-  , accents
+  , diacritics
+  , dbldiacritics
   ) where
 
 import Data.Char (isMark)
@@ -47,18 +48,24 @@ symbols = M.unions
   [ Plain.symbols
   ]
 
--- | A map that contains all registered accents.
-accents :: SymbolMap
-accents = M.unions
-  [ Plain.accents
+-- | A map that contains all registered diacritics.
+diacritics :: SymbolMap
+diacritics = M.unions
+  [ Plain.diacritics
+  ]
+
+-- | A map that contains all registered double diacritics.
+dbldiacritics :: SymbolMap
+dbldiacritics = M.unions
+  [ Plain.dbldiacritics
   ]
 
 
 ---------- Resolve symbols
 
--- | Resolve symbols and accents.
+-- | Resolve symbols and diacritics.
 resolveSymbols :: TeX -> TeX
-resolveSymbols = map (resolve (symbols, accents))
+resolveSymbols = map (resolve (symbols, diacritics))
 
 resolve :: (SymbolMap, SymbolMap) -> TeXAtom -> TeXAtom
 resolve db@(symdb, accdb) (Command name args) =
@@ -66,7 +73,7 @@ resolve db@(symdb, accdb) (Command name args) =
     Just str -> Plain str
     Nothing -> case M.lookup name accdb of
       Just str ->
-        -- Nested accents need to be processed bottom-up.
+        -- Nested diacritics need to be processed bottom-up.
         let target = map (resolve db) (getOblArg 0 args)
         in wrapAsAtom (insertAccent str target)
       Nothing -> Command name (fmapArgs (map (resolve db)) args)
