@@ -15,6 +15,7 @@
 module Text.Doc.Reader.TeX
  ( -- * TeX to Doc Conversion
    tex2doc
+ , tex2inlines
    -- * Document parsers
  , doc
  , docmeta
@@ -51,6 +52,15 @@ tex2doc :: String -> TeX -> Doc
 tex2doc name input = case parse doc name input of
   Left l -> error (show l)
   Right r -> r
+
+-- | Parse a list of 'Inline' elements from a 'TeX' AST.
+--
+-- This can be used to evaluate small bits of TeX code,
+-- e.g. BibTeX field values.
+tex2inlines :: TeX -> [Inline]
+tex2inlines input = case runParser (inlines <* eof) input of
+  Left l -> error (show l)
+  Right r -> normalizeInlines r
 
 -- Run 'Doc' parser on a 'TeX' structure.
 parse :: Parser Doc -> String -> TeX -> ThrowsError Doc
