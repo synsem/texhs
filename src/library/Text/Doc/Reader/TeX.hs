@@ -152,8 +152,10 @@ itemize = List <$> (inGrp "itemize" (list (cmd "item") blocks))
 ---------- Inline parsers
 
 -- | Parse any number of inline elements.
+--
+-- Anonymous groups are flattened.
 inlines :: Parser [Inline]
-inlines = many inline
+inlines = concat <$> (many (count 1 inline <|> inGrp "" inlines))
 
 -- | Parse a single inline element.
 inline :: Parser Inline
