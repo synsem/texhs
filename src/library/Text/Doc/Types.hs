@@ -36,8 +36,12 @@ module Text.Doc.Types
   , docAuthor
   , docDate
   , plain
+    -- * Normalization
+  , normalizeInlines
+  , stripInlines
   ) where
 
+import Data.List (dropWhileEnd)
 --import Data.Map
 
 -------------------- Doc type
@@ -147,3 +151,16 @@ plain (Str xs) = xs
 plain (Normal is) = concatMap plain is
 plain (Emph is) = concatMap plain is
 plain Space = " "
+
+
+-------------------- Normalization
+
+-- Conflate adjacent strings.
+normalizeInlines :: [Inline] -> [Inline]
+normalizeInlines [] = []
+normalizeInlines (Str xs : Str ys : zs) = normalizeInlines (Str (xs ++ ys) : zs)
+normalizeInlines (xs : ys) = xs : normalizeInlines ys
+
+-- Strip leading and trailing whitespace.
+stripInlines :: [Inline] -> [Inline]
+stripInlines = dropWhile isSpace . dropWhileEnd isSpace
