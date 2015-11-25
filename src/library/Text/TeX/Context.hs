@@ -25,6 +25,7 @@ module Text.TeX.Context
   , runParser
     -- ** Combinators
   , choice
+  , count
   , list
     -- ** Commands
   , cmd

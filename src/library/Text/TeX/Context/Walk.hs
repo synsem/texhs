@@ -19,6 +19,7 @@ module Text.TeX.Context.Walk
   , runParser
     -- * Basic combinators
   , choice
+  , count
   , list
     -- * Command parsers
     -- ** Specific command
@@ -117,6 +118,12 @@ dropParents = step resetParents
 -- | Try parsers from a list until one succeeds.
 choice :: [Parser a] -> Parser a
 choice = msum
+
+-- | Run parser @n@ times.
+count :: Int -> Parser a -> Parser [a]
+count n p
+  | n <= 0 = return []
+  | otherwise = (:) <$> p <*> count (n-1) p
 
 -- | @list bullet p@ parses zero or more occurrences of @p@, each prefixed by @bullet@.
 -- Returns a list of values returned by @p@.
