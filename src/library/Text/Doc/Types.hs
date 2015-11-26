@@ -155,12 +155,12 @@ plain Space = " "
 
 -------------------- Normalization
 
--- Conflate adjacent strings.
+-- | Conflate adjacent strings.
 normalizeInlines :: [Inline] -> [Inline]
 normalizeInlines [] = []
 normalizeInlines (Str xs : Str ys : zs) = normalizeInlines (Str (xs ++ ys) : zs)
 normalizeInlines (xs : ys) = xs : normalizeInlines ys
 
--- Strip leading and trailing whitespace.
+-- | Strip leading and trailing whitespace.
 stripInlines :: [Inline] -> [Inline]
 stripInlines = dropWhile isSpace . dropWhileEnd isSpace
