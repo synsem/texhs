@@ -42,6 +42,7 @@ library
                        Text.TeX.Parser.Core
                        Text.TeX.Parser.Types
                        Text.Bib.Types
+                       Text.Bib.Writer
                        Text.Bib.Reader.BibTeX
                        Text.Bib.Reader.BibTeX.Inheritance
                        Text.Bib.Reader.BibTeX.Reference

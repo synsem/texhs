@@ -15,7 +15,9 @@ import Data.Text (Text)
 import System.Exit (ExitCode, exitSuccess, exitFailure)
 import Test.HUnit (Test(..), Counts(..), test, (~:), (~=?), runTestTT)
 
+import Text.Bib.Types
 import Text.Bib.Reader.BibTeX.Reference (parseAgents, parseList)
+import Text.Bib.Writer
 import Text.Doc.Types
 import Text.Doc.Reader.TeX (tex2inlines)
 import Text.TeX (readTeX)
@@ -213,11 +215,25 @@ testsLiteralList = TestLabel "literal lists" $ test
     ~=? (parseList (readTeX "" "one and others"))
   ]
 
+testsFormatter :: Test
+testsFormatter = TestLabel "bib formatter" $ test
+  [ "single cite author"
+    ~: [Str "Büchner"]
+    ~=? (getCiteAgent bibEntry01)
+  , "single cite year"
+    ~: [Str "1835"]
+    ~=? (getCiteYear bibEntry01)
+  , "simple full citation"
+    ~: [Str "Büchner", Space, Str "1835", Space, Str "Lenz", Str "."]
+    ~=? (getCiteFull bibEntry01)
+  ]
+
 -- collect all tests
 tests :: Test
 tests = TestList
   [ testsNames
   , testsLiteralList
+  , testsFormatter
   ]
 
 -- run tests
@@ -233,3 +249,14 @@ main = do
 
 toInlines :: String -> [Inline]
 toInlines = tex2inlines . readTeX "bibfield"
+
+
+-------------------- example data
+
+bibEntry01 :: BibEntry
+bibEntry01 = BibEntry "büchner35" "book"
+  [("author", [Agent [Str "Georg"] [] [Str "Büchner"] []])]
+  []
+  [("citekey", [Str "büchner35"])
+  ,("title", [Str "Lenz"])
+  ,("year", [Str "1835"])]
