@@ -15,9 +15,8 @@ import Data.Text (Text)
 import System.Exit (ExitCode, exitSuccess, exitFailure)
 import Test.HUnit (Test(..), Counts(..), test, (~:), (~=?), runTestTT)
 
-import Text.Bib.Types
+import Text.Bib
 import Text.Bib.Reader.BibTeX.Reference (parseAgents, parseList)
-import Text.Bib.Writer
 import Text.Doc.Types
 import Text.Doc.Reader.TeX (tex2inlines)
 import Text.TeX (readTeX)
@@ -215,6 +214,13 @@ testsLiteralList = TestLabel "literal lists" $ test
     ~=? (parseList (readTeX "" "one and others"))
   ]
 
+testsEntry :: Test
+testsEntry = TestLabel "parse bib entry" $ test
+  [ "simple entry"
+    ~: Right [bibEntry01]
+    ~=? (fromBibTeX "" bibFile01)
+  ]
+
 testsFormatter :: Test
 testsFormatter = TestLabel "bib formatter" $ test
   [ "single cite author"
@@ -233,6 +239,7 @@ tests :: Test
 tests = TestList
   [ testsNames
   , testsLiteralList
+  , testsEntry
   , testsFormatter
   ]
 
@@ -252,6 +259,9 @@ toInlines = tex2inlines . readTeX "bibfield"
 
 
 -------------------- example data
+
+bibFile01 :: Text
+bibFile01 = "@book{büchner35, author = {Büchner, Georg}, title={Lenz}, year=1835}"
 
 bibEntry01 :: BibEntry
 bibEntry01 = BibEntry "büchner35" "book"
