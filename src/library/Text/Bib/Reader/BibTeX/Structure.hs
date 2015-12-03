@@ -33,14 +33,15 @@ module Text.Bib.Reader.BibTeX.Structure
   , parseBibTeX
   ) where
 
+import Data.Char (isDigit)
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as M
 import Data.Text (Text)
 import qualified Data.Text as T
-
 import Text.Parsec
-import Text.Parsec.Text (Parser)
 
 
--------------------- Types
+-------------------- BibTeX types
 
 -- | A BibTeX database consists of a list of entries.
 type BibTeXDB = [BibTeXEntry]
@@ -66,7 +67,7 @@ data BibTeXEntry
 data FieldValue
   = BracedField Text
   | QuotedField Text
-  | PlainField Text
+  | PlainField Text FieldValue  -- second param is abbrev-expanded value
   | ComposedField [FieldValue]  -- for '#' concatenated fields
   deriving (Eq, Show)
 
@@ -107,7 +108,7 @@ unwrapPreamble _ = Nothing
 unwrapFieldValue :: FieldValue -> Text
 unwrapFieldValue (BracedField v) = v
 unwrapFieldValue (QuotedField v) = v
-unwrapFieldValue (PlainField v) = v
+unwrapFieldValue (PlainField _ v) = unwrapFieldValue v
 unwrapFieldValue (ComposedField vs) = T.concat (map unwrapFieldValue vs)
 
 
@@ -116,16 +117,41 @@ unwrapFieldValue (ComposedField vs) = T.concat (map unwrapFieldValue vs)
 -- A whitelist of special characters that are allowed
 -- in citation keys, entry type names and field keys.
 --
--- Allowed characters: @\@!?*-:()[]@.
+-- Allowed characters: @\@.:;!?+-*/[]@.
 safeSpecialChars :: String
-safeSpecialChars = "@!?*-:()[]"
+safeSpecialChars = "@.:;!?+-*/[]"
+
+
+-------------------- Parser types
+
+-- Main BibTeX parser type.
+--
+-- Stream type: Text
+-- User state: AbbrevMap
+type Parser = Parsec Text AbbrevMap
+
+-- A map of currently defined BibTeX macros
+-- (i.e. @\@string@ abbreviations).
+type AbbrevMap = Map Text FieldValue
+
+-- Default AbbrevMap (macro map).
+--
+-- This map includes standard macros pre-defined by BibTeX.
+-- In particular, three-letter abbreviations of months are mapped
+-- to integers, as in: @\@string{ "jan" = {1} }@.
+defaultAbbrevMap :: AbbrevMap
+defaultAbbrevMap = M.fromList $ zip monthNames monthNums
+  where
+    monthNames = ["jan","feb","mar","apr","may","jun"
+                 ,"jul","aug","sep","oct","nov","dec"]
+    monthNums = map (BracedField . T.pack . show) ([1..] :: [Int])
 
 
 -------------------- Parsers
 
 -- | Parse a BibTeX file.
 parseBibTeX :: String -> Text -> Either ParseError BibTeXDB
-parseBibTeX = parse bibdb
+parseBibTeX = runParser bibdb defaultAbbrevMap
 
 -- Top-level BibTeX parser.
 --
@@ -142,12 +168,17 @@ bibentry :: Parser BibTeXEntry
 bibentry = do
   etype <- T.toLower <$> (char '@' *> entrytype)
   case etype of
-   "string" -> uncurry Abbrev <$> braced bibfield
+   "string" -> abbrev =<< braced bibfield
    "preamble" -> Preamble <$> braced fieldvalue
    "comment" -> Comment <$> braced fieldvalue
    _ -> Reference etype <$> braced ((:) <$> citekey <*> bibfields)
 
--- An identifier for an entry.
+-- Register a macro (abbreviation) in the parser state
+-- and return it as a BibTeXEntry.
+abbrev :: (Text, FieldValue) -> Parser BibTeXEntry
+abbrev (k, v) = Abbrev k v <$ modifyState (M.insert k v)
+
+-- An identifier for an entry (aka entry type).
 --
 -- Examples: @Article@, @Book@, @String@.
 --
@@ -157,7 +188,7 @@ bibentry = do
 entrytype :: Parser Text
 entrytype = keystring
 
--- A key for entry fields.
+-- A key for entry fields (aka field name).
 --
 -- The identifier is delimited by an equals sign to the right
 -- and thus must not contain this character ('=').
@@ -165,28 +196,48 @@ entrytype = keystring
 fieldkey :: Parser Text
 fieldkey = keystring
 
--- A key for 'Reference' entries.
+-- A key for 'Reference' entries (aka cite key, entry key).
 --
 -- The identifier is delimited by a comma to the right
 -- and thus must not contain this character (',').
 -- See 'keystring' for a description of allowed identifiers.
 citekey :: Parser (Text, FieldValue)
-citekey = (,) "citekey" . PlainField <$> keystring <* char ',' <* spaces
+citekey = (,) "citekey" . plainFieldNoExpand <$>
+  (citekeystring <* char ',' <* spaces)
 
--- A key string.
+-- A key string (used for field names).
 --
 -- A key string must be non-empty and consist of letters, digits
 -- and a small set of special characters (see 'safeSpecialChars').
+-- It may consist exclusively of special characters.
+--
+-- A key string must not start with a digit (unlike a citekey
+-- string). BibTeX (biber-2.2) throws an error if a key string does
+-- start with a digit. By contrast, we currently simply drop any
+-- leading digits (even if we end up with an empty string). This
+-- ensures that there are no macro names that start with digits.
 keystring :: Parser Text
-keystring = T.pack <$> many1 (alphaNum <|> oneOf safeSpecialChars) <* spaces
+keystring = T.dropWhile isDigit <$> citekeystring
+
+-- A citekey string (used for cite keys).
+--
+-- Similar to keystring but may start with a digit.
+citekeystring :: Parser Text
+citekeystring = T.pack <$>
+  many1 (alphaNum <|> oneOf safeSpecialChars) <* spaces
 
 -- Fields are separated by commas.
 bibfields :: Parser [(Text, FieldValue)]
 bibfields = bibfield `sepEndBy` (char ',' <* spaces)
 
 -- A field consists of a key and a value.
+--
+-- Field names (including macro names) are case-insensitive,
+-- so we normalize them to lower case.
 bibfield :: Parser (Text, FieldValue)
-bibfield = (,) <$> (fieldkey <* char '=' <* spaces) <*> fieldvalue
+bibfield = (,)
+  <$> (T.toLower <$> fieldkey <* char '=' <* spaces)
+  <*> fieldvalue
 
 -- A field value, possibly composed of several subfields
 -- separated by a number sign ('#').
@@ -199,13 +250,37 @@ fieldvalue = packField <$> (simplefieldvalue `sepBy` (char '#' <* spaces))
     packField fs = ComposedField fs
 
 -- A simple (non-composed) field value.
---
--- Skips trailing whitespace.
 simplefieldvalue :: Parser FieldValue
 simplefieldvalue =
   BracedField . T.strip <$> braced bracedText <|>
   QuotedField . T.strip <$> quoted quotedText <|>
-  PlainField . T.strip <$> plainText
+  plainField =<< (T.strip <$> plainText)
+
+-- Construct a 'PlainField' from a textual key.
+--
+-- Unless the key starts with a digit,
+-- try to expand it using the current macro map.
+plainField :: Text -> Parser FieldValue
+plainField key = case T.uncons key of
+  Just (c,_)
+    | isDigit c -> return (plainFieldNoExpand key)
+    | otherwise -> plainFieldExpand key
+  Nothing -> return (plainFieldNoExpand key)
+
+-- Construct a 'PlainField' from a textual key,
+-- trying to expand it.
+--
+-- Tries to expand the textual key based on the currently defined
+-- macro map. If the lookup fails, an empty braced field is used.
+plainFieldExpand :: Text -> Parser FieldValue
+plainFieldExpand key = PlainField key
+  . maybe (BracedField T.empty) id
+  . M.lookup (T.toLower key) <$> getState
+
+-- Construct a 'PlainField' from a textual key,
+-- without trying to expand it.
+plainFieldNoExpand :: Text -> FieldValue
+plainFieldNoExpand key = PlainField key (BracedField key)
 
 -- Braced fields must contain brace-balanced text.
 -- Quotation marks need not be escaped or balanced.

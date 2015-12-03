@@ -12,6 +12,7 @@ module Main where
 
 import Data.List (intersperse)
 import Data.Text (Text)
+import qualified Data.Text as T
 import System.Exit (ExitCode, exitSuccess, exitFailure)
 import Test.HUnit (Test(..), Counts(..), test, (~:), (~=?), runTestTT)
 
@@ -216,12 +217,102 @@ testsLiteralList = TestLabel "literal lists" $ test
 
 testsEntry :: Test
 testsEntry = TestLabel "parse bib entry" $ test
-  [ "simple entry"
+  [ "empty entry (entry without any fields)"
+    ~: Right [mkBibEntry "b" []]
+    ~=? (fromBibTeX "" "@book{b,}")
+  , "simple entry"
     ~: Right [bibEntry01]
     ~=? (fromBibTeX "" bibFile01)
   , "simple entry with hash-separated subfields"
     ~: Right [bibEntry01]
     ~=? (fromBibTeX "" bibFile01a)
+  , "entrykey (aka citekey) may start with a digit (unlike field names)"
+    ~: Right [mkBibEntry "4i" []]
+    ~=? (fromBibTeX "" "@book{4i , }")
+  , "entrykey (aka citekey) may be numeric (unlike field names)"
+    ~: Right [mkBibEntry "23" []]
+    ~=? (fromBibTeX "" "@book{23,}")
+  ]
+
+testsMacro :: Test
+testsMacro = TestLabel "resolve bibtex @string macros" $ test
+  [ "using built-in month macros"
+    ~: Right [mkBibEntry "b" [("month", [Str "8"]), ("other", [Str "12"])]]
+    ~=? (fromBibTeX "" "@book{b, month = aug, other=dec}")
+  , "simple macro use"
+    ~: let r = [Str "some", Space, Str "text"]
+       in Right [mkBibEntry "b" [("k", r), ("i", r)]]
+    ~=? (fromBibTeX "" "@string{v={some text}}@book{b, k=v, i=v}")
+  , "macro definition with subfields"
+    ~: Right [mkBibEntry "b" [("eq", [Str "2+2=4"])]]
+    ~=? (fromBibTeX "" "@string{v = 2 # \"+\" #2#{=4}}\
+         \ @book{b, eq=v}")
+  , "macro use with subfields"
+    ~: Right [mkBibEntry "b" [("title", [Str "ab-ab."])]]
+    ~=? (fromBibTeX "" "@string{v={ab}}@book{b, title = v #{-}# v #{.} }")
+  , "nested macro definition"
+    ~: Right [mkBibEntry "b" [("v", [Str "a"])]]
+    ~=? (fromBibTeX ""
+         " @string{s1={a}} \
+         \ @string{s2=s1} \
+         \ @book{b, v=s2}")
+  , "nested macro definition with subfields"
+    ~: Right [mkBibEntry "b" [("v", [Str "aaa"])]]
+    ~=? (fromBibTeX ""
+         " @string{s1={a}} \
+         \ @string{s2 = s1 # s1# s1} \
+         \ @book{b, v=s2}")
+  , "field names are not subject to expansion"
+    ~: Right [mkBibEntry "b" [("v", [Str "repl"])]]
+    ~=? (fromBibTeX "" "@string{v={repl}}@book{b, v=v}")
+  , "overwriting macro"
+    -- BibTeX warning: overwritten macro
+    ~: Right [mkBibEntry "b" [("title", [Str "abc"])]]
+    ~=? (fromBibTeX ""
+         "@string{s1 = {a}}\
+         \@string{s1 = s1 # {b}}\
+         \@string{s1 = s1 # {c}}\
+         \@book{b, title = s1}")
+  , "overwriting built-in month macros"
+    -- BibTeX warning: overwritten macro
+    ~: Right [ mkBibEntry "b1" [("month", [Str "2"])]
+             , mkBibEntry "b2" [("month", [Str "Hornung"])]]
+    ~=? (fromBibTeX ""
+         "@book{b1, month = feb}\
+         \@string{feb = {Hornung}}\
+         \@book{b2, month = feb}")
+  , "no self-reference"
+    -- BibTeX warning: undefined macro
+    ~: Right [mkBibEntry "b" [("v", [Str "1"])]]
+    ~=? (fromBibTeX "" "@string{me=1#me}@book{b, v=me}")
+  , "numeric plain fields"
+    ~: Right [mkBibEntry "b" [("year", [Str "2525"]), ("volume", [Str "30"])]]
+    ~=? (fromBibTeX "" "@book{b, year = 2525, volume = 30}")
+  , "negative numeric plain field (treated as macro name)"
+    -- BibTeX warning: undefined macro
+    ~: Right [mkBibEntry "b" [("volume", [])]]
+    ~=? (fromBibTeX "" "@book{b, volume = -1}")
+  , "negative numeric braced field"
+    ~: Right [mkBibEntry "b" [("volume", [Str "-1"])]]
+    ~=? (fromBibTeX "" "@book{b, volume = {-1}}")
+  , "macro names (field names) must not start with a digit"
+    -- BibTeX error: biber-2.2 throws syntax error.
+    -- By contrast, we simply drop any leading digits and continue.
+    ~: Right [mkBibEntry "b" [("v", [Str "2"])]]
+    ~=? (fromBibTeX "" "@string{2={two}}@book{b,v=2}")
+  , "macro names (field names) may consist of symbols only"
+    ~: Right [mkBibEntry "b" [("stars", [Str "star+star"])]]
+    ~=? (fromBibTeX ""
+         "@string{*={star}}\
+         \@string{+*+={+}}\
+         \@book{b,stars=*#+*+#*}")
+  , "macro names (field names) are case-insensitive"
+    ~: Right [mkBibEntry "b" [("v", [Str "aBaBaBaB"])]]
+    ~=? (fromBibTeX "" "@string{ab={aB}}@book{b,v= AB#aB#Ab#ab}")
+  , "undefined macro"
+    -- BibTeX warning: undefined macro
+    ~: Right [mkBibEntry "b" [("v", [Str "-4"])]]
+    ~=? (fromBibTeX "" "@book{b,v=ab#{-}#-#cd#4}")
   ]
 
 testsFormatter :: Test
@@ -243,6 +334,7 @@ tests = TestList
   [ testsNames
   , testsLiteralList
   , testsEntry
+  , testsMacro
   , testsFormatter
   ]
 
@@ -259,6 +351,12 @@ main = do
 
 toInlines :: String -> [Inline]
 toInlines = tex2inlines . readTeX "bibfield"
+
+-- Create an empty \@book entry from a citekey and a list of bibFields.
+mkBibEntry :: Text -> [(Text, [Inline])] -> BibEntry
+mkBibEntry key fs =
+  BibEntry key "book" [] []
+    (("citekey", [Str (T.unpack key)]):fs)
 
 
 -------------------- example data
