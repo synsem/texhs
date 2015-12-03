@@ -219,6 +219,9 @@ testsEntry = TestLabel "parse bib entry" $ test
   [ "simple entry"
     ~: Right [bibEntry01]
     ~=? (fromBibTeX "" bibFile01)
+  , "simple entry with hash-separated subfields"
+    ~: Right [bibEntry01]
+    ~=? (fromBibTeX "" bibFile01a)
   ]
 
 testsFormatter :: Test
@@ -262,6 +265,11 @@ toInlines = tex2inlines . readTeX "bibfield"
 
 bibFile01 :: Text
 bibFile01 = "@book{büchner35, author = {Büchner, Georg}, title={Lenz}, year=1835}"
+
+bibFile01a :: Text
+bibFile01a = "@book{büchner35,\
+  \ author = {Bü}#\"ch\" # {ner}#{,} #\n { Georg },\
+  \ title={Le} # {nz}, year=1835}"
 
 bibEntry01 :: BibEntry
 bibEntry01 = BibEntry "büchner35" "book"

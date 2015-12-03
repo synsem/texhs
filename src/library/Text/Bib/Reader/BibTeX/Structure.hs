@@ -182,17 +182,30 @@ keystring = T.pack <$> many1 (alphaNum <|> oneOf safeSpecialChars) <* spaces
 
 -- Fields are separated by commas.
 bibfields :: Parser [(Text, FieldValue)]
-bibfields = sepEndBy bibfield (char ',' <* spaces)
+bibfields = bibfield `sepEndBy` (char ',' <* spaces)
 
 -- A field consists of a key and a value.
 bibfield :: Parser (Text, FieldValue)
 bibfield = (,) <$> (fieldkey <* char '=' <* spaces) <*> fieldvalue
 
--- A field value.
+-- A field value, possibly composed of several subfields
+-- separated by a number sign ('#').
 fieldvalue :: Parser FieldValue
-fieldvalue = BracedField . T.strip <$> braced bracedText <|>
-             QuotedField . T.strip <$> quoted quotedText <|>
-             PlainField . T.strip <$> plainText
+fieldvalue = packField <$> (simplefieldvalue `sepBy` (char '#' <* spaces))
+  where
+    -- Wrap non-singleton fields in a 'ComposedField'.
+    packField :: [FieldValue] -> FieldValue
+    packField [f] = f
+    packField fs = ComposedField fs
+
+-- A simple (non-composed) field value.
+--
+-- Skips trailing whitespace.
+simplefieldvalue :: Parser FieldValue
+simplefieldvalue =
+  BracedField . T.strip <$> braced bracedText <|>
+  QuotedField . T.strip <$> quoted quotedText <|>
+  PlainField . T.strip <$> plainText
 
 -- Braced fields must contain brace-balanced text.
 -- Quotation marks need not be escaped or balanced.
@@ -205,10 +218,11 @@ quotedText = (T.pack . concat) <$> many (count 1 (noneOf ('\\':'"':[])) <|> esca
 
 -- Any content up to a field or entry delimiter.
 --
--- Field delimiter: comma.
+-- Inner field delimiter: number sign.
+-- Outer field delimiter: comma.
 -- Entry delimiter: closing brace.
 plainText :: Parser Text
-plainText = T.pack <$> many (noneOf ",}")
+plainText = T.pack <$> many (noneOf "#,}") <* spaces
 
 -- Any backslash-escaped character.
 escapedChar :: Parser String
