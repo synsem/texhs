@@ -25,6 +25,7 @@ module Text.Bib.Reader.BibTeX.Reference
   ) where
 
 import Data.Char (isLower)
+import qualified Data.Map.Strict as M
 import Data.Maybe (mapMaybe)
 import Data.List (partition, intercalate)
 import Data.Text (Text)
@@ -69,13 +70,13 @@ listFields =
 
 -- | Convert 'BibTeXDB' to 'BibDB'.
 parseBib :: BibTeXDB -> BibDB
-parseBib db = mapMaybe (parseBibEntry (getPreambles db)) db
+parseBib db = M.fromList $ mapMaybe (parseBibEntry (getPreambles db)) db
 
 -- Convert a single 'Reference' type BibTeX entry to a 'BibEntry'.
 --
 -- Fields are interpreted in the context of \@preamble.
 -- Non-reference entry types are ignored.
-parseBibEntry :: String -> BibTeXEntry -> Maybe BibEntry
+parseBibEntry :: String -> BibTeXEntry -> Maybe (CiteKey, BibEntry)
 parseBibEntry preamble (Reference rt key rf) =
       -- prefix preamble to every field before TeX-ing it
   let toTeX = parseTeXField preamble
@@ -86,7 +87,7 @@ parseBibEntry preamble (Reference rt key rf) =
       entryAgents = map (fmap parseAgents) agents
       entryLists = map (fmap parseList) lists
       entryFields = map (fmap (stripInlines . tex2inlines)) others
-  in Just (BibEntry key rt entryAgents entryLists entryFields)
+  in Just (key, BibEntry rt entryAgents entryLists entryFields)
 parseBibEntry _ _ = Nothing
 
 

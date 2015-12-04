@@ -24,6 +24,7 @@ module Text.Bib.Types
   , getBibField
   ) where
 
+import Data.Map.Strict (Map)
 import Data.Text (Text)
 
 import Text.Doc.Types (Inline)
@@ -31,16 +32,15 @@ import Text.Doc.Types (Inline)
 
 -------------------- Types
 
--- | A bibliographic database consists of a list of entries.
-type BibDB = [BibEntry]
+-- | A bibliographic database maps citekeys to entries.
+type BibDB = Map CiteKey BibEntry
 
 -- | A key for entry lookups in a 'BibDB'.
 type CiteKey = Text
 
 -- | An entry in a bibliographic database.
 data BibEntry = BibEntry
-  { bibKey    :: CiteKey
-  , bibType   :: Text                  -- e.g. "article", "book"
+  { bibType   :: Text                  -- e.g. "article", "book"
   , bibAgents :: [(Text, [Agent])]     -- fields containing a name list
   , bibLists  :: [(Text, [[Inline]])]  -- fields containing a literal list
   , bibFields :: [(Text, [Inline])]    -- other fields (literal fields)
