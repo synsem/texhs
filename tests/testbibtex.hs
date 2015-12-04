@@ -232,6 +232,27 @@ testsEntry = TestLabel "parse bib entry" $ test
   , "entrykey (aka citekey) may be numeric (unlike field names)"
     ~: Right [mkBibEntry "23" []]
     ~=? (fromBibTeX "" "@book{23,}")
+  , "do not strip inner whitespace"
+    ~: Right [mkBibEntry "b"
+         [("eq", [ Str "2", Space, Str "+", Space, Str "2"
+                 , Space, Str "=", Space, Str "4"])]]
+    ~=? (fromBibTeX "" "@book{b, eq = 2 # { + } #2 # { } # \"= \" # {4}}")
+  , "do not strip inner whitespace"
+    ~: Right [mkBibEntry "b"
+         [("eq", [Str "2", Space, Str "+", Space, Str "2"])]]
+    ~=? (fromBibTeX "" "@book{b, eq = 2#{ }#\"+\"# {   } #2}")
+  , "conflate inner whitespace"
+    ~: Right [mkBibEntry "b"
+         [("eq", [Str "2", Space, Str "+", Space, Str "2"])]]
+    ~=? (fromBibTeX "" "@book{b, eq = 2 # { + } # {  } # { } #2 }")
+  , "strip outer whitespace"
+    ~: Right [mkBibEntry "b"
+         [("title", [Str "White", Space, Str "Space"])]]
+    ~=? (fromBibTeX "" "@book{b, title = { } # { White } # { Space } # { } # { } }")
+  , "strip outer but not inner whitespace"
+    ~: Right [mkBibEntry "b"
+         [("title", [Str "ab", Space, Str "22", Space, Str "cd"])]]
+    ~=? (fromBibTeX "" "@book{b,title = { ab } # 22 # \" cd \"}")
   ]
 
 testsMacro :: Test

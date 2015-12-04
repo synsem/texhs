@@ -86,7 +86,7 @@ parseBibEntry preamble (Reference rt rf) =
         partitionBy listFields <$> partitionBy agentFields texFields
       entryAgents = map (fmap parseAgents) agents
       entryLists = map (fmap parseList) lists
-      entryFields = map (fmap tex2inlines) others
+      entryFields = map (fmap (stripInlines . tex2inlines)) others
   in Just (BibEntry entryKey rt entryAgents entryLists entryFields)
 parseBibEntry _ _ = Nothing
 

@@ -252,8 +252,8 @@ fieldvalue = packField <$> (simplefieldvalue `sepBy` (char '#' <* spaces))
 -- A simple (non-composed) field value.
 simplefieldvalue :: Parser FieldValue
 simplefieldvalue =
-  BracedField . T.strip <$> braced bracedText <|>
-  QuotedField . T.strip <$> quoted quotedText <|>
+  BracedField <$> braced bracedText <|>
+  QuotedField <$> quoted quotedText <|>
   plainField =<< (T.strip <$> plainText)
 
 -- Construct a 'PlainField' from a textual key.
