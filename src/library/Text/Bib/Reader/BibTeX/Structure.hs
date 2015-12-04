@@ -168,10 +168,10 @@ bibentry :: Parser BibTeXEntry
 bibentry = do
   etype <- T.toLower <$> (char '@' *> entrytype)
   case etype of
-   "string" -> abbrev =<< braced bibfield
-   "preamble" -> Preamble <$> braced fieldvalue
-   "comment" -> Comment <$> braced fieldvalue
-   _ -> Reference etype <$> braced ((:) <$> citekey <*> bibfields)
+   "string" -> abbrev =<< parenOrBraced bibfield
+   "preamble" -> Preamble <$> parenOrBraced fieldvalue
+   "comment" -> Comment <$> parenOrBraced fieldvalue
+   _ -> Reference etype <$> parenOrBraced ((:) <$> citekey <*> bibfields)
 
 -- Register a macro (abbreviation) in the parser state
 -- and return it as a BibTeXEntry.
@@ -319,3 +319,10 @@ braced p = between (char '{') (char '}') p <* spaces
 -- Apply parser between double quotes and skip trailing whitespace.
 quoted :: Parser a -> Parser a
 quoted p = between (char '"') (char '"') p <* spaces
+
+-- Apply parser between braces or parentheses and skip trailing whitespace.
+--
+-- Mismatching delimiters (e.g. opening brace and closing parens) are allowed
+-- (but biber-2.2 issues a warning in such cases).
+parenOrBraced :: Parser a -> Parser a
+parenOrBraced p = between (oneOf "{(") (oneOf "})") p <* spaces

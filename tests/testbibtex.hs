@@ -217,9 +217,16 @@ testsLiteralList = TestLabel "literal lists" $ test
 
 testsEntry :: Test
 testsEntry = TestLabel "parse bib entry" $ test
-  [ "empty entry (entry without any fields)"
+  [ "empty entry with braces"
     ~: Right [mkBibEntry "b" []]
     ~=? (fromBibTeX "" "@book{b,}")
+  , "empty entry with parens"
+    ~: Right [mkBibEntry "b" []]
+    ~=? (fromBibTeX "" "@book(b,)")
+  , "valid empty entries with mismatching delimiters"
+    -- BibTeX warning: entry started with X but ends with Y
+    ~: Right [mkBibEntry "b1" [], mkBibEntry "b2" []]
+    ~=? (fromBibTeX "" "@book{b1,)@book(b2,}")
   , "simple entry"
     ~: Right [bibEntry01]
     ~=? (fromBibTeX "" bibFile01)
