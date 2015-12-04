@@ -76,10 +76,9 @@ parseBib db = mapMaybe (parseBibEntry (getPreambles db)) db
 -- Fields are interpreted in the context of \@preamble.
 -- Non-reference entry types are ignored.
 parseBibEntry :: String -> BibTeXEntry -> Maybe BibEntry
-parseBibEntry preamble (Reference rt rf) =
-  let entryKey = maybe "" unwrapFieldValue (lookup "citekey" rf)
+parseBibEntry preamble (Reference rt key rf) =
       -- prefix preamble to every field before TeX-ing it
-      toTeX = parseTeXField preamble
+  let toTeX = parseTeXField preamble
       texFields = map (fmap toTeX . lowerCaseKeys) rf
       -- classify BibTeX field types, using predefined key lists like 'agentFields'
       (agents, (lists, others)) =
@@ -87,7 +86,7 @@ parseBibEntry preamble (Reference rt rf) =
       entryAgents = map (fmap parseAgents) agents
       entryLists = map (fmap parseList) lists
       entryFields = map (fmap (stripInlines . tex2inlines)) others
-  in Just (BibEntry entryKey rt entryAgents entryLists entryFields)
+  in Just (BibEntry key rt entryAgents entryLists entryFields)
 parseBibEntry _ _ = Nothing
 
 

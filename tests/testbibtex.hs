@@ -12,7 +12,6 @@ module Main where
 
 import Data.List (intersperse)
 import Data.Text (Text)
-import qualified Data.Text as T
 import System.Exit (ExitCode, exitSuccess, exitFailure)
 import Test.HUnit (Test(..), Counts(..), test, (~:), (~=?), runTestTT)
 
@@ -382,9 +381,7 @@ toInlines = tex2inlines . readTeX "bibfield"
 
 -- Create an empty \@book entry from a citekey and a list of bibFields.
 mkBibEntry :: Text -> [(Text, [Inline])] -> BibEntry
-mkBibEntry key fs =
-  BibEntry key "book" [] []
-    (("citekey", [Str (T.unpack key)]):fs)
+mkBibEntry key fs = BibEntry key "book" [] [] fs
 
 
 -------------------- example data
@@ -401,6 +398,5 @@ bibEntry01 :: BibEntry
 bibEntry01 = BibEntry "büchner35" "book"
   [("author", [Agent [Str "Georg"] [] [Str "Büchner"] []])]
   []
-  [("citekey", [Str "büchner35"])
-  ,("title", [Str "Lenz"])
+  [("title", [Str "Lenz"])
   ,("year", [Str "1835"])]

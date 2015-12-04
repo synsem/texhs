@@ -52,6 +52,7 @@ type BibTeXDB = [BibTeXEntry]
 data BibTeXEntry
   = Reference               -- \@Article, \@Book etc.
     { refType :: Text
+    , refKey :: Text
     , refFields :: [(Text, FieldValue)]
     }
   | Abbrev                  -- \@String
@@ -94,7 +95,7 @@ isPreamble _ = False
 
 -- | Extract the value of a field by its name in a 'Reference' entry.
 getField :: Text -> BibTeXEntry -> Maybe FieldValue
-getField fkey (Reference _ fs) = lookup fkey fs
+getField fkey (Reference _ _ fs) = lookup fkey fs
 getField _ _ = Nothing
 
 -- | Extract field value of a 'Preamble' entry.
@@ -171,7 +172,8 @@ bibentry = do
    "string" -> abbrev =<< parenOrBraced bibfield
    "preamble" -> Preamble <$> parenOrBraced fieldvalue
    "comment" -> Comment <$> parenOrBraced fieldvalue
-   _ -> Reference etype <$> parenOrBraced ((:) <$> citekey <*> bibfields)
+   _ -> uncurry (Reference etype)
+          <$> parenOrBraced ((,) <$> citekey <*> bibfields)
 
 -- Register a macro (abbreviation) in the parser state
 -- and return it as a BibTeXEntry.
@@ -201,9 +203,8 @@ fieldkey = keystring
 -- The identifier is delimited by a comma to the right
 -- and thus must not contain this character (',').
 -- See 'keystring' for a description of allowed identifiers.
-citekey :: Parser (Text, FieldValue)
-citekey = (,) "citekey" . plainFieldNoExpand <$>
-  (citekeystring <* char ',' <* spaces)
+citekey :: Parser Text
+citekey = citekeystring <* char ',' <* spaces
 
 -- A key string (used for field names).
 --
