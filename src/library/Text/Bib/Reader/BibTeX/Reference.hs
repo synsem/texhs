@@ -28,7 +28,6 @@ import Data.Char (isLower)
 import qualified Data.Map.Strict as M
 import Data.Maybe (mapMaybe)
 import Data.List (partition, intercalate)
-import Data.Text (Text)
 import qualified Data.Text as T
 
 import Text.Bib.Types
@@ -69,8 +68,20 @@ listFields =
 -------------------- Main conversion
 
 -- | Convert 'BibTeXDB' to 'BibDB'.
+--
+-- Citekey conflicts: Later duplicates are ignored, i.e. old citekeys
+-- shadow new ones. That is, if there are multiple entries with the
+-- same citekey, only the first entry is retained (in line with
+-- biber-2.2). Citekeys are case-sensitive (unlike field names).
+--
+-- Fieldname conflicts: Earlier duplicates are ignored, i.e. new
+-- fields overwrite old ones. That is, if there are multiple fields
+-- within an entry that have the same name, only the last field is
+-- retained (in line with biber-2.2). Field names are case-insensitive
+-- (unlike citekeys).
 parseBib :: BibTeXDB -> BibDB
-parseBib db = M.fromList $ mapMaybe (parseBibEntry (getPreambles db)) db
+parseBib db = M.fromListWith (flip const) $
+  mapMaybe (parseBibEntry (getPreambles db)) db
 
 -- Convert a single 'Reference' type BibTeX entry to a 'BibEntry'.
 --
@@ -80,13 +91,14 @@ parseBibEntry :: String -> BibTeXEntry -> Maybe (CiteKey, BibEntry)
 parseBibEntry preamble (Reference rt key rf) =
       -- prefix preamble to every field before TeX-ing it
   let toTeX = parseTeXField preamble
-      texFields = map (fmap toTeX . lowerCaseKeys) rf
+      texFields = map (fmap toTeX) rf
       -- classify BibTeX field types, using predefined key lists like 'agentFields'
       (agents, (lists, others)) =
         partitionBy listFields <$> partitionBy agentFields texFields
       entryAgents = map (fmap (AgentList . parseAgents)) agents
       entryLists = map (fmap (LiteralList . parseList)) lists
       entryFields = map (fmap (LiteralField . stripInlines . tex2inlines)) others
+      -- resolve fieldname conflicts (using M.fromList): retain the last field
       fields = M.unions (map M.fromList [entryAgents, entryLists, entryFields])
   in Just (key, BibEntry rt fields)
 parseBibEntry _ _ = Nothing
@@ -242,7 +254,3 @@ isLowerCase _ = False
 -- the key is contained in a provided list of keys (e.g. 'agentFields').
 partitionBy :: Eq a => [a] -> [(a, b)] -> ([(a, b)], [(a, b)])
 partitionBy fs = partition ((`elem` fs) . fst)
-
--- Normalize BibTeX field name to lowercase.
-lowerCaseKeys :: (Text, FieldValue) -> (Text, FieldValue)
-lowerCaseKeys (k, v) = (T.toLower k, v)

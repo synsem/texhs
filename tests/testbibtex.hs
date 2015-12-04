@@ -263,6 +263,38 @@ testsEntry = TestLabel "parse bib entry" $ test
     ~=? (fromBibTeX "" "@book{b,title = { ab } # 22 # \" cd \"}")
   ]
 
+testsNameConflicts :: Test
+testsNameConflicts = TestLabel "citekey and fieldname conflicts" $ test
+  [ "duplicate citekeys: first one wins"
+    -- BibTeX warning: duplicate entry key
+    ~: mkBibDB [mkBookEntry "b" [("title", [Str "one"])]]
+    ~=? (fromBibTeX ""
+         "@book{b, title={one}}\
+         \@book{b, title={two}}\
+         \@book{b, title={three}}")
+  , "duplicate fieldnames: last one wins"
+    -- Note: biber-2.2 does not warn about duplicate field names
+    ~: mkBibDB [mkBookEntry "b" [("title", [Str "three"])]]
+    ~=? (fromBibTeX "" "@book{b,title={one},title={two},title={three}}")
+  , "citekeys are case-sensitive"
+    ~: mkBibDB [ mkBookEntry "b" [("title", [Str "b-one"])]
+               , mkBookEntry "B" [("title", [Str "B-one"])]]
+    ~=? (fromBibTeX ""
+         "@book{b, title={b-one}}\
+         \@book{B, title={B-one}}\
+         \@book{b, title={b-two}}")
+  , "fieldnames are case-insensitive"
+    ~: mkBibDB [mkBookEntry "b" [("title", [Str "three"])]]
+    ~=? (fromBibTeX "" "@book{b,title={one},TITLE={two},Title={three}}")
+  , "mixing duplicate citekeys and fieldnames"
+    -- BibTeX warning: duplicate entry key
+    ~: mkBibDB [mkBookEntry "b" [("title", [Str "1-3"])]]
+    ~=? (fromBibTeX ""
+         "@book{b,title={1-1},title={1-2},title={1-3}}\
+         \@book{b,title={2-1},title={2-2},title={2-3}}\
+         \@book{b,title={3-1},title={3-2},title={3-3}}")
+  ]
+
 testsMacro :: Test
 testsMacro = TestLabel "resolve bibtex @string macros" $ test
   [ "using built-in month macros"
@@ -362,6 +394,7 @@ tests = TestList
   [ testsNames
   , testsLiteralList
   , testsEntry
+  , testsNameConflicts
   , testsMacro
   , testsFormatter
   ]
