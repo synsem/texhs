@@ -15,16 +15,21 @@
 module Text.Bib.Types
   ( -- * Types
     BibDB
+  , CiteKey
+  , BibFieldMap
+  , BibFieldName
+  , BibFieldValue(..)
   , BibEntry(..)
   , Agent(..)
-  , CiteKey
     -- * Accessor functions
+  , getBibField
   , getBibAgents
   , getBibList
-  , getBibField
+  , getBibLiteral
   ) where
 
 import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as M
 import Data.Text (Text)
 
 import Text.Doc.Types (Inline)
@@ -38,12 +43,23 @@ type BibDB = Map CiteKey BibEntry
 -- | A key for entry lookups in a 'BibDB'.
 type CiteKey = Text
 
+-- | A map of fields in a 'BibEntry'.
+type BibFieldMap = Map BibFieldName BibFieldValue
+
+-- | A name of a BibField.
+type BibFieldName = Text
+
+-- | A value of a BibField.
+data BibFieldValue
+  = AgentList [Agent]        -- fields containing a name list
+  | LiteralList [[Inline]]   -- fields containing a literal list
+  | LiteralField [Inline]    -- unstructured fields (aka literal fields)
+  deriving (Eq, Show)
+
 -- | An entry in a bibliographic database.
 data BibEntry = BibEntry
-  { bibType   :: Text                  -- e.g. "article", "book"
-  , bibAgents :: [(Text, [Agent])]     -- fields containing a name list
-  , bibLists  :: [(Text, [[Inline]])]  -- fields containing a literal list
-  , bibFields :: [(Text, [Inline])]    -- other fields (literal fields)
+  { bibType   :: Text         -- e.g. "article", "book"
+  , bibFields :: BibFieldMap
   } deriving (Eq, Show)
 
 -- | Representation of person names (e.g. author or editor).
@@ -57,14 +73,33 @@ data Agent = Agent
 
 -------------------- Accessor functions
 
--- | Retrieve an 'Agent' (name list) field from a 'BibEntry'.
-getBibAgents :: Text -> BibEntry -> Maybe [Agent]
-getBibAgents key entry = lookup key (bibAgents entry)
+-- | Retrieve a field value from a 'BibEntry'.
+getBibField :: BibFieldName -> BibEntry -> Maybe BibFieldValue
+getBibField key entry = M.lookup key (bibFields entry)
 
--- | Retrieve a field containing a literal list from a 'BibEntry'.
-getBibList :: Text -> BibEntry -> Maybe [[Inline]]
-getBibList key entry = lookup key (bibLists entry)
+-- | Retrieve an unwrapped name list from a 'BibEntry'.
+getBibAgents :: BibFieldName -> BibEntry -> Maybe [Agent]
+getBibAgents key entry = getBibField key entry >>= extractBibAgents
 
--- | Retrieve a literal field from a 'BibEntry'.
-getBibField :: Text -> BibEntry -> Maybe [Inline]
-getBibField key entry = lookup key (bibFields entry)
+-- | Retrieve an unwrapped literal list from a 'BibEntry'.
+getBibList :: BibFieldName -> BibEntry -> Maybe [[Inline]]
+getBibList key entry = getBibField key entry >>= extractBibList
+
+-- | Retrieve an unwrapped literal field from a 'BibEntry'.
+getBibLiteral :: BibFieldName -> BibEntry -> Maybe [Inline]
+getBibLiteral key entry = getBibField key entry >>= extractBibLiteral
+
+-- Extract name list from a field value.
+extractBibAgents :: BibFieldValue -> Maybe [Agent]
+extractBibAgents (AgentList xs) = Just xs
+extractBibAgents _ = Nothing
+
+-- Extract literal list from a field value.
+extractBibList :: BibFieldValue -> Maybe [[Inline]]
+extractBibList (LiteralList xs) = Just xs
+extractBibList _ = Nothing
+
+-- Extract literal field from a field value.
+extractBibLiteral :: BibFieldValue -> Maybe [Inline]
+extractBibLiteral (LiteralField xs) = Just xs
+extractBibLiteral _ = Nothing

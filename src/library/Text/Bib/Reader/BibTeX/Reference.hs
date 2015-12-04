@@ -46,7 +46,7 @@ nameSep :: String
 nameSep = "and"
 
 -- BibTeX fields that contain name lists.
-agentFields :: [Text]
+agentFields :: [BibFieldName]
 agentFields =
   [ "author"
   , "bookauthor"
@@ -55,7 +55,7 @@ agentFields =
   ]
 
 -- BibTeX fields that contain literal lists.
-listFields :: [Text]
+listFields :: [BibFieldName]
 listFields =
   [ "institution"
   , "location"
@@ -84,10 +84,11 @@ parseBibEntry preamble (Reference rt key rf) =
       -- classify BibTeX field types, using predefined key lists like 'agentFields'
       (agents, (lists, others)) =
         partitionBy listFields <$> partitionBy agentFields texFields
-      entryAgents = map (fmap parseAgents) agents
-      entryLists = map (fmap parseList) lists
-      entryFields = map (fmap (stripInlines . tex2inlines)) others
-  in Just (key, BibEntry rt entryAgents entryLists entryFields)
+      entryAgents = map (fmap (AgentList . parseAgents)) agents
+      entryLists = map (fmap (LiteralList . parseList)) lists
+      entryFields = map (fmap (LiteralField . stripInlines . tex2inlines)) others
+      fields = M.unions (map M.fromList [entryAgents, entryLists, entryFields])
+  in Just (key, BibEntry rt fields)
 parseBibEntry _ _ = Nothing
 
 

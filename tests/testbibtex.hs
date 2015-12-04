@@ -17,6 +17,7 @@ import System.Exit (ExitCode, exitSuccess, exitFailure)
 import Test.HUnit (Test(..), Counts(..), test, (~:), (~=?), runTestTT)
 
 import Text.Bib
+import Text.Bib.Types
 import Text.Bib.Reader.BibTeX.Reference (parseAgents, parseList)
 import Text.Doc.Types
 import Text.Doc.Reader.TeX (tex2inlines)
@@ -384,10 +385,10 @@ toInlines = tex2inlines . readTeX "bibfield"
 mkBibDB :: [(CiteKey, BibEntry)] -> Either String BibDB
 mkBibDB = return . M.fromList
 
--- Create a \@book entry from a citekey and a list of unstructured
--- bibFields, without any name lists and literal lists.
-mkBookEntry :: CiteKey -> [(Text, [Inline])] -> (CiteKey, BibEntry)
-mkBookEntry key fs = (key, BibEntry "book" [] [] fs)
+-- Create a \@book entry from a citekey and a list of literal fields.
+mkBookEntry :: CiteKey -> [(BibFieldName, [Inline])] -> (CiteKey, BibEntry)
+mkBookEntry key fs = (key, BibEntry "book"
+  (M.fromList (map (fmap LiteralField) fs)))
 
 
 -------------------- example data
@@ -401,8 +402,7 @@ bibFile01a = "@book{büchner35,\
   \ title={Le} # {nz}, year=1835}"
 
 bibEntry01 :: (CiteKey, BibEntry)
-bibEntry01 = ("büchner35", BibEntry "book"
-  [("author", [Agent [Str "Georg"] [] [Str "Büchner"] []])]
-  []
-  [("title", [Str "Lenz"])
-  ,("year", [Str "1835"])])
+bibEntry01 = ("büchner35", BibEntry "book" $ M.fromList
+  [("author", AgentList [Agent [Str "Georg"] [] [Str "Büchner"] []])
+  ,("title", LiteralField [Str "Lenz"])
+  ,("year", LiteralField [Str "1835"])])

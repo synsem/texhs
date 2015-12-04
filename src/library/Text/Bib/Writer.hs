@@ -41,12 +41,12 @@ getCiteAgent entry =
 
 -- | Construct year part of an author-year citation.
 getCiteYear :: BibEntry -> [Inline]
-getCiteYear = maybe [] id . getBibField "year"
+getCiteYear = maybe [] id . getBibLiteral "year"
 
 -- | Construct full bibliographic reference for an entry.
 getCiteFull :: BibEntry -> [Inline]
 getCiteFull entry =
   getCiteAgent entry ++ [Space] ++
   getCiteYear entry ++ [Space] ++
-  maybe [] id (getBibField "title" entry) ++
+  maybe [] id (getBibLiteral "title" entry) ++
   [Str "."]
