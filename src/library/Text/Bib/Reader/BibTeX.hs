@@ -30,7 +30,7 @@ import qualified Data.Text.IO as T
 import Text.Bib.Types (BibDB)
 import Text.Bib.Reader.BibTeX.Structure (parseBibTeX)
 import Text.Bib.Reader.BibTeX.Reference (parseBib)
-import Text.Bib.Reader.BibTeX.Inheritance (resolveCrossrefs)
+import Text.Bib.Reader.BibTeX.Inheritance (resolve)
 
 
 -- | Parse bibliographic entries from BibTeX file.
@@ -41,4 +41,4 @@ fromBibTeXFile label filename = fromBibTeX label <$> T.readFile filename
 fromBibTeX :: String -> Text -> Either String BibDB
 fromBibTeX label text = case parseBibTeX label text of
   Left err -> Left (show err)
-  Right db -> return (resolveCrossrefs (parseBib db))
+  Right db -> return (resolve (parseBib db))

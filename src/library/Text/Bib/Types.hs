@@ -26,6 +26,10 @@ module Text.Bib.Types
   , getBibAgents
   , getBibList
   , getBibLiteral
+  , getBibRaw
+    -- * Manipulation functions
+  , deleteField
+  , deleteFields
   ) where
 
 import Data.Map.Strict (Map)
@@ -54,6 +58,7 @@ data BibFieldValue
   = AgentList [Agent]        -- fields containing a name list
   | LiteralList [[Inline]]   -- fields containing a literal list
   | LiteralField [Inline]    -- unstructured fields (aka literal fields)
+  | RawField Text            -- internal fields that are not parsed
   deriving (Eq, Show)
 
 -- | An entry in a bibliographic database.
@@ -89,6 +94,10 @@ getBibList key entry = getBibField key entry >>= extractBibList
 getBibLiteral :: BibFieldName -> BibEntry -> Maybe [Inline]
 getBibLiteral key entry = getBibField key entry >>= extractBibLiteral
 
+-- | Retrieve an unwrapped raw field from a 'BibEntry'.
+getBibRaw :: BibFieldName -> BibEntry -> Maybe Text
+getBibRaw key entry = getBibField key entry >>= extractBibRaw
+
 -- Extract name list from a field value.
 extractBibAgents :: BibFieldValue -> Maybe [Agent]
 extractBibAgents (AgentList xs) = Just xs
@@ -103,3 +112,21 @@ extractBibList _ = Nothing
 extractBibLiteral :: BibFieldValue -> Maybe [Inline]
 extractBibLiteral (LiteralField xs) = Just xs
 extractBibLiteral _ = Nothing
+
+-- Extract raw field from a field value.
+extractBibRaw :: BibFieldValue -> Maybe Text
+extractBibRaw (RawField xs) = Just xs
+extractBibRaw _ = Nothing
+
+
+---------- Manipulation functions
+
+-- | Delete a field from a bib entry.
+deleteField :: BibFieldName -> BibEntry -> BibEntry
+deleteField name (BibEntry btype bfields) =
+  BibEntry btype (M.delete name bfields)
+
+-- | Delete a list of fields from a bib entry.
+deleteFields :: [BibFieldName] -> BibEntry -> BibEntry
+deleteFields names (BibEntry btype bfields) =
+  BibEntry btype (foldr M.delete bfields names)

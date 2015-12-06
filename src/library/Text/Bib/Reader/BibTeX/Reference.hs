@@ -64,6 +64,16 @@ listFields =
   , "publisher"
   ]
 
+-- BibTeX fields that contain raw text.
+--
+-- These internal fields should not be parsed to Inlines.
+-- They typically contain citekeys or other internal data.
+rawFields :: [BibFieldName]
+rawFields =
+  [ "crossref"
+  , "xdata"
+  ]
+
 
 -------------------- Main conversion
 
@@ -89,17 +99,21 @@ parseBib db = M.fromListWith (flip const) $
 -- Non-reference entry types are ignored.
 parseBibEntry :: String -> BibTeXEntry -> Maybe (CiteKey, BibEntry)
 parseBibEntry preamble (Reference rt key rf) =
-      -- prefix preamble to every field before TeX-ing it
-  let toTeX = parseTeXField preamble
-      texFields = map (fmap toTeX) rf
+      -- extract raw fields before TeX-ing the others
+  let (raws, contentFields) = partitionBy rawFields rf
+      -- prefix preamble to every content field before TeX-ing it
+      toTeX = parseTeXField preamble
+      texFields = map (fmap toTeX) contentFields
       -- classify BibTeX field types, using predefined key lists like 'agentFields'
       (agents, (lists, others)) =
-        partitionBy listFields <$> partitionBy agentFields texFields
+        partitionBy listFields <$>
+        partitionBy agentFields texFields
       entryAgents = map (fmap (AgentList . parseAgents)) agents
       entryLists = map (fmap (LiteralList . parseList)) lists
       entryFields = map (fmap (LiteralField . stripInlines . tex2inlines)) others
+      entryRaw = map (fmap (RawField . unwrapFieldValue)) raws
       -- resolve fieldname conflicts (using M.fromList): retain the last field
-      fields = M.unions (map M.fromList [entryAgents, entryLists, entryFields])
+      fields = M.unions (map M.fromList [entryRaw, entryAgents, entryLists, entryFields])
   in Just (key, BibEntry rt fields)
 parseBibEntry _ _ = Nothing
 

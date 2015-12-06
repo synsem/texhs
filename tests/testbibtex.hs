@@ -375,6 +375,317 @@ testsMacro = TestLabel "resolve bibtex @string macros" $ test
     ~=? (fromBibTeX "" "@book{b,v=ab#{-}#-#cd#4}")
   ]
 
+testsInheritanceXData :: Test
+testsInheritanceXData = TestLabel "xdata inheritance" $ test
+  [ "remove xdata entries from bibdb"
+    ~: mkBibDB []
+    ~=? (fromBibTeX ""
+         "@xdata{x1, location = {here}}")
+  , "simple xdata inheritance"
+    ~: mkBibDB [mkEntry "b1" "book"
+         [("author", AgentList [Agent [] [] [Str "b1-author"] []])
+         ,("title", LiteralField [Str "x1", Space, Str "title"])
+         ,("location", LiteralList [[Str "Berlin"]])]]
+    ~=? (fromBibTeX ""
+         "@xdata{x1, title = {x1 title}, location = {Berlin}}\
+         \@book{b1, author={b1-author}, xdata={x1}}")
+  , "simple xdata inheritance, reversed entry order in source"
+    ~: mkBibDB [mkEntry "b1" "book"
+         [("author", AgentList [Agent [] [] [Str "b1-author"] []])
+         ,("title", LiteralField [Str "x1", Space, Str "title"])
+         ,("location", LiteralList [[Str "Berlin"]])]]
+    ~=? (fromBibTeX ""
+         "@book{b1, author={b1-author}, xdata={x1}}\
+         \@xdata{x1, title = {x1 title}, location = {Berlin}}")
+  , "nested xdata inheritance"
+    -- "b" --(xdata)-> "x1-0" --(xdata)-> "x1-1"
+    ~: mkBibDB [mkBookEntry "b"
+         [("level0", [Str "b"])
+         ,("level1", [Str "x1-0"])
+         ,("level2", [Str "x1-1"])]]
+    ~=? (fromBibTeX ""
+         "@xdata{x1-0, level1 = {x1-0}, xdata={x1-1}}\
+         \@book{b, level0 = {b}, xdata={x1-0}}\
+         \@xdata{x1-1, level2 = {x1-1}}")
+  , "multiple xdata inheritance"
+    -- "b" --(xdata)-> "x1"
+    -- "b" --(xdata)-> "x2"
+    -- Note: we assume that "xdata1" and "xdata2" have no internal meaning.
+    ~: mkBibDB [mkBookEntry "b"
+         [("self", [Str "b"])
+         ,("xdata1", [Str "x1"])
+         ,("xdata2", [Str "x2"])]]
+    ~=? (fromBibTeX ""
+         "@xdata{x2, xdata2={x2}}\
+         \@book{b, self = {b}, xdata={x1,x2}}\
+         \@xdata{x1, xdata1 = {x1}}")
+  , "multiple nested xdata inheritance"
+    -- "b" --(xdata)-> "x1" --(xdata)-> "x1-1"
+    -- "b" --(xdata)-> "x2" --(xdata)-> "x2-1"
+    ~: mkBibDB [mkBookEntry "b"
+         [("self", [Str "b"])
+         ,("first", [Str "x1-1"])
+         ,("second", [Str "x2-1"])]]
+    ~=? (fromBibTeX ""
+         "@book{b, self = {b}, xdata={x1,x2}}\
+         \@xdata{x1, xdata={x1-1}}\
+         \@xdata{x1-1, first={x1-1}}\
+         \@xdata{x2, xdata = {x2-1}}\
+         \@xdata{x2-1, second = {x2-1}}")
+  , "name conflicts in xdata-inherited fields: right-biased resolution"
+    ~: mkBibDB [ mkBookEntry "b1" [("title", [Str "x1"])]
+               , mkBookEntry "b2" [("title", [Str "x2"])]]
+    ~=? (fromBibTeX ""
+         "@book{b1, xdata={x2,x1}}\
+         \@book{b2, xdata={x1,x2}}\
+         \@xdata{x1, title = {x1}}\
+         \@xdata{x2, title = {x2}}")
+  , "inherited fields do not overwrite existing fields"
+    ~: mkBibDB [ mkBookEntry "b1" [("title", [Str "self"])]
+               , mkBookEntry "b2" [("title", [Str "self"])]]
+    ~=? (fromBibTeX ""
+         "@book{b1, xdata={x1,x2}, title = {self}}\
+         \@book{b2, title = {self}, xdata={x1,x2}}\
+         \@xdata{x1, title = {x1}}\
+         \@xdata{x2, title = {x2}}")
+  , "xdata inheritance from non-xdata entries is possible"
+    -- biber-2.2 allows this without warning
+    ~: mkBibDB
+         [ mkEntry "x1" "book" -- an xdata entry in disguise
+           [("title", LiteralField [Str "x1"])]
+         , mkEntry "b1" "book"
+           [("author", AgentList [Agent [] [] [Str "b1-author"] []])
+           ,("title", LiteralField [Str "x1"])]]
+    ~=? (fromBibTeX ""
+         "@book{x1, title = {x1}}\
+         \@book{b1, author={b1-author}, xdata={x1}}")
+  , "avoid direct reference cycles"
+    -- biber-2.2 error: Circular XDATA inheritance
+    -- "x1" <--(xdata)--> "x1"
+    ~: mkBibDB [mkBookEntry "b1" []]
+    ~=? (fromBibTeX ""
+         "@xdata{x1, xdata={x1}}\
+         \@book{b1, xdata={x1}}")
+  , "avoid indirect reference cycles"
+    -- biber-2.2 error: Circular XDATA inheritance
+    -- "x1" <--(xdata)--> "x2"
+    ~: mkBibDB [mkBookEntry "b1" []]
+    ~=? (fromBibTeX ""
+         "@xdata{x1, xdata={x2}}\
+         \@xdata{x2, xdata={x1}}\
+         \@book{b1, xdata={x1}}")
+  , "avoid indirect reference cycles"
+    -- biber-2.2 error: Circular XDATA inheritance
+    -- "x1" <--(xdata)--> "x3"
+    ~: mkBibDB [mkBookEntry "b1" []]
+    ~=? (fromBibTeX ""
+         "@xdata{x1, xdata={x2}}\
+         \@xdata{x2, xdata={x3}}\
+         \@xdata{x3, xdata={x1}}\
+         \@book{b1, xdata={x1}}")
+  , "avoid reference cycles"
+    -- biber-2.2 error: Circular XDATA inheritance
+    -- "x1" <--(xdata)--> "x1" <--(xdata)--> "x2" <--(xdata)--> "x2"
+    ~: mkBibDB [mkBookEntry "b1" []]
+    ~=? (fromBibTeX ""
+         "@xdata{x1, xdata={x1,x2}}\
+         \@xdata{x2, xdata={x1,x2}}\
+         \@book{b1, xdata={x1,x2}}")
+  , "xdata-inheritance does not rename fields"
+    -- ... even if the referenced entry is not actually an xdata entry
+    ~: mkBibDB
+         [ mkEntry "i1" "incollection"
+             [ ("title", LiteralField [Str "c1-title"]) ] -- not "booktitle"
+         , mkEntry "c1" "collection" -- an xdata entry in disguise
+             [ ("title", LiteralField [Str "c1-title"]) ]
+         ]
+    ~=? (fromBibTeX ""
+         "@incollection{i1, xdata={c1}}\
+         \@collection{c1, title={c1-title}}")
+  ]
+
+testsInheritanceCrossref :: Test
+testsInheritanceCrossref = TestLabel "crossref inheritance" $ test
+  [ "simple crossref inheritance"
+    ~: mkBibDB
+         [ mkEntry "i1" "incollection"
+             [ ("title", LiteralField [Str "i1", Space, Str "title"])
+             , ("crossref", RawField "c1")
+             , ("location", LiteralList [[Str "Berlin"]]) ]
+         , mkEntry "c1" "collection"
+             [ ("location", LiteralList [[Str "Berlin"]]) ]
+         ]
+    ~=? (fromBibTeX ""
+         "@InCollection{i1, title={i1 title}, crossref={c1}}\
+         \@COLLECTION{c1, location={Berlin}}")
+  , "nested crossref inheritance"
+    ~: mkBibDB
+         [ mkEntry "i1" "incollection"
+             [ ("title", LiteralField [Str "i1-title"])
+             , ("crossref", RawField "c1")
+             , ("booktitle", LiteralField [Str "c1-booktitle"])
+             , ("location", LiteralList [[Str "Berlin"]]) ]
+         , mkEntry "c1" "collection"
+             [ ("booktitle", LiteralField [Str "c1-booktitle"])
+             , ("crossref", RawField "c2")
+             , ("location", LiteralList [[Str "Berlin"]]) ]
+         , mkEntry "c2" "collection"
+             [ ("location", LiteralList [[Str "Berlin"]]) ]
+         ]
+    ~=? (fromBibTeX ""
+         "@incollection{i1, crossref={c1}, title={i1-title}}\
+         \@collection{c1, booktitle={c1-booktitle}, crossref={c2}}\
+         \@collection{c2, location={Berlin}}")
+  , "rename selected fields"
+    ~: mkBibDB
+         [ mkEntry "i1" "incollection"
+             [ ("title", LiteralField [Str "i1-title"])
+             , ("crossref", RawField "c1")
+             , ("booktitle", LiteralField [Str "c1-title"]) ]
+         , mkEntry "c1" "collection"
+             [ ("title", LiteralField [Str "c1-title"]) ]
+         ]
+    ~=? (fromBibTeX ""
+         "@incollection{i1, crossref={c1}, title={i1-title}}\
+         \@collection{c1, title={c1-title}}")
+  , "rename selected fields"
+    ~: mkBibDB
+         [ mkEntry "i1" "incollection"
+             [ ("booktitle", LiteralField [Str "c1-title"]) -- not "title"
+             , ("crossref", RawField "c1") ]
+         , mkEntry "c1" "collection"
+             [ ("title", LiteralField [Str "c1-title"]) ]
+         ]
+    ~=? (fromBibTeX ""
+         "@incollection{i1, crossref={c1}}\
+         \@collection{c1, title={c1-title}}")
+  , "do not overwrite existing fields"
+    ~: mkBibDB
+         [ mkEntry "i1" "incollection"
+             [ ("title", LiteralField [Str "i1-title"])
+             , ("crossref", RawField "c1")
+             , ("booktitle", LiteralField [Str "i1-booktitle"]) ]
+         , mkEntry "c1" "collection"
+             [ ("title", LiteralField [Str "c1-title"]) ]
+         ]
+    ~=? (fromBibTeX ""
+         "@incollection{i1, booktitle={i1-booktitle}, crossref={c1}, title={i1-title}}\
+         \@collection{c1, title={c1-title}}")
+  , "do not inherit private fields"
+    ~: mkBibDB
+         [ mkEntry "i1" "incollection"
+             [ ("title", LiteralField [Str "i1-title"])
+             , ("crossref", RawField "c1")
+             , ("booktitle", LiteralField [Str "c1-title"]) ]
+         , mkEntry "c1" "collection"
+             [ ("title", LiteralField [Str "c1-title"])
+             , ("label", LiteralField [Str "c1-label"])
+             , ("xref", LiteralField [Str "none"]) ]
+         ]
+    ~=? (fromBibTeX ""
+         "@incollection{i1, crossref={c1}, title={i1-title}}\
+         \@collection{c1, title={c1-title}, label={c1-label}, xref={none}}")
+  , "renamed fields overwrite existing fields in parent"
+    -- with biber-2.2: if there are both "title" and "booktitle" fields in the parent,
+    -- then the child inherits the "title" field under the name of "booktitle".
+    ~: mkBibDB
+         [ mkEntry "i1" "incollection"
+             [ ("crossref", RawField "c1")
+             , ("booktitle", LiteralField [Str "c1-title"]) ]
+         , mkEntry "c1" "collection"
+             [ ("booktitle", LiteralField [Str "c1-booktitle"])
+             , ("title", LiteralField [Str "c1-title"]) ]
+         ]
+    ~=? (fromBibTeX ""
+         "@incollection{i1, crossref={c1}}\
+         \@collection{c1, booktitle={c1-booktitle}, title={c1-title}}")
+  , "renamed fields overwrite existing fields in parent"
+    -- same as previous test but with reversed field order in source,
+    -- i.e. "title" before "booktitle".
+    ~: mkBibDB
+         [ mkEntry "i1" "incollection"
+             [ ("crossref", RawField "c1")
+             , ("booktitle", LiteralField [Str "c1-title"]) ]
+         , mkEntry "c1" "collection"
+             [ ("booktitle", LiteralField [Str "c1-booktitle"])
+             , ("title", LiteralField [Str "c1-title"]) ]
+         ]
+    ~=? (fromBibTeX ""
+         "@incollection{i1, crossref={c1}}\
+         \@collection{c1, title={c1-title}, booktitle={c1-booktitle}}")
+  , "parent booktitle field is inherited if it has no title field"
+    ~: mkBibDB
+         [ mkEntry "i1" "incollection"
+             [ ("crossref", RawField "c1")
+             , ("booktitle", LiteralField [Str "c1-booktitle"]) ]
+         , mkEntry "c1" "collection"
+             [ ("booktitle", LiteralField [Str "c1-booktitle"]) ]
+         ]
+    ~=? (fromBibTeX ""
+         "@incollection{i1, crossref = {c1}}\
+         \@collection{c1, booktitle = {c1-booktitle}}")
+  , "renamed fields do not overwrite existing fields in child"
+    ~: mkBibDB
+         [ mkEntry "i1" "incollection"
+             [ ("crossref", RawField "c1")
+             , ("booktitle", LiteralField [Str "i1-booktitle"]) ]
+         , mkEntry "c1" "collection"
+             [ ("booktitle", LiteralField [Str "c1-booktitle"])
+             , ("title", LiteralField [Str "c1-title"]) ]
+         ]
+    ~=? (fromBibTeX ""
+         "@incollection{i1, booktitle={i1-booktitle}, crossref={c1}}\
+         \@collection{c1, booktitle={c1-booktitle}, title={c1-title}}")
+  , "avoid direct reference cycles"
+    -- biber-2.2 error: Circular inheritance
+    -- "i1" <--(crossref)--> "i1"
+    ~: mkBibDB [mkEntry "i1" "incollection"
+         [("crossref", RawField "i1")]]
+    ~=? (fromBibTeX ""
+         "@incollection{i1, crossref={i1}}")
+  , "avoid indirect reference cycles"
+    -- biber-2.2 error: Circular inheritance
+    -- "i1" <--(crossref)--> "i2"
+    ~: mkBibDB
+         [ mkEntry "i1" "incollection"
+             [("crossref", RawField "i2")]
+         , mkEntry "i2" "incollection"
+             [("crossref", RawField "i1")]]
+    ~=? (fromBibTeX ""
+         "@incollection{i1, crossref={i2}}\
+         \@incollection{i2, crossref={i1}}")
+  ]
+
+testsInheritance :: Test
+testsInheritance = TestLabel "xdata and crossref interaction" $ test
+  [ "xdata fields win over crossref fields"
+    ~: mkBibDB
+         [ mkEntry "i1" "incollection"
+             [ ("crossref", RawField "c1")
+             , ("booktitle", LiteralField [Str "x1-booktitle"]) ]
+         , mkEntry "c1" "collection"
+             [ ("title", LiteralField [Str "c1-title"]) ]
+         ]
+    ~=? (fromBibTeX ""
+         "@xdata{x1, booktitle={x1-booktitle}}\
+         \@incollection{i1, crossref={c1}, xdata={x1}}\
+         \@collection{c1, title={c1-title}}")
+  , "xdata fields win over crossref fields"
+    -- same as previous test but with reversed field order in source,
+    -- i.e. "xdata" before "crossref".
+    ~: mkBibDB
+         [ mkEntry "i1" "incollection"
+             [ ("crossref", RawField "c1")
+             , ("booktitle", LiteralField [Str "x1-booktitle"]) ]
+         , mkEntry "c1" "collection"
+             [ ("title", LiteralField [Str "c1-title"]) ]
+         ]
+    ~=? (fromBibTeX ""
+         "@xdata{x1, booktitle={x1-booktitle}}\
+         \@incollection{i1, xdata={x1}, crossref={c1}}\
+         \@collection{c1, title={c1-title}}")
+  ]
+
 testsFormatter :: Test
 testsFormatter = TestLabel "bib formatter" $ test
   [ "single cite author"
@@ -396,6 +707,9 @@ tests = TestList
   , testsEntry
   , testsNameConflicts
   , testsMacro
+  , testsInheritanceXData
+  , testsInheritanceCrossref
+  , testsInheritance
   , testsFormatter
   ]
 
@@ -422,6 +736,11 @@ mkBibDB = return . M.fromList
 mkBookEntry :: CiteKey -> [(BibFieldName, [Inline])] -> (CiteKey, BibEntry)
 mkBookEntry key fs = (key, BibEntry "book"
   (M.fromList (map (fmap LiteralField) fs)))
+
+-- Create a general entry from a citekey, an entry type name,
+-- and a list of BibFields.
+mkEntry :: CiteKey -> Text -> [(BibFieldName, BibFieldValue)] -> (CiteKey, BibEntry)
+mkEntry key btype bfields = (key, BibEntry btype (M.fromList bfields))
 
 
 -------------------- example data
