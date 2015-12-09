@@ -11,7 +11,7 @@
 --
 -- Maintainer  :  mathias.schenner@langsci-press.org
 -- Stability   :  experimental
--- Portability :  portable
+-- Portability :  GHC
 --
 -- The lexer state manages the catcode table, group nesting
 -- and user-defined macro commands and environments.

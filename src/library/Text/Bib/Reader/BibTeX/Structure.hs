@@ -8,7 +8,7 @@
 --
 -- Maintainer  :  mathias.schenner@langsci-press.org
 -- Stability   :  experimental
--- Portability :  portable
+-- Portability :  GHC
 --
 -- BibTeX parser, layer 1:
 -- extract BibTeX entries and resolve \@string macros.

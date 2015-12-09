@@ -8,7 +8,7 @@
 --
 -- Maintainer  :  mathias.schenner@langsci-press.org
 -- Stability   :  experimental
--- Portability :  portable
+-- Portability :  GHC
 --
 -- XML writer: Convert Doc to a TEI-based XML format.
 ----------------------------------------------------------------------

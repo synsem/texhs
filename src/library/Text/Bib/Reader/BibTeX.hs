@@ -7,7 +7,7 @@
 --
 -- Maintainer  :  mathias.schenner@langsci-press.org
 -- Stability   :  experimental
--- Portability :  portable
+-- Portability :  GHC
 --
 -- Main internal interface to BibTeX parser.
 --

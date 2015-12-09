@@ -9,7 +9,7 @@
 --
 -- Maintainer  :  mathias.schenner@langsci-press.org
 -- Stability   :  experimental
--- Portability :  portable
+-- Portability :  GHC
 --
 -- Low-level TeX lexers and lifted Parsec functions for TeX lexing.
 ----------------------------------------------------------------------

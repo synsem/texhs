@@ -8,7 +8,7 @@
 --
 -- Maintainer  :  mathias.schenner@langsci-press.org
 -- Stability   :  experimental
--- Portability :  portable
+-- Portability :  GHC
 --
 -- BibTeX parser, layer 2:
 -- interpret field values according to BibLaTeX's data model

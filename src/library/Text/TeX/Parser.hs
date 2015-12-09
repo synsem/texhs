@@ -7,7 +7,7 @@
 --
 -- Maintainer  :  mathias.schenner@langsci-press.org
 -- Stability   :  experimental
--- Portability :  portable
+-- Portability :  GHC
 --
 -- Parser for TeX token streams.
 ----------------------------------------------------------------------

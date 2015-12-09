@@ -7,7 +7,7 @@
 --
 -- Maintainer  :  mathias.schenner@langsci-press.org
 -- Stability   :  experimental
--- Portability :  portable
+-- Portability :  GHC
 --
 -- Data maps containing symbols and diacritics defined in the
 -- Plain TeX format.

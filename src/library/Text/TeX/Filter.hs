@@ -7,7 +7,7 @@
 --
 -- Maintainer  :  mathias.schenner@langsci-press.org
 -- Stability   :  experimental
--- Portability :  portable
+-- Portability :  GHC
 --
 -- Filters for normalizing whitespace and for resolving syntactic
 -- TeX and LaTeX macros (symbols and diacritics).

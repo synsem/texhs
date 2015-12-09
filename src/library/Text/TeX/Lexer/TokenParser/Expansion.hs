@@ -8,7 +8,7 @@
 --
 -- Maintainer  :  mathias.schenner@langsci-press.org
 -- Stability   :  experimental
--- Portability :  portable
+-- Portability :  GHC
 --
 -- Expansion of user-defined macros and environments.
 ----------------------------------------------------------------------

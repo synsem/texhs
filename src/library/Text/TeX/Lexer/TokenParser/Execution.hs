@@ -8,7 +8,7 @@
 --
 -- Maintainer  :  mathias.schenner@langsci-press.org
 -- Stability   :  experimental
--- Portability :  portable
+-- Portability :  GHC
 --
 -- Expanding parsers for TeX tokens and execution of TeX primitives.
 ----------------------------------------------------------------------
