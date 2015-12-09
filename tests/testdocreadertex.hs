@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 ----------------------------------------------------------------------
 -- Tests for the @Text.Doc.Reader.TeX@ module.
 ----------------------------------------------------------------------
@@ -9,6 +10,11 @@
 
 module Main where
 
+#if MIN_VERSION_base(4,8,0)
+-- Prelude exports all required operators from Control.Applicative
+#else
+import Control.Applicative ((<$>), (<*>), (*>))
+#endif
 import System.Exit (ExitCode, exitSuccess, exitFailure)
 import Test.HUnit (Test(..), Counts(..), test, (~:), (~=?), runTestTT)
 

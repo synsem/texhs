@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 ----------------------------------------------------------------------
 -- |
@@ -24,6 +25,11 @@ module Text.Bib.Reader.BibTeX.Reference
   , parseList
   ) where
 
+#if MIN_VERSION_base(4,8,0)
+-- Prelude exports all required operators from Control.Applicative
+#else
+import Control.Applicative ((<$>))
+#endif
 import Data.Char (isLower)
 import qualified Data.Map.Strict as M
 import Data.Maybe (mapMaybe)

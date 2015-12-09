@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 ----------------------------------------------------------------------
 -- |
 -- Module      :  Main
@@ -14,6 +15,11 @@
 
 module Main where
 
+#if MIN_VERSION_base(4,8,0)
+-- Prelude exports all required operators from Control.Applicative
+#else
+import Control.Applicative ((<$>))
+#endif
 import Data.Char (toLower)
 import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy.IO as T

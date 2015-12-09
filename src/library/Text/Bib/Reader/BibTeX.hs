@@ -35,7 +35,7 @@ import Text.Bib.Reader.BibTeX.Inheritance (resolve)
 
 -- | Parse bibliographic entries from BibTeX file.
 fromBibTeXFile :: String -> FilePath -> IO (Either String BibDB)
-fromBibTeXFile label filename = fromBibTeX label <$> T.readFile filename
+fromBibTeXFile label filename = fromBibTeX label `fmap` T.readFile filename
 
 -- | Parse bibliographic entries from BibTeX file content.
 fromBibTeX :: String -> Text -> Either String BibDB

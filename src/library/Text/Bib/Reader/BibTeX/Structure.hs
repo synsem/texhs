@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 ----------------------------------------------------------------------
 -- |
@@ -33,6 +34,11 @@ module Text.Bib.Reader.BibTeX.Structure
   , parseBibTeX
   ) where
 
+#if MIN_VERSION_base(4,8,0)
+-- Prelude exports all required operators from Control.Applicative
+#else
+import Control.Applicative ((<*), (<*>), (*>), (<$), (<$>))
+#endif
 import Data.Char (isDigit)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
