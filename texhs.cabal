@@ -70,6 +70,7 @@ library
   -- extensions used in some modules (Cabal >=1.10)
   -- (see LANGUAGE pragmas in file headers):
   other-extensions:    CPP
+                       OverloadedStrings
                        GeneralizedNewtypeDeriving
                        TypeSynonymInstances
                        FlexibleInstances
