@@ -16,7 +16,12 @@
 module Text.TeX.Context.Walk
   ( -- * Types
     Parser
+  , ParserS
   , runParser
+  , runParserWithState
+    -- * Parser State
+  , getMeta
+  , putMeta
     -- * Basic combinators
   , choice
   , count
@@ -50,26 +55,41 @@ module Text.TeX.Context.Walk
 
 import Control.Applicative
 import Control.Monad
+import Control.Monad.Trans.Class (lift)
 import qualified Control.Monad.Trans.Except as E
 import qualified Control.Monad.Trans.State as S
 
 import Text.TeX.Parser.Types
 import Text.TeX.Context.Types
-
+import Text.Doc.Types (Meta(..), defaultMeta)
 
 ---------- Types
 
--- | A parser for walking a TeX AST.
-newtype Parser a = Parser
-    { parser :: S.StateT TeXContext (E.Except [TeXDocError]) a }
+-- Note: All of the functions defined below could be generalized from
+-- @Parser@ to @ParserS s@. However, since we currently only use the
+-- @Parser@ type directly, we keep the simpler type declarations.
+
+-- | A parser for walking a TeX AST,
+-- parameterized by user state.
+newtype ParserS s a = Parser
+    { parser :: S.StateT TeXContext (S.StateT s (E.Except [TeXDocError])) a }
   deriving (Functor, Applicative, Monad, Alternative, MonadPlus)
+
+-- | A parser for walking a TeX AST,
+-- with a 'Meta' user state.
+type Parser = ParserS Meta
+
+-- | Run a parser on a TeX AST.
+--
+-- Include final 'Meta' state in the result.
+runParserWithState :: Parser a -> TeX -> ThrowsError (a, Meta)
+runParserWithState p xs =
+  E.runExcept (S.runStateT (S.evalStateT
+    (parser p) (pureTeXContext xs)) defaultMeta)
 
 -- | Run a parser on a TeX AST.
 runParser :: Parser a -> TeX -> ThrowsError a
-runParser p xs = E.runExcept (S.evalStateT (parser p) (pureTeXContext xs))
-
-liftP :: (TeXContext -> E.Except [TeXDocError] (a, TeXContext)) -> Parser a
-liftP = Parser . S.StateT
+runParser p xs = fst <$> runParserWithState p xs
 
 state :: (TeXContext -> (a, TeXContext)) -> Parser a
 state = Parser . S.state
@@ -80,9 +100,16 @@ put = Parser . S.put
 get :: Parser TeXContext
 get = Parser S.get
 
-throwE :: TeXDocError -> Parser a
-throwE e = liftP (const (E.throwE [e]))
+-- | Set the value of the 'Meta' state.
+putMeta :: Meta -> Parser ()
+putMeta = Parser . lift . S.put
 
+-- | Fetch the current value of the 'Meta' state.
+getMeta :: Parser Meta
+getMeta = Parser (lift S.get)
+
+throwE :: TeXDocError -> Parser a
+throwE e = Parser (lift (lift (E.throwE [e])))
 
 ---------- Low-level parsers
 

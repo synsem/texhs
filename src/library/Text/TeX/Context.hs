@@ -23,6 +23,10 @@ module Text.TeX.Context
     -- ** Types
   , Parser
   , runParser
+  , runParserWithState
+    -- * Parser State
+  , getMeta
+  , putMeta
     -- ** Combinators
   , choice
   , count

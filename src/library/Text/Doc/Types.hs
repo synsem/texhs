@@ -15,9 +15,8 @@
 module Text.Doc.Types
   ( -- * Doc type
     Doc(..)
-  , Meta
-  , MetaKey
-  , MetaValue
+  , Meta(..)
+  , defaultMeta
   , Content
   , Level
   , Block(..)
@@ -33,7 +32,7 @@ module Text.Doc.Types
   , isSpace
     -- * Accessor functions
   , docTitle
-  , docAuthor
+  , docAuthors
   , docDate
   , plain
     -- * Normalization
@@ -42,7 +41,7 @@ module Text.Doc.Types
   ) where
 
 import Data.List (dropWhileEnd)
---import Data.Map
+
 
 -------------------- Doc type
 
@@ -50,18 +49,26 @@ import Data.List (dropWhileEnd)
 data Doc = Doc Meta Content
   deriving (Eq, Show)
 
--- | Meta information is stored in a key-value map.
--- For now keys and values are simply strings,
--- but values will eventually be more complex
--- (e.g. to allow for a list of authors or emphasis in titles).
-type Meta = [(MetaKey, MetaValue)]
---data Meta = Map MetaKey MetaValue
 
--- | Keys for 'Meta' information.
-type MetaKey = String
+-------------------- Meta type
 
--- | Values for 'Meta' information.
-type MetaValue = String
+-- | Meta information of a 'Doc' document.
+data Meta = Meta
+  { metaTitle :: [Inline]
+  , metaAuthors :: [[Inline]]
+  , metaDate :: [Inline]
+  } deriving (Eq, Show)
+
+-- | Default (empty) meta information of a document.
+defaultMeta :: Meta
+defaultMeta = Meta
+  { metaTitle = []
+  , metaAuthors = []
+  , metaDate = []
+  }
+
+
+-------------------- Content type
 
 -- | Content of a 'Doc' document.
 type Content = [Block]
@@ -128,22 +135,21 @@ isSpace _ = False
 
 -------------------- Accessor functions
 
--- | Extract document title.
-docTitle :: Doc -> MetaValue
-docTitle = lookupMeta "title"
+-- | Extract meta information.
+docMeta :: Doc -> Meta
+docMeta (Doc meta _) = meta
 
--- | Extract document author.
-docAuthor :: Doc -> MetaValue
-docAuthor = lookupMeta "author"
+-- | Extract document title.
+docTitle :: Doc -> [Inline]
+docTitle = metaTitle . docMeta
+
+-- | Extract document authors.
+docAuthors :: Doc -> [[Inline]]
+docAuthors = metaAuthors . docMeta
 
 -- | Extract document date.
-docDate :: Doc -> MetaValue
-docDate = lookupMeta "date"
-
--- Retrieve value for a given meta key.
--- Returns the empty string if lookup failed.
-lookupMeta :: MetaKey -> Doc -> MetaValue
-lookupMeta key (Doc docmeta _) = maybe "" id (lookup key docmeta)
+docDate :: Doc -> [Inline]
+docDate = metaDate . docMeta
 
 -- | Extract plain character data from an 'Inline' element.
 plain :: Inline -> String

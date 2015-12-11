@@ -52,8 +52,8 @@ header doc = el "teiHeader" $ fileDesc doc
 fileDesc :: SectionDoc -> Markup
 fileDesc doc = el "fileDesc" $ do
   el "titleStmt" $ do
-    el "title" (textP (sdocTitle doc))
-    el "author" (textP (sdocAuthor doc))
+    el "title" (inlines (sdocTitle doc))
+    mapM_ (el "author" . inlines) (sdocAuthors doc)
   el "publicationStmt" $ p (text "Unknown")
   el "sourceDesc" $ p (text "Born digital.")
 
@@ -75,8 +75,8 @@ front doc = el "front" (titlePage doc)
 titlePage :: SectionDoc -> Markup
 titlePage doc = el "titlePage" $ do
   el "docTitle" $
-    el "titlePart" ! attr "type" "main" $ (textP (sdocTitle doc))
-  el "byline" $ el "docAuthor" (textP (sdocAuthor doc))
+    el "titlePart" ! attr "type" "main" $ (inlines (sdocTitle doc))
+  el "byline" $ mapM_ (el "docAuthor" . inlines) (sdocAuthors doc)
 
 
 ---------- back matter

@@ -23,7 +23,7 @@ import Data.Monoid
 import Data.Text.Lazy (Text)
 import Text.Blaze.Html5
   ( (!), Html, toHtml, docTypeHtml, meta, title
-  , h1, ul, li, p, em)
+  , h1, h2, ul, li, p, em)
 import Text.Blaze.Html5.Attributes
   (name, charset, content, style)
 import Text.Blaze.Html.Renderer.Text (renderHtml)
@@ -49,7 +49,7 @@ convertDoc doc = docTypeHtml $ mkHead doc <> mkBody doc
 mkHead :: Doc -> Html
 mkHead doc = H.head $ do
   meta ! charset "utf-8"
-  title $ toHtml (docTitle doc)
+  title $ inlines (docTitle doc)
   meta ! name "viewport" ! content "width=device-width, initial-scale=1.0"
   meta ! name "generator" ! content "texhs"
 
@@ -59,7 +59,8 @@ mkHead doc = H.head $ do
 -- Create @<body>@ element.
 mkBody :: Doc -> Html
 mkBody doc@(Doc _ docbody) = H.body $ do
-  h1 $ toHtml (docTitle doc)
+  h1 $ inlines (docTitle doc)
+  h2 $ mapM_ inlines (docAuthors doc)
   blocks docbody
 
 -- Convert 'Block' elements to HTML.

@@ -16,10 +16,8 @@ module Text.Doc.Reader.TeX
  ( -- * TeX to Doc Conversion
    tex2doc
  , tex2inlines
-   -- * Document parsers
+   -- * Document parser
  , doc
- , docmeta
- , docbody
    -- * Block parsers
  , blocks
  , block
@@ -47,40 +45,39 @@ import Text.Doc.Types
 
 ---------- main: TeX to Doc conversion
 
--- | Convert a 'TeX' document to a 'Doc' document.
+-- | Convert a named 'TeX' AST to a 'Doc' document.
 tex2doc :: String -> TeX -> Doc
-tex2doc name input = case parse doc name input of
-  Left l -> error (show l)
-  Right r -> r
+tex2doc name input =
+  case runParserWithState doc input of
+    Left l -> error (name ++ ": " ++ show l)
+    Right (c,m) -> Doc m c
 
 -- | Parse a list of 'Inline' elements from a 'TeX' AST.
 --
 -- This can be used to evaluate small bits of TeX code,
 -- e.g. BibTeX field values.
 tex2inlines :: TeX -> [Inline]
-tex2inlines input = case runParser (inlines <* eof) input of
-  Left l -> error (show l)
-  Right r -> normalizeInlines r
-
--- Run 'Doc' parser on a 'TeX' structure.
-parse :: Parser Doc -> String -> TeX -> ThrowsError Doc
-parse p _ input = runParser p input
+tex2inlines input =
+  case runParser (inlines <* eof) input of
+    Left l -> error (show l)
+    Right r -> normalizeInlines r
 
 
 ---------- top-level parsers
 
--- | Main 'Doc' parser.
--- Read document metadata followed by content.
-doc :: Parser Doc
-doc = Doc <$> docmeta <*> docbody
+-- | Main document parser.
+--
+-- Parse LaTeX preamble followed by document body.
+doc :: Parser Content
+doc = preamble *> docbody
 
 -- | Parse meta information from a LaTeX preamble.
-docmeta :: Parser Meta
-docmeta = many skipWhite *> many (lexemeBlock preambleElem)
+preamble :: Parser ()
+preamble = void $ many skipWhite *> many (lexemeBlock preambleElem)
 
 -- Parse a single LaTeX preamble element.
-preambleElem :: Parser (MetaKey, MetaValue)
-preambleElem = choice [documentclass, title, author, usepkg]
+preambleElem :: Parser ()
+preambleElem = choice [title, authors, date, usepkg, documentclass]
 
 -- | Parse content from a LaTeX document body.
 docbody :: Parser Content
@@ -94,29 +91,37 @@ content = many skipWhite *> blocks <* eof
 ---------- metainfo parsers
 
 -- Parse document class.
-documentclass :: Parser (MetaKey, MetaValue)
-documentclass = getCmdBody "documentclass"
-
--- Parse document title.
-title :: Parser (MetaKey, MetaValue)
-title = getCmdBody "title"
-
--- Parse document authors.
-author :: Parser (MetaKey, MetaValue)
-author = getCmdBody "author"
+documentclass :: Parser ()
+documentclass = void $ getCmdBody "documentclass"
 
 -- Parse package imports.
-usepkg :: Parser (MetaKey, MetaValue)
-usepkg = getCmdBodyAs "package" "usepackage"
+usepkg :: Parser ()
+usepkg = void $ getCmdBody "usepackage"
 
--- Parse the first mandatory argument of a command @texname@ as a string
--- and pair it with the provided label @keyname@.
-getCmdBodyAs :: String -> String -> Parser (MetaKey, MetaValue)
-getCmdBodyAs keyname texname =
-  ((,) keyname . concatMap plain) <$> (inCmd texname inlines)
+-- Parse document title.
+title :: Parser ()
+title = do
+  title' <- getCmdBody "title"
+  meta <- getMeta
+  putMeta (meta { metaTitle = title' })
 
-getCmdBody :: String -> Parser (MetaKey, MetaValue)
-getCmdBody name = getCmdBodyAs name name
+-- Parse document authors.
+authors :: Parser ()
+authors = do
+  authors' <- getCmdBody "author"
+  meta <- getMeta
+  putMeta (meta { metaAuthors = [authors'] })
+
+-- Parse document date.
+date :: Parser ()
+date = do
+  date' <- getCmdBody "date"
+  meta <- getMeta
+  putMeta (meta { metaDate = date' })
+
+-- Parse the first mandatory argument of a specific command.
+getCmdBody :: String -> Parser [Inline]
+getCmdBody name = inCmd name inlines
 
 
 ---------- combinators

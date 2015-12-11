@@ -20,7 +20,7 @@ module Text.Doc.Section
   , doc2secdoc
     -- * Accessor functions
   , sdocTitle
-  , sdocAuthor
+  , sdocAuthors
   , sdocDate
   ) where
 
@@ -66,19 +66,18 @@ isHeaderNotWithin _ _ = False
 
 -------------------- Accessor functions
 
--- | Extract document title.
-sdocTitle :: SectionDoc -> MetaValue
-sdocTitle = lookupMeta "title"
+-- | Extract meta information.
+sdocMeta :: SectionDoc -> Meta
+sdocMeta (SectionDoc meta _) = meta
 
--- | Extract document author.
-sdocAuthor :: SectionDoc -> MetaValue
-sdocAuthor = lookupMeta "author"
+-- | Extract document title.
+sdocTitle :: SectionDoc -> [Inline]
+sdocTitle = metaTitle . sdocMeta
+
+-- | Extract document authors.
+sdocAuthors :: SectionDoc -> [[Inline]]
+sdocAuthors = metaAuthors . sdocMeta
 
 -- | Extract document date.
-sdocDate :: SectionDoc -> MetaValue
-sdocDate = lookupMeta "date"
-
--- Retrieve value for a given meta key.
--- Returns the empty string if lookup failed.
-lookupMeta :: MetaKey -> SectionDoc -> MetaValue
-lookupMeta key (SectionDoc docmeta _) = maybe "" id (lookup key docmeta)
+sdocDate :: SectionDoc -> [Inline]
+sdocDate = metaDate . sdocMeta
