@@ -17,6 +17,7 @@ module Text.Doc.Types
     Doc(..)
   , Meta(..)
   , defaultMeta
+  , HasMeta(..)
   , Content
   , Level
   , Block(..)
@@ -66,6 +67,14 @@ defaultMeta = Meta
   , metaAuthors = []
   , metaDate = []
   }
+
+-- | A class for document types that hold meta information.
+class HasMeta d where
+  -- | Extract meta information.
+  docMeta :: d -> Meta
+
+instance HasMeta Doc where
+  docMeta (Doc meta _) = meta
 
 
 -------------------- Content type
@@ -135,20 +144,16 @@ isSpace _ = False
 
 -------------------- Accessor functions
 
--- | Extract meta information.
-docMeta :: Doc -> Meta
-docMeta (Doc meta _) = meta
-
 -- | Extract document title.
-docTitle :: Doc -> [Inline]
+docTitle :: HasMeta d => d -> [Inline]
 docTitle = metaTitle . docMeta
 
 -- | Extract document authors.
-docAuthors :: Doc -> [[Inline]]
+docAuthors :: HasMeta d => d -> [[Inline]]
 docAuthors = metaAuthors . docMeta
 
 -- | Extract document date.
-docDate :: Doc -> [Inline]
+docDate :: HasMeta d => d -> [Inline]
 docDate = metaDate . docMeta
 
 -- | Extract plain character data from an 'Inline' element.

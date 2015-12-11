@@ -18,10 +18,6 @@ module Text.Doc.Section
   , Section(..)
     -- * Conversion
   , doc2secdoc
-    -- * Accessor functions
-  , sdocTitle
-  , sdocAuthors
-  , sdocDate
   ) where
 
 import Text.Doc.Types
@@ -32,10 +28,15 @@ import Text.Doc.Types
 -- | 'SectionDoc' provides a section view on 'Doc' documents:
 -- The document content is split into hierarchical 'Section' elements.
 data SectionDoc = SectionDoc Meta [Section]
+  deriving (Eq, Show)
+
+instance HasMeta SectionDoc where
+  docMeta (SectionDoc meta _) = meta
 
 -- | A 'Section' consists of header information (level, title) and
 -- the content of the section, followed by a list of subsections.
 data Section = Section Level [Inline] [Block] [Section]
+  deriving (Eq, Show)
 
 
 -------------------- Conversion
@@ -62,22 +63,3 @@ blocks2sections (_:bls) = blocks2sections bls -- drop leading non-headers
 isHeaderNotWithin :: Level -> Block -> Bool
 isHeaderNotWithin n (Header m _) = m <= n
 isHeaderNotWithin _ _ = False
-
-
--------------------- Accessor functions
-
--- | Extract meta information.
-sdocMeta :: SectionDoc -> Meta
-sdocMeta (SectionDoc meta _) = meta
-
--- | Extract document title.
-sdocTitle :: SectionDoc -> [Inline]
-sdocTitle = metaTitle . sdocMeta
-
--- | Extract document authors.
-sdocAuthors :: SectionDoc -> [[Inline]]
-sdocAuthors = metaAuthors . sdocMeta
-
--- | Extract document date.
-sdocDate :: SectionDoc -> [Inline]
-sdocDate = metaDate . sdocMeta
