@@ -90,40 +90,36 @@ content :: Parser Content
 content = many skipWhite *> blocks <* eof
 
 
----------- metainfo parsers
+---------- Preamble parsers
 
 -- Parse document class.
 documentclass :: Parser ()
-documentclass = void $ getCmdBody "documentclass"
+documentclass = void $ inlineCmd "documentclass"
 
 -- Parse package imports.
 usepkg :: Parser ()
-usepkg = void $ getCmdBody "usepackage"
+usepkg = void $ inlineCmd "usepackage"
 
 -- Parse document title.
 title :: Parser ()
 title = do
-  title' <- getCmdBody "title"
+  title' <- inlineCmd "title"
   meta <- getMeta
   putMeta (meta { metaTitle = title' })
 
 -- Parse document authors.
 authors :: Parser ()
 authors = do
-  authors' <- getCmdBody "author"
+  authors' <- inlineCmd "author"
   meta <- getMeta
   putMeta (meta { metaAuthors = [authors'] })
 
 -- Parse document date.
 date :: Parser ()
 date = do
-  date' <- getCmdBody "date"
+  date' <- inlineCmd "date"
   meta <- getMeta
   putMeta (meta { metaDate = date' })
-
--- Parse the first mandatory argument of a specific command.
-getCmdBody :: String -> Parser [Inline]
-getCmdBody name = inCmd name inlines
 
 
 ---------- combinators
@@ -192,7 +188,7 @@ str = Str <$> (satisfy isPlain >>= \(Plain xs) -> return xs)
 
 -- | Parse @emph@ command.
 emph :: Parser Inline
-emph = Emph <$> (inCmd "emph" inlines)
+emph = Emph <$> inlineCmd "emph"
 
 -- | Parse @em@ command.
 em :: Parser Inline
