@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 ----------------------------------------------------------------------
 -- |
 -- Module      :  Text.Doc.Types
@@ -22,6 +23,9 @@ module Text.Doc.Types
   , Level
   , Block(..)
   , Inline(..)
+  , MultiCite(..)
+  , SingleCite(..)
+  , CiteMode(..)
     -- * Block predicates
   , isPara
   , isHeader
@@ -41,7 +45,11 @@ module Text.Doc.Types
   , stripInlines
   ) where
 
-import Data.List (dropWhileEnd)
+import Data.List (dropWhileEnd, intersperse)
+import Data.Set (Set)
+import qualified Data.Set as Set
+import Data.Text (Text)
+import qualified Data.Text as T
 
 
 -------------------- Doc type
@@ -58,6 +66,7 @@ data Meta = Meta
   { metaTitle :: [Inline]
   , metaAuthors :: [[Inline]]
   , metaDate :: [Inline]
+  , metaCites :: Set Text -- alias CiteKey
   } deriving (Eq, Show)
 
 -- | Default (empty) meta information of a document.
@@ -66,6 +75,7 @@ defaultMeta = Meta
   { metaTitle = []
   , metaAuthors = []
   , metaDate = []
+  , metaCites = Set.empty
   }
 
 -- | A class for document types that hold meta information.
@@ -98,6 +108,40 @@ data Inline
   | Normal [Inline]
   | Emph [Inline]
   | Space
+  | Citation MultiCite
+  deriving (Eq, Show)
+
+-- | A list of 'SingleCite' citations
+-- with optional prenote and postnote.
+--
+-- This is modeled after biblatex's
+-- multicite commands (e.g. @\\cites@).
+data MultiCite = MultiCite
+  { multiCiteMode :: CiteMode
+  , multiCitePrenote :: [Inline]
+  , multiCitePostnote :: [Inline]
+  , multiCites :: [SingleCite]
+  } deriving (Eq, Show)
+
+-- | A single citation
+-- comprised of a list of citekeys
+-- and optional prenote and postnote.
+--
+-- This is modeled after biblatex's
+-- basic cite commands (e.g. @\\cite@).
+data SingleCite = SingleCite
+  { singleCitePrenote :: [Inline]
+  , singleCitePostnote :: [Inline]
+  , singleCiteKeys :: [Text] -- alias [CiteKey]
+  } deriving (Eq, Show)
+
+-- | The type of a citation.
+--
+-- This may be used by document writers to adjust
+-- the formatting of a citation.
+data CiteMode
+  = CiteParen   -- like biblatex's @\\parencite@, aka @\\citep@
+  | CiteText    -- like biblatex's @\\textcite@, aka @\\citet@
   deriving (Eq, Show)
 
 
@@ -156,12 +200,22 @@ docAuthors = metaAuthors . docMeta
 docDate :: HasMeta d => d -> [Inline]
 docDate = metaDate . docMeta
 
+-- Warning: The citation formatter drops any prenotes and postnotes.
 -- | Extract plain character data from an 'Inline' element.
 plain :: Inline -> String
 plain (Str xs) = xs
 plain (Normal is) = concatMap plain is
 plain (Emph is) = concatMap plain is
 plain Space = " "
+plain (Citation (MultiCite _ _ _ xs)) = T.unpack (plainCites xs)
+
+-- Helper for showing raw citations.
+plainCites :: [SingleCite] -> Text
+plainCites = T.intercalate ";" . map plainCite
+
+-- Helper for showing raw citations.
+plainCite :: SingleCite -> Text
+plainCite (SingleCite _ _ sKeys) = T.concat (intersperse "," sKeys)
 
 
 -------------------- Normalization
