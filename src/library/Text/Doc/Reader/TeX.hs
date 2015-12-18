@@ -37,6 +37,8 @@ module Text.Doc.Reader.TeX
 
 import Control.Applicative
 import Control.Monad
+import qualified Data.Set as Set
+import qualified Data.Text as T
 
 import Text.TeX.Context
 import Text.TeX.Parser.Types
@@ -174,7 +176,7 @@ inlines = concat <$> (many (count 1 inline <|> inGrp "" inlines))
 
 -- | Parse a single inline element.
 inline :: Parser Inline
-inline = choice [space, str, emph, em, rm]
+inline = choice [space, str, emph, em, rm, cite]
 
 -- Parse inline elements in the first mandatory argument of a command.
 inlineCmd :: String -> Parser [Inline]
@@ -199,6 +201,16 @@ em = Emph <$> (cmd "em" *> inlines)
 -- | Parse @rm@ command.
 rm :: Parser Inline
 rm = Normal <$> (cmd "rm" *> inlines)
+
+-- | Parse @cite@ command.
+cite :: Parser Inline
+cite = do
+  arg <- inlineCmd "cite"
+  let keys = (T.split (==',') . T.pack . concatMap plain) arg
+  meta <- getMeta
+  let newCiteSet = foldr Set.insert (metaCites meta) keys
+  putMeta (meta { metaCites = newCiteSet })
+  return (Citation (MultiCite CiteParen [] [] [SingleCite [] [] keys]))
 
 
 ---------- Unit parsers
