@@ -37,7 +37,6 @@ module Text.Doc.Reader.TeX
 
 import Control.Applicative
 import Control.Monad
-import qualified Data.Set as Set
 import qualified Data.Text as T
 
 import Text.TeX.Context
@@ -203,9 +202,7 @@ cite :: Parser Inline
 cite = do
   arg <- inlineCmd "cite"
   let keys = (T.split (==',') . T.pack . concatMap plain) arg
-  meta <- getMeta
-  let newCiteSet = foldr Set.insert (metaCites meta) keys
-  putMeta (meta { metaCites = newCiteSet })
+  modifyMeta (registerCiteKeys keys)
   return (Citation (MultiCite CiteParen [] [] [SingleCite [] [] keys]))
 
 

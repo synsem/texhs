@@ -689,14 +689,14 @@ testsInheritance = TestLabel "xdata and crossref interaction" $ test
 testsFormatter :: Test
 testsFormatter = TestLabel "bib formatter" $ test
   [ "single cite author"
-    ~: [Str "Büchner"]
-    ~=? (getCiteAgent (snd bibEntry01))
+    ~: [[Str "Büchner"]]
+    ~=? (getCiteAgents (snd bibEntry01))
   , "single cite year"
     ~: [Str "1835"]
     ~=? (getCiteYear (snd bibEntry01))
   , "simple full citation"
     ~: [Str "Büchner", Space, Str "1835", Space, Str "Lenz", Str "."]
-    ~=? (getCiteFull (snd bibEntry01))
+    ~=? (fmtCiteFull (snd bibEntry01))
   ]
 
 -- collect all tests

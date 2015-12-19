@@ -17,16 +17,24 @@ module Text.Bib
   ( -- * Types
     BibDB
   , BibEntry(..)
+  , CiteDB
+  , CiteEntry(..)
   , Agent(..)
   , CiteKey
     -- * Reader
   , fromBibTeX
     -- * Writer
-  , getCiteAgent
+    -- ** Resolve
+  , resolveCitations
+    -- ** Query
+  , getCiteAgents
   , getCiteYear
-  , getCiteFull
+    -- ** Format
+  , fmtCiteAgents
+  , fmtCiteFull
   ) where
+
 
 import Text.Bib.Types
 import Text.Bib.Reader.BibTeX (fromBibTeX)
-import Text.Bib.Writer (getCiteAgent, getCiteYear, getCiteFull)
+import Text.Bib.Writer

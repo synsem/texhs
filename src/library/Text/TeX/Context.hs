@@ -27,6 +27,7 @@ module Text.TeX.Context
     -- * Parser State
   , getMeta
   , putMeta
+  , modifyMeta
     -- ** Combinators
   , choice
   , count

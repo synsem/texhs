@@ -22,6 +22,7 @@ module Text.TeX.Context.Walk
     -- * Parser State
   , getMeta
   , putMeta
+  , modifyMeta
     -- * Basic combinators
   , choice
   , count
@@ -107,6 +108,10 @@ putMeta = Parser . lift . S.put
 -- | Fetch the current value of the 'Meta' state.
 getMeta :: Parser Meta
 getMeta = Parser (lift S.get)
+
+-- | Modify the value of the 'Meta' state.
+modifyMeta :: (Meta -> Meta) -> Parser ()
+modifyMeta = Parser . lift . S.modify
 
 throwE :: TeXDocError -> Parser a
 throwE e = Parser (lift (lift (E.throwE [e])))

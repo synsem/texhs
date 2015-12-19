@@ -15,12 +15,12 @@
 module Text.Bib.Types
   ( -- * Types
     BibDB
-  , CiteKey
   , BibFieldMap
   , BibFieldName
   , BibFieldValue(..)
   , BibEntry(..)
   , Agent(..)
+  , CiteKey
     -- * Accessor functions
   , getBibField
   , getBibAgents
@@ -36,16 +36,13 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import Data.Text (Text)
 
-import Text.Doc.Types (Inline)
+import Text.Doc.Types (Inline, CiteKey)
 
 
 -------------------- Types
 
 -- | A bibliographic database maps citekeys to entries.
 type BibDB = Map CiteKey BibEntry
-
--- | A key for entry lookups in a 'BibDB'.
-type CiteKey = Text
 
 -- | A map of fields in a 'BibEntry'.
 type BibFieldMap = Map BibFieldName BibFieldValue

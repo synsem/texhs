@@ -16,12 +16,17 @@
 module Text.Doc.Types
   ( -- * Doc type
     Doc(..)
+    -- ** Meta
   , Meta(..)
   , defaultMeta
   , HasMeta(..)
+  , CiteKey
+  , registerCiteKeys
+    -- ** Blocks
   , Content
   , Level
   , Block(..)
+    -- ** Inlines
   , Inline(..)
   , MultiCite(..)
   , SingleCite(..)
@@ -46,8 +51,8 @@ module Text.Doc.Types
   ) where
 
 import Data.List (dropWhileEnd, intersperse)
-import Data.Set (Set)
-import qualified Data.Set as Set
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as M
 import Data.Text (Text)
 import qualified Data.Text as T
 
@@ -66,7 +71,8 @@ data Meta = Meta
   { metaTitle :: [Inline]
   , metaAuthors :: [[Inline]]
   , metaDate :: [Inline]
-  , metaCites :: Set Text -- alias CiteKey
+  , metaCiteMap :: Map CiteKey Int
+  , metaCiteCount :: Int
   } deriving (Eq, Show)
 
 -- | Default (empty) meta information of a document.
@@ -75,7 +81,8 @@ defaultMeta = Meta
   { metaTitle = []
   , metaAuthors = []
   , metaDate = []
-  , metaCites = Set.empty
+  , metaCiteMap = M.empty
+  , metaCiteCount = 0
   }
 
 -- | A class for document types that hold meta information.
@@ -85,6 +92,22 @@ class HasMeta d where
 
 instance HasMeta Doc where
   docMeta (Doc meta _) = meta
+
+-- | Identifier key for bibliographic entries.
+type CiteKey = Text
+
+-- | Add a list of citekeys to document meta information.
+registerCiteKeys :: [CiteKey] -> Meta -> Meta
+registerCiteKeys keys meta =
+  let citeCount = metaCiteCount meta
+      citeMap = metaCiteMap meta
+      keysNum = zip keys [citeCount..]
+      insertIfNew = uncurry (M.insertWith (flip const))
+      newCount = citeCount + length keys
+      newMap = foldr insertIfNew citeMap keysNum
+  in meta { metaCiteMap = newMap
+          , metaCiteCount = newCount
+          }
 
 
 -------------------- Content type
@@ -132,7 +155,7 @@ data MultiCite = MultiCite
 data SingleCite = SingleCite
   { singleCitePrenote :: [Inline]
   , singleCitePostnote :: [Inline]
-  , singleCiteKeys :: [Text] -- alias [CiteKey]
+  , singleCiteKeys :: [CiteKey]
   } deriving (Eq, Show)
 
 -- | The type of a citation.
