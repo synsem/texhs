@@ -21,6 +21,8 @@ module Text.Doc.Types
   , defaultMeta
   , HasMeta(..)
   , CiteKey
+  , CiteDB
+  , CiteEntry(..)
   , registerCiteKeys
     -- ** Blocks
   , Content
@@ -71,6 +73,7 @@ data Meta = Meta
   { metaTitle :: [Inline]
   , metaAuthors :: [[Inline]]
   , metaDate :: [Inline]
+  , metaCiteDB :: CiteDB
   , metaCiteMap :: Map CiteKey Int
   , metaCiteCount :: Int
   } deriving (Eq, Show)
@@ -81,6 +84,7 @@ defaultMeta = Meta
   { metaTitle = []
   , metaAuthors = []
   , metaDate = []
+  , metaCiteDB = M.empty
   , metaCiteMap = M.empty
   , metaCiteCount = 0
   }
@@ -93,8 +97,23 @@ class HasMeta d where
 instance HasMeta Doc where
   docMeta (Doc meta _) = meta
 
+---------- Citations
+
 -- | Identifier key for bibliographic entries.
 type CiteKey = Text
+
+-- | A collection of formatted citations.
+type CiteDB = Map CiteKey CiteEntry
+
+-- | Citation information for a single bibliographic entry.
+--
+-- This can be used to generate an author-year style citation
+-- and a full bibliographic reference for a single entry.
+data CiteEntry = CiteEntry
+  { citeAgents :: [[Inline]]
+  , citeYear   :: [Inline]
+  , citeFull   :: [Inline]
+  } deriving (Eq, Show)
 
 -- | Add a list of citekeys to document meta information.
 registerCiteKeys :: [CiteKey] -> Meta -> Meta

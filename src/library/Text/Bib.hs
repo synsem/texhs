@@ -17,8 +17,6 @@ module Text.Bib
   ( -- * Types
     BibDB
   , BibEntry(..)
-  , CiteDB
-  , CiteEntry(..)
   , Agent(..)
   , CiteKey
     -- * Reader

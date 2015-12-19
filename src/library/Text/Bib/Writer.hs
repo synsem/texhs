@@ -14,11 +14,8 @@
 ----------------------------------------------------------------------
 
 module Text.Bib.Writer
-  ( -- * Types
-    CiteDB
-  , CiteEntry(..)
-    -- * Resolve
-  , resolveCitations
+  ( -- * Resolve
+    resolveCitations
     -- * Query
   , getCiteAgents
   , getCiteYear
@@ -28,27 +25,11 @@ module Text.Bib.Writer
   ) where
 
 import Control.Applicative
-import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import Data.Maybe (mapMaybe)
 
 import Text.Bib.Types
 import Text.Doc.Types
-
--------------------- Types
-
--- | A collection of citations.
-type CiteDB = Map CiteKey CiteEntry
-
--- | Citation information for a single 'BibEntry'.
---
--- This can be used to generate an author-year style citation
--- and a full bibliographic reference.
-data CiteEntry = CiteEntry
-  { citeAgents :: [[Inline]]
-  , citeYear   :: [Inline]
-  , citeFull   :: [Inline]
-  }
 
 
 -------------------- Resolve
