@@ -21,6 +21,7 @@ module Text.Bib
   , CiteKey
     -- * Reader
   , fromBibTeX
+  , fromBibTeXFile
     -- * Writer
     -- ** Resolve
   , resolveCitations
@@ -34,5 +35,5 @@ module Text.Bib
 
 
 import Text.Bib.Types
-import Text.Bib.Reader.BibTeX (fromBibTeX)
+import Text.Bib.Reader.BibTeX (fromBibTeX, fromBibTeXFile)
 import Text.Bib.Writer
