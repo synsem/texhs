@@ -25,9 +25,11 @@ import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy.IO as T
 import System.Console.GetOpt
 import System.Environment (getArgs, getProgName)
+import System.IO
 
+import Text.Bib (BibDB, fromBibTeXFile)
 import Text.TeX (readTeXIO)
-import Text.Doc (Doc, tex2doc, doc2xml, doc2html)
+import Text.Doc (Doc, tex2docWithBib, doc2xml, doc2html)
 
 
 ---------- options
@@ -44,6 +46,7 @@ data Options = Options
   , optVerbose      :: Bool
   , optOutputFormat :: OutputFormat
   , optOutputFile   :: Maybe FilePath
+  , optBibFile      :: Maybe FilePath
   } deriving Show
 
 defaultOptions :: Options
@@ -53,6 +56,7 @@ defaultOptions = Options
   , optVerbose      = False
   , optOutputFormat = HTML
   , optOutputFile   = Nothing
+  , optBibFile      = Nothing
   }
 
 options :: [OptDescr (Options -> Options)]
@@ -69,6 +73,9 @@ options =
   , Option ['t'] ["target"]
     (ReqArg ((\ f opts -> opts { optOutputFormat = parseOutputFormat f })) "FMT")
     "output format (xml, html)"
+  , Option ['b'] ["bibfile"]
+    (ReqArg (\ f opts -> opts { optBibFile = Just f }) "FILE")
+    "bib file"
   , Option ['o'] ["output"]
     (ReqArg (\ f opts -> opts { optOutputFile = Just f }) "FILE")
     "output file"
@@ -94,24 +101,37 @@ usageHeader name = "Usage: " ++ name ++ " [options] texfile"
 ---------- conversion
 
 runConversion :: Options -> String -> IO ()
-runConversion opts filename =
+runConversion opts filename = do
+  bib <- maybe (return Nothing) parseBib (optBibFile opts)
+  doc <- parseDoc filename bib
   case optOutputFormat opts of
-    HTML -> toHtml filename >>= output opts
-    XML -> toXml filename >>= output opts
+    HTML -> output opts (doc2html doc)
+    XML -> output opts (doc2xml doc)
     InvalidFormat fmt -> error $ "invalid or unsupported format: " ++ fmt
 
-parseDoc :: FilePath -> IO Doc
-parseDoc filename =
-  tex2doc filename <$> (readTeXIO filename =<< readFile filename)
+parseBib :: FilePath -> IO (Maybe BibDB)
+parseBib bibfile = do
+  bibinfo <- fromBibTeXFile bibfile bibfile
+  case bibinfo of
+    Left errmsg ->
+      warn "Warning: cannot read bib file." *>
+      warn errmsg *>
+      return Nothing
+    Right db -> return (Just db)
 
-toHtml :: FilePath -> IO Text
-toHtml filename = doc2html <$> parseDoc filename
-
-toXml :: FilePath -> IO Text
-toXml filename = doc2xml <$> parseDoc filename
+parseDoc :: FilePath -> Maybe BibDB -> IO Doc
+parseDoc filename bib =
+  tex2docWithBib bib filename <$>
+  (readTeXIO filename =<< readFile filename)
 
 output :: Options -> Text -> IO ()
 output opts = maybe T.putStrLn T.writeFile (optOutputFile opts)
+
+
+---------- helper
+
+warn :: String -> IO ()
+warn = hPutStrLn stderr
 
 
 ---------- main
