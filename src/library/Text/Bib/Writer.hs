@@ -20,11 +20,14 @@ module Text.Bib.Writer
   , getCiteAgents
   , getCiteYear
     -- * Format
+  , fmtCiteEntries
+  , fmtCiteEntry
   , fmtCiteAgents
   , fmtCiteFull
   ) where
 
 import Control.Applicative
+import Data.List (intercalate)
 import qualified Data.Map.Strict as M
 import Data.Maybe (mapMaybe)
 
@@ -69,6 +72,15 @@ getCiteYear = maybe [] id . getBibLiteral "year"
 
 
 -------------------- Format
+
+-- | Construct author-year citation for a list of cite entries.
+fmtCiteEntries :: [CiteEntry] -> [Inline]
+fmtCiteEntries = intercalate [Str ";", Space] . map fmtCiteEntry
+
+-- | Construct author-year citation for a single cite entry.
+fmtCiteEntry :: CiteEntry -> [Inline]
+fmtCiteEntry (CiteEntry authors year _) =
+  fmtCiteAgents authors ++ [Space] ++ year
 
 -- | Construct author part of an author-year citation
 -- from a list of last names of authors.
