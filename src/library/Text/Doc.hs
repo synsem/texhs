@@ -17,13 +17,26 @@ module Text.Doc
     Doc
     -- * TeX Reader
   , tex2doc
+  , tex2docWithBib
     -- * HTML Writer
   , doc2html
     -- * XML Writer
   , doc2xml
   ) where
 
+import Text.Bib (BibDB)
 import Text.Doc.Types (Doc)
 import Text.Doc.Reader.TeX (tex2doc)
+import Text.Doc.Filter.Bib (docBibFilter, distributeMeta)
 import Text.Doc.Writer.Html (doc2html)
 import Text.Doc.Writer.Xml (doc2xml)
+import Text.TeX.Parser.Types (TeX)
+
+
+-- | Convert a named 'TeX' AST to a 'Doc' document
+-- and resolve citations against a bibliographic database.
+tex2docWithBib :: Maybe BibDB -> String -> TeX -> Doc
+tex2docWithBib Nothing name input =
+  tex2doc name input
+tex2docWithBib (Just db) name input =
+  distributeMeta (docBibFilter db (tex2doc name input))
