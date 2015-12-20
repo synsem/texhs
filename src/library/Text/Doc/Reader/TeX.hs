@@ -203,7 +203,8 @@ cite = do
   arg <- inlineCmd "cite"
   let keys = (T.split (==',') . T.pack . concatMap plain) arg
   modifyMeta (registerCiteKeys keys)
-  return (Citation (MultiCite CiteParen [] [] [SingleCite [] [] keys]))
+  let mcite = MultiCite CiteParen [] [] [SingleCite [] [] keys]
+  return (Citation mcite Nothing)
 
 
 ---------- Unit parsers

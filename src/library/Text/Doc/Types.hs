@@ -150,7 +150,7 @@ data Inline
   | Normal [Inline]
   | Emph [Inline]
   | Space
-  | Citation MultiCite
+  | Citation MultiCite (Maybe [Inline])
   deriving (Eq, Show)
 
 -- | A list of 'SingleCite' citations
@@ -249,7 +249,7 @@ plain (Str xs) = xs
 plain (Normal is) = concatMap plain is
 plain (Emph is) = concatMap plain is
 plain Space = " "
-plain (Citation (MultiCite _ _ _ xs)) = T.unpack (plainCites xs)
+plain (Citation (MultiCite _ _ _ xs) _) = T.unpack (plainCites xs)
 
 -- Helper for showing raw citations.
 plainCites :: [SingleCite] -> Text
