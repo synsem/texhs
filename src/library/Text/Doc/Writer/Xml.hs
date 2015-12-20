@@ -136,6 +136,11 @@ inline (Normal xs) =
   inlines xs
 inline (Emph xs) = el "emph" $ inlines xs
 inline Space = textP " "
+inline (Citation _ Nothing) =
+  error "XML Writer does not support unprocessed citations."
+inline (Citation _ (Just xs)) =
+  el "ref" ! attr "type" "citation" $
+  inlines xs
 
 
 ---------- String to text helper functions

@@ -28,6 +28,7 @@ import Text.Blaze.Html5.Attributes
   (name, charset, content, style)
 import Text.Blaze.Html.Renderer.Text (renderHtml)
 import qualified Text.Blaze.Html5 as H
+import qualified Text.Blaze.Html5.Attributes as A
 
 import Text.Doc.Types
 
@@ -85,6 +86,11 @@ inline (Normal xs) =
   inlines xs
 inline (Emph xs) = em $ inlines xs
 inline Space = toHtml ' '
+inline (Citation _ Nothing) =
+  error "HTML Writer does not support unprocessed citations."
+inline (Citation _ (Just xs)) =
+  H.span ! A.class_ "citation" $
+  inlines xs
 
 -- Map header level to 'Html' combinator.
 heading :: Level -> Html -> Html
