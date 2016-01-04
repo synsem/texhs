@@ -9,8 +9,8 @@ license:             GPL-3
 license-file:        LICENSE
 author:              Mathias Schenner
 maintainer:          mathias.schenner@langsci-press.org
-copyright:           (c) Mathias Schenner 2015,
-                     (c) Language Science Press 2015.
+copyright:           2015-2016 Mathias Schenner,
+                     2015-2016 Language Science Press.
 category:            Text
 build-type:          Simple
 extra-source-files:  README.md

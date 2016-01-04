@@ -3,8 +3,8 @@
 ----------------------------------------------------------------------
 -- |
 -- Module      :  Text.TeX.Lexer.TokenParser.Core
--- Copyright   :  (c) Mathias Schenner 2015,
---                (c) Language Science Press 2015.
+-- Copyright   :  2015-2016 Mathias Schenner,
+--                2015-2016 Language Science Press.
 -- License     :  GPL-3
 --
 -- Maintainer  :  mathias.schenner@langsci-press.org
