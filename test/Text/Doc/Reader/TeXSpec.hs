@@ -1,22 +1,27 @@
 {-# LANGUAGE CPP #-}
 ----------------------------------------------------------------------
--- Tests for the @Text.Doc.Reader.TeX@ module.
-----------------------------------------------------------------------
+--
+-- Module      :  Text.Doc.Reader.TeXSpec
 -- Copyright   :  2015-2016 Mathias Schenner,
 --                2015-2016 Language Science Press.
 -- License     :  GPL-3
 -- Maintainer  :  mathias.schenner@langsci-press.org
+--
+-- Tests for the "Text.Doc.Reader.TeX" module.
 ----------------------------------------------------------------------
 
-module Main where
+module Text.Doc.Reader.TeXSpec
+  ( tests
+  ) where
 
 #if MIN_VERSION_base(4,8,0)
 -- Prelude exports all required operators from Control.Applicative
 #else
 import Control.Applicative ((<$>), (<*>), (*>))
 #endif
-import System.Exit (ExitCode, exitSuccess, exitFailure)
-import Test.HUnit (Test(..), Counts(..), test, (~:), (~=?), runTestTT)
+import Test.Framework (Test, testGroup)
+import Test.Framework.Providers.HUnit (testCase)
+import Test.HUnit ((@?=))
 
 import Text.TeX.Context.Types
 import Text.TeX.Context.Walk
@@ -27,102 +32,117 @@ import Text.Doc.Reader.TeX
 
 -------------------- tests
 
-testsBasic :: Test
-testsBasic = TestLabel "basic traversals" $ test
-  [ "item"
-    ~: Right (Plain "hello")
-    ~=? runParser item example1
-  , "chained item"
-    ~: Right (Plain "world!")
-    ~=? runParser (item >> item >> item) example1
-  , "failing chained item"
-    ~: Left [EndOfGroup]
-    ~=? runParser (item >> item >> item >> item) example1
-  , "satisfy"
-    ~: Right (Plain "hello")
-    ~=? runParser (satisfy isPlain) example1
-  , "failing satisfy"
-    ~: Left [Unexpected White]
-    ~=? runParser (item >> satisfy isPlain) example1
-  , "walk into group"
-    ~: Right (Plain "hello")
-    ~=? runParser (goDown >> item) example2
-  , "failing item inside of group"
-    ~: Left [EndOfGroup]
-    ~=? runParser (goDown >> item >> item) example2
-  , "enter and leave group"
-    ~: Right White
-    ~=? runParser (goDown >> item >> goUp >> item) example2
-  ]
-
-testsInlines :: Test
-testsInlines = TestLabel "inline elements" $ test
-  [ "simple emph"
-    ~: Right (Emph [Str "hello"])
-    ~=? runParser emph example5
-  , "emph with inner space"
-    ~: Right (Emph [Str "one",Space,Str "two"])
-    ~=? runParser emph example6
-  , "return to parent after emph"
-    ~: Right (Plain "world")
-    ~=? runParser (emph *> space *> item) example5
-  , "em with inner space"
-    ~: Right (Emph [Str "one",Space,Str "two"])
-    ~=? runParser em example7
-  , "failing em"
-    ~: Left [Unexpected (Group "" []
-             [ Command "em" [], Plain "one", White, Plain "two"])]
-    ~=? runParser em example8
-  , "nested em"
-    ~: Right (Emph [Str "one",Space,Str "two"])
-    ~=? runParser (optNested em) example8
-  , "combining nested em with parent inlines"
-    ~: Right [Emph [Str "one",Space,Str "two"],Space,Str "three"]
-    ~=? runParser ((:) <$> optNested em <*> inlines) example8
-  , "rm between em font switches"
-    ~: Right [Emph [Str "one",Normal [Str "two",Emph [Str "three"]]]]
-    ~=? runParser inlines example9
-  ]
-
-testsLists :: Test
-testsLists = TestLabel "list blocks" $ test
-  [ "simple list"
-    ~: Right (List [[Para [Str "one",Space,Str "one"]]
-                   ,[Para [Str "two",Space]]
-                   ,[Para [Str "three"]]])
-    ~=? runParser (inlines *> itemize) exampleList1
-  , "nested list"
-    ~: Right (List [[Para [Str "up-one"]]
-                   ,[Para [Str "up-two",Space]
-                    ,List [[Para [Str "down-one",Space]]
-                          ,[Para [Str "down-two",Space]]]]
-                   ,[Para [Str "up-three"]]])
-    ~=? runParser (inlines *> itemize) exampleList2
-  ]
-
-
--- collect all tests
 tests :: Test
-tests = TestList
+tests = testGroup "Text.Doc.Reader.TeXSpec"
   [ testsBasic
   , testsInlines
   , testsLists
   ]
 
--- run tests
-main :: IO ExitCode
-main = do
-  counts <- runTestTT tests
-  if errors counts == 0 && failures counts == 0
-    then exitSuccess
-    else exitFailure
+testsBasic :: Test
+testsBasic = testGroup "basic traversals"
+  [ testCase "item" $
+    runParser item example1
+    @?=
+    Right (Plain "hello")
+  , testCase "chained item" $
+    runParser (item >> item >> item) example1
+    @?=
+    Right (Plain "world!")
+  , testCase "failing chained item" $
+    runParser (item >> item >> item >> item) example1
+    @?=
+    Left [EndOfGroup]
+  , testCase "satisfy" $
+    runParser (satisfy isPlain) example1
+    @?=
+    Right (Plain "hello")
+  , testCase "failing satisfy" $
+    runParser (item >> satisfy isPlain) example1
+    @?=
+    Left [Unexpected White]
+  , testCase "walk into group" $
+    runParser (goDown >> item) example2
+    @?=
+    Right (Plain "hello")
+  , testCase "failing item inside of group" $
+    runParser (goDown >> item >> item) example2
+    @?=
+    Left [EndOfGroup]
+  , testCase "enter and leave group" $
+    runParser (goDown >> item >> goUp >> item) example2
+    @?=
+    Right White
+  , testCase "flatten groups" $
+    runParser inlines example3
+    @?=
+    Right [Emph [Str "hello"], Space, Str "world", Str "!"]
+  ]
+
+testsInlines :: Test
+testsInlines = testGroup "inline elements"
+  [ testCase "simple emph" $
+    runParser emph example4
+    @?=
+    Right (Emph [Str "hello"])
+  , testCase "emph with inner space" $
+    runParser emph example5
+    @?=
+    Right (Emph [Str "one",Space,Str "two"])
+  , testCase "return to parent after emph" $
+    runParser (emph *> space *> item) example4
+    @?=
+    Right (Plain "world")
+  , testCase "em with inner space" $
+    runParser em example6
+    @?=
+    Right (Emph [Str "one",Space,Str "two"])
+  , testCase "failing em" $
+    runParser em example7
+    @?=
+    Left [Unexpected (Group "" []
+      [Command "em" [], Plain "one", White, Plain "two"])]
+  , testCase "nested em" $
+    runParser (optNested em) example7
+    @?=
+    Right (Emph [Str "one",Space,Str "two"])
+  , testCase "combining nested em with parent inlines" $
+    runParser ((:) <$> optNested em <*> inlines) example7
+    @?=
+    Right [Emph [Str "one",Space,Str "two"],Space,Str "three"]
+  , testCase "rm between em font switches" $
+    runParser inlines example8
+    @?=
+    Right [Emph [Str "one",Normal [Str "two",Emph [Str "three"]]]]
+  ]
+
+testsLists :: Test
+testsLists = testGroup "list blocks"
+  [ testCase "simple list" $
+    runParser (inlines *> itemize) exampleList1
+    @?=
+    Right (List [ [Para [Str "one",Space,Str "one"]]
+                , [Para [Str "two",Space]]
+                , [Para [Str "three"]]])
+  , testCase "nested list" $
+    runParser (inlines *> itemize) exampleList2
+    @?=
+    Right (List [ [ Para [ Str "up-one"]]
+                , [ Para [ Str "up-two",Space]
+                  , List [ [Para [Str "down-one",Space]]
+                         , [Para [Str "down-two",Space]]]]
+                , [ Para [ Str "up-three"]]])
+  ]
 
 
 -------------------- examples
 
 -- >> hello world!
 example1 :: TeX
-example1 = [Plain "hello", White, Plain "world!"]
+example1 = [ Plain "hello"
+           , White
+           , Plain "world!"
+           ]
 
 -- >> {hello} world{!}
 example2 :: TeX
@@ -140,33 +160,26 @@ example3 = [ Command "emph" [OblArg [Plain "hello"]]
            , Group "" [] [Plain "!"]
            ]
 
--- >> H_2{O}
-example4 :: TeX
-example4 = [ Plain "H"
-           , SubScript [Plain "2"]
-           , Group "" [] [Plain "O"]
-           ]
-
 -- simple "emph" command
 -- >> \emph{hello} world
-example5 :: TeX
-example5 = [ Command "emph" [OblArg [Plain "hello"]]
+example4 :: TeX
+example4 = [ Command "emph" [OblArg [Plain "hello"]]
            , White
            , Plain "world"
            ]
 
 -- multiple TeXAtoms in mandarg of "emph" cmd
 -- >> \emph{one two} three
-example6 :: TeX
-example6 = [ Command "emph" [OblArg [Plain "one", White, Plain "two"]]
+example5 :: TeX
+example5 = [ Command "emph" [OblArg [Plain "one", White, Plain "two"]]
            , White
            , Plain "three"
            ]
 
 -- font switch "em" (without enclosing group)
 -- >> \em one two
-example7 :: TeX
-example7 = [ Command "em" []
+example6 :: TeX
+example6 = [ Command "em" []
            , Plain "one"
            , White
            , Plain "two"
@@ -174,8 +187,8 @@ example7 = [ Command "em" []
 
 -- font switch "em" (with enclosing group)
 -- >> {\em one two} three
-example8 :: TeX
-example8 = [ Group "" []
+example7 :: TeX
+example7 = [ Group "" []
              [ Command "em" []
              , Plain "one"
              , White
@@ -187,8 +200,8 @@ example8 = [ Group "" []
 
 -- font switches "em" and "rm"
 -- >> \em one\rm two\em three
-example9 :: TeX
-example9 = [ Command "em" []
+example8 :: TeX
+example8 = [ Command "em" []
            , Plain "one"
            , Command "rm" []
            , Plain "two"

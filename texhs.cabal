@@ -87,54 +87,16 @@ executable texhs
   default-language:  Haskell2010
   ghc-options:       -Wall -threaded -rtsopts -with-rtsopts=-N
 
-test-suite tex
-  hs-source-dirs:    tests
+test-suite texhs-test
+  hs-source-dirs:    test
   type:              exitcode-stdio-1.0
-  main-is:           testtex.hs
-  build-depends:     base   >=4.5 && <4.9,
-                     HUnit  >=1.2 && <1.4,
-                     texhs  >=0.1 && <0.2
+  main-is:           Spec.hs
+  build-depends:     base                 >=4.5 && <4.9,
+                     containers           >=0.5 && <0.6,
+                     HUnit                >=1.2 && <1.4,
+                     test-framework       >=0.8 && <0.9,
+                     test-framework-hunit >=0.3 && <0.4,
+                     texhs                >=0.1 && <0.2,
+                     text                 >=1.0 && <1.3
   default-language:  Haskell2010
-  ghc-options:       -Wall
-
-test-suite texlexer
-  hs-source-dirs:    tests
-  type:              exitcode-stdio-1.0
-  main-is:           testtexlexer.hs
-  build-depends:     base   >=4.5 && <4.9,
-                     HUnit  >=1.2 && <1.4,
-                     texhs  >=0.1 && <0.2
-  default-language:  Haskell2010
-  ghc-options:       -Wall
-
-test-suite texparser
-  hs-source-dirs:    tests
-  type:              exitcode-stdio-1.0
-  main-is:           testtexparser.hs
-  build-depends:     base   >=4.5 && <4.9,
-                     HUnit  >=1.2 && <1.4,
-                     texhs  >=0.1 && <0.2
-  default-language:  Haskell2010
-  ghc-options:       -Wall
-
-test-suite bibtex
-  hs-source-dirs:    tests
-  type:              exitcode-stdio-1.0
-  main-is:           testbibtex.hs
-  build-depends:     base        >=4.5 && <4.9,
-                     containers  >=0.5 && <0.6,
-                     HUnit       >=1.2 && <1.4,
-                     texhs       >=0.1 && <0.2,
-                     text        >=1.0 && <1.3
-  default-language:  Haskell2010
-  ghc-options:       -Wall
-
-test-suite docreadertex
-  hs-source-dirs:    tests
-  type:              exitcode-stdio-1.0
-  main-is:           testdocreadertex.hs
-  build-depends:     base   >=4.5 && <4.9,
-                     HUnit  >=1.2 && <1.4,
-                     texhs  >=0.1 && <0.2
-  default-language:  Haskell2010
-  ghc-options:       -Wall
+  ghc-options:       -Wall -threaded -rtsopts -with-rtsopts=-N
