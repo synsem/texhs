@@ -23,6 +23,7 @@ module Text.Bib.Reader.BibTeX.Inheritance
   ) where
 
 import qualified Data.Map.Strict as M
+import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 
 import Text.Bib.Types
@@ -62,7 +63,7 @@ inheritXData db key entry =
 getXDataKeys :: BibEntry -> [CiteKey]
 getXDataKeys entry =
   filter (not . T.null) . T.split (==',') $
-  maybe "" id (getBibRaw "xdata" entry)
+  fromMaybe "" (getBibRaw "xdata" entry)
 
 -- Merge @xdata@-inherited fields into an entry.
 --

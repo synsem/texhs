@@ -42,6 +42,7 @@ import Control.Applicative ((<*), (<*>), (*>), (<$), (<$>))
 import Data.Char (isDigit)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Text.Parsec
@@ -83,17 +84,17 @@ data FieldValue
 
 -- | Test whether a 'BibTeXEntry' is a 'Reference'.
 isReference :: BibTeXEntry -> Bool
-isReference (Reference{}) = True
+isReference Reference{} = True
 isReference _ = False
 
 -- | Test whether a 'BibTeXEntry' is an 'Abbrev'.
 isAbbrev :: BibTeXEntry -> Bool
-isAbbrev (Abbrev{}) = True
+isAbbrev Abbrev{} = True
 isAbbrev _ = False
 
 -- | Test whether a 'BibTeXEntry' is a 'Preamble'.
 isPreamble :: BibTeXEntry -> Bool
-isPreamble (Preamble{}) = True
+isPreamble Preamble{} = True
 isPreamble _ = False
 
 
@@ -281,7 +282,7 @@ plainField key = case T.uncons key of
 -- macro map. If the lookup fails, an empty braced field is used.
 plainFieldExpand :: Text -> Parser FieldValue
 plainFieldExpand key = PlainField key
-  . maybe (BracedField T.empty) id
+  . fromMaybe (BracedField T.empty)
   . M.lookup (T.toLower key) <$> getState
 
 -- Construct a 'PlainField' from a textual key,
@@ -292,11 +293,11 @@ plainFieldNoExpand key = PlainField key (BracedField key)
 -- Braced fields must contain brace-balanced text.
 -- Quotation marks need not be escaped or balanced.
 bracedText :: Parser Text
-bracedText = T.concat <$> many ((T.pack <$> (many1 (noneOf "{}"))) <|> withBraces bracedText)
+bracedText = T.concat <$> many ((T.pack <$> many1 (noneOf "{}")) <|> withBraces bracedText)
 
 -- Quoted fields must not contain unescaped quotes.
 quotedText :: Parser Text
-quotedText = (T.pack . concat) <$> many (count 1 (noneOf ('\\':'"':[])) <|> escapedChar)
+quotedText = (T.pack . concat) <$> many (count 1 (noneOf ['\\','"']) <|> escapedChar)
 
 -- Any content up to a field or entry delimiter.
 --

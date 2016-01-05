@@ -68,8 +68,7 @@ distributeMeta (Doc meta content) =
   Doc meta (runReader (distributeMetaToContent content) meta)
 
 distributeMetaToContent :: Content -> Reader Meta Content
-distributeMetaToContent content =
-  mapM distributeMetaToBlock content
+distributeMetaToContent = mapM distributeMetaToBlock
 
 distributeMetaToBlock :: Block -> Reader Meta Block
 distributeMetaToBlock (Para xs) =
@@ -87,7 +86,7 @@ distributeMetaToInline (Normal xs) =
 distributeMetaToInline (Emph xs) =
   Emph <$> mapM distributeMetaToInline xs
 distributeMetaToInline Space =
-  return $ Space
+  return Space
 distributeMetaToInline (Citation cit _) =
   asks metaCiteDB >>= \ db ->
   return $ Citation cit (Just (fmtMultiCite db cit))
@@ -100,4 +99,4 @@ fmtMultiCite db (MultiCite _ _ _ xs) =
 -- Stub. Ignores pre-/post-notes.
 fmtSingleCite :: CiteDB -> SingleCite -> [Inline]
 fmtSingleCite db (SingleCite _ _ keys) =
-  fmtCiteEntries (mapMaybe (flip M.lookup db) keys)
+  fmtCiteEntries (mapMaybe (`M.lookup` db) keys)

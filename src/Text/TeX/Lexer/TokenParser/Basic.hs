@@ -469,8 +469,8 @@ rawChar = satisfyChar (const True) <|>
 -- This will only accept characters with catcode 'Letter'.
 string :: Monad m => String -> LexerT m String
 string = foldr op (return "")
-  where op = \c -> (<*>) ((:) <$> plainLetter c)
-        plainLetter = \c -> (c <$ letter c)
+  where op c = (<*>) ((:) <$> plainLetter c)
+        plainLetter c = c <$ letter c
 
 -- | Parse a valid filename.
 filename :: Monad m => LexerT m String
@@ -480,7 +480,7 @@ filename =
      <?> "valid filename character")))
   where
     strip p = skipOptSpace *> p <* skipOptSpace
-    isFilenameChar = \x -> not (isSpace x || isControl x)
+    isFilenameChar x = not (isSpace x || isControl x)
     filenameCCs = [Letter, Other, Mathshift, AlignTab,
                    ParamPrefix, Supscript, Subscript, Active]
 

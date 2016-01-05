@@ -71,7 +71,7 @@ options =
     (NoArg (\ opts -> opts { optVerbose = True }))
     "verbose output on stderr"
   , Option ['t'] ["target"]
-    (ReqArg ((\ f opts -> opts { optOutputFormat = parseOutputFormat f })) "FMT")
+    (ReqArg (\ f opts -> opts { optOutputFormat = parseOutputFormat f }) "FMT")
     "output format (xml, html)"
   , Option ['b'] ["bibfile"]
     (ReqArg (\ f opts -> opts { optBibFile = Just f }) "FILE")

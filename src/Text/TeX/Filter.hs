@@ -103,7 +103,7 @@ insertAccentInAtom _ Par = Par
 -- Package 'TeX' as 'TeXAtom'.
 wrapAsAtom :: TeX -> TeXAtom
 wrapAsAtom [] = Group "" [] []
-wrapAsAtom (x:[]) = x
+wrapAsAtom [x] = x
 wrapAsAtom xs@(_:_) = Group "" [] xs
 
 

@@ -69,7 +69,7 @@ ctrlseq = do
   t@(CtrlSeq name active) <- ctrlseqNoExpand
   st <- getState
   case lookupMacroCmd (name, active) st of
-    Just m@(MacroCmdUser{}) -> [] <$ expand m
+    Just m@MacroCmdUser{} -> [] <$ expand m
     Just (MacroCmdPrim p)
       | p `elem` primitiveConstants -> return [t]
       | otherwise -> executePrimitive p

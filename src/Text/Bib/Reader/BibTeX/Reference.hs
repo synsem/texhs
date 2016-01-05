@@ -168,10 +168,10 @@ parseAgent :: TeX -> Maybe Agent
 parseAgent xs =
   case map wordsTeX (splitTeXAtChar ',' xs) of
     [] -> Nothing
-    (c1:[]) -> return $ from1 c1
-    (c1:c2:[]) -> return $ from2 c1 c2
+    [c1] -> return $ from1 c1
+    [c1,c2] -> return $ from2 c1 c2
     (c1:c2:c3:cs) -> return $ (from2 c1 (c3 ++ concat cs))
-                       { agentSuffix = (detex c2) }
+                       { agentSuffix = detex c2 }
   where
     mkAgent :: [TeX] -> [TeX] -> [TeX] -> [TeX] -> Agent
     mkAgent n1 n2 n3 n4 = Agent (detex n1) (detex n2) (detex n3) (detex n4)
@@ -207,32 +207,32 @@ parseAgent xs =
 -- The character must appear on brace level 0.
 splitTeXAtChar :: Char -> TeX -> [TeX]
 splitTeXAtChar _ [] = []
-splitTeXAtChar c ((Plain xs@(_:_)):ts) =
+splitTeXAtChar c (Plain xs@(_:_) : ts) =
   case break (==c) xs of
     -- case 1: no match
     (ys, []) ->
       case splitTeXAtChar c ts of
         [] -> [[Plain ys]]
-        (u:us) -> (((Plain ys):u):us)
+        (u:us) -> (Plain ys : u) : us
     -- case 2: match
     (ys, zs) ->
       let ys' = if null ys then [] else [Plain ys]
           zs' = case dropWhile (==c) zs of
                   [] -> ts
-                  cs@(_:_) -> ((Plain cs):ts)
+                  cs@(_:_) -> Plain cs : ts
       in case splitTeXAtChar c zs' of
            [] -> [ys']
-           us@(_:_) -> (ys':us)
+           us@(_:_) -> ys':us
 splitTeXAtChar c (t:ts) =
   case splitTeXAtChar c ts of
     [] -> [[t]]
-    (ys:zs) -> ((t:ys):zs)
+    (ys:zs) -> (t:ys):zs
 
 -- | Split TeX at a separating word.
 --
 -- The word must be surrounded by white space on brace level 0.
 splitTeXAtWord :: String -> TeX -> [TeX]
-splitTeXAtWord sep = map unwordsTeX . (splitAnyAt [Plain sep]) . wordsTeX
+splitTeXAtWord sep = map unwordsTeX . splitAnyAt [Plain sep] . wordsTeX
 
 -- Split list at a certain item.
 splitAnyAt :: Eq a => a -> [a] -> [[a]]
@@ -261,8 +261,8 @@ unwordsTeX = intercalate [White]
 -- This is used by BibTeX to detect prefix name parts.
 isLowerCase :: TeX -> Bool
 isLowerCase [] = True
-isLowerCase ((Plain (x:_)):_) = isLower x
-isLowerCase ((Group _ _ xs):_) = isLowerCase (dropWhile isWhite xs)
+isLowerCase (Plain (x:_) : _) = isLower x
+isLowerCase (Group _ _ xs : _) = isLowerCase (dropWhile isWhite xs)
 isLowerCase _ = False
 
 

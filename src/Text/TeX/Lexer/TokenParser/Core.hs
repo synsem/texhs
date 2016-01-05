@@ -85,16 +85,16 @@ class Monad m => HandleTeXIO m where
 -- Execute IO actions.
 instance HandleTeXIO IO where
   handleReadFile = liftIO . readTeXFile
-  handleReadDate = liftIO getZonedTime >>= return .
-                   formatTime defaultTimeLocale "%Y-%m-%d %H:%M"
+  handleReadDate =
+    formatTime defaultTimeLocale "%Y-%m-%d %H:%M" <$> liftIO getZonedTime
 
 -- Read a TeX file.
 -- Appends ".tex" if the provided filename does not exist.
 readTeXFile :: FilePath -> IO String
 readTeXFile filename = do
   cwd <- getCurrentDirectory
-  paths <- concat <$> mapM (findFilesWith (fmap readable . getPermissions) [cwd])
-           (map (filename <.>) ["", "tex"])
+  paths <- concat <$> mapM (findFilesWith (fmap readable . getPermissions) [cwd]
+                            . (filename <.>)) ["", "tex"]
   case paths of
     (path:_) -> readFile path
     [] -> error $ "cannot read file: " ++ (cwd </> filename)
@@ -170,10 +170,10 @@ satisfyChar p = satisfy (either p (const False)) >>= \(Left c) -> return c
 satisfy :: Monad m => (CharOrToken -> Bool) -> LexerT m CharOrToken
 satisfy p = LexerT $ tokenPrim show nextpos test
   where
-    nextpos = \pos t _ -> case t of
+    nextpos pos t _ = case t of
       Left c -> updatePosChar pos c
       Right _ -> pos -- don't increment position
-    test = \t -> if p t then Just t else Nothing
+    test t = if p t then Just t else Nothing
 
 
 -------------------- Stream modifications

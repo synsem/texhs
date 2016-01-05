@@ -104,7 +104,7 @@ up (Context _ []) = Left NoParent
 -- | Descend into the first mandatory argument of a command
 -- (all other arguments are dropped).
 intoCmdArg :: TeXStep
-intoCmdArg (Context ((Command _ args):xs) nxt) =
+intoCmdArg (Context (Command _ args : xs) nxt) =
   return (Context (getOblArg 0 args) (xs:nxt))
 intoCmdArg ctx = failStep ctx
 

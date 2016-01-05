@@ -226,7 +226,7 @@ registerGlobalMacro _ _ = throwE "invalid lexer state"
 
 -- | Return whether a macro with the given key is already defined.
 macroIsDefined :: Macro k a => k -> LexerState -> Bool
-macroIsDefined m ls = m `elem` (map fst (getMacros ls))
+macroIsDefined m ls = m `elem` map fst (getMacros ls)
 
 -- | Register a global macro definition.
 --
@@ -238,14 +238,14 @@ registerMacro mode m@(k,_) st
   | macroIsDefined k st = case mode of
     MacroDeclare -> registerGlobalMacro m st
     MacroNew -> throwE $
-      "macro already defined" ++ (getMacroName m)
+      "macro already defined" ++ getMacroName m
     MacroRenew -> registerGlobalMacro m st
     MacroProvide -> Right st
   | otherwise = case mode of
     MacroDeclare -> registerGlobalMacro m st
     MacroNew -> registerGlobalMacro m st
     MacroRenew -> throwE $
-      "cannot redefine undefined macro: " ++ (getMacroName m)
+      "cannot redefine undefined macro: " ++ getMacroName m
     MacroProvide -> registerGlobalMacro m st
 
 -- | Register a global macro command definition.

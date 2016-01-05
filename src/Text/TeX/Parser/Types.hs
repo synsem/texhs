@@ -81,32 +81,32 @@ data TeXAtom
 
 -- | Test whether a 'TeXAtom' is a 'Plain' text element.
 isPlain :: TeXAtom -> Bool
-isPlain (Plain _) = True
+isPlain Plain{} = True
 isPlain _ = False
 
 -- | Test whether a 'TeXAtom' is a 'Command'.
 isCommand :: TeXAtom -> Bool
-isCommand (Command _ _) = True
+isCommand Command{} = True
 isCommand _ = False
 
 -- | Test whether a 'TeXAtom' is a 'Group'.
 isGroup :: TeXAtom -> Bool
-isGroup (Group _ _ _) = True
+isGroup Group{} = True
 isGroup _ = False
 
 -- | Test whether a 'TeXAtom' is a 'MathGroup'.
 isMathGroup :: TeXAtom -> Bool
-isMathGroup (MathGroup _ _) = True
+isMathGroup MathGroup{} = True
 isMathGroup _ = False
 
 -- | Test whether a 'TeXAtom' is a 'SupScript'.
 isSupScript :: TeXAtom -> Bool
-isSupScript (SupScript _) = True
+isSupScript SupScript{} = True
 isSupScript _ = False
 
 -- | Test whether a 'TeXAtom' is a 'SubScript'.
 isSubScript :: TeXAtom -> Bool
-isSubScript (SubScript _) = True
+isSubScript SubScript{} = True
 isSubScript _ = False
 
 -- | Test whether a 'TeXAtom' is an 'AlignMark'.
@@ -143,8 +143,8 @@ isGrp _ _ = False
 
 -- | Test whether an 'Arg' is obligatory.
 isOblArg :: Arg -> Bool
-isOblArg (OblArg _) = True
-isOblArg (OptArg _) = False
+isOblArg OblArg{} = True
+isOblArg OptArg{} = False
 
 -- | Test whether an 'Arg' is optional.
 isOptArg :: Arg -> Bool
@@ -155,11 +155,11 @@ isOptArg = not . isOblArg
 
 -- | Retrieve the n-th optional argument (of a command or environment).
 getOptArg :: Int -> Args -> TeX
-getOptArg n args = getArg isOptArg n args
+getOptArg = getArg isOptArg
 
 -- | Retrieve the n-th obligatory argument (of a command or environment).
 getOblArg :: Int -> Args -> TeX
-getOblArg n args = getArg isOblArg n args
+getOblArg = getArg isOblArg
 
 -- Retrieve the n-th argument (of a command or environment).
 -- Expects an 'Arg' parameter for filtering an argument list.

@@ -18,6 +18,7 @@ module Text.Doc.Writer.Xml
    doc2xml
  ) where
 
+import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>))
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -38,7 +39,7 @@ doc2xml = renderMarkup . convertDoc . doc2secdoc
 -- Convert 'SectionDoc' to XML 'Markup'.
 convertDoc :: SectionDoc -> Markup
 convertDoc doc =
-  el "TEI" ! (attr "xmlns" "http://www.tei-c.org/ns/1.0") $
+  el "TEI" ! attr "xmlns" "http://www.tei-c.org/ns/1.0" $
   header doc <> content doc
 
 
@@ -75,7 +76,7 @@ front doc = el "front" (titlePage doc)
 titlePage :: SectionDoc -> Markup
 titlePage doc = el "titlePage" $ do
   el "docTitle" $
-    el "titlePart" ! attr "type" "main" $ (inlines (docTitle doc))
+    el "titlePart" ! attr "type" "main" $ inlines (docTitle doc)
   el "byline" $ mapM_ (el "docAuthor" . inlines) (docAuthors doc)
 
 
@@ -114,7 +115,7 @@ section (Section hlevel htitle secbody subsecs) =
 
 -- Convert a numeric header level to a textual description.
 levelname :: Level -> Text
-levelname i = maybe "unknown" id (lookup i (zip [1..] levels))
+levelname i = fromMaybe "unknown" (lookup i (zip [1..] levels))
   where
     levels = [ "part", "chapter", "section"
              , "subsection", "subsubsection" ]

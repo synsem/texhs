@@ -29,7 +29,7 @@ module Text.Bib.Writer
 import Control.Applicative
 import Data.List (intercalate)
 import qualified Data.Map.Strict as M
-import Data.Maybe (mapMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
 
 import Text.Bib.Types
 import Text.Doc.Types
@@ -68,7 +68,7 @@ getCiteAgents entry =
 
 -- | Construct year part of an author-year citation.
 getCiteYear :: BibEntry -> [Inline]
-getCiteYear = maybe [] id . getBibLiteral "year"
+getCiteYear = fromMaybe [] . getBibLiteral "year"
 
 
 -------------------- Format
@@ -90,7 +90,7 @@ fmtCiteAgents authors =
       sepInner = [Str ",", Space]
       sepFinal = [Space, Str "&", Space]
       sepInners = replicate (max 0 (nrAuthors - 2)) sepInner
-      sepFinals = if nrAuthors > 1 then (sepFinal:[]) else [[]]
+      sepFinals = if nrAuthors > 1 then [sepFinal] else [[]]
       fillers = sepInners ++ sepFinals
   in concat $ zipWith (++) authors fillers
 
@@ -99,5 +99,5 @@ fmtCiteFull :: BibEntry -> [Inline]
 fmtCiteFull entry =
   fmtCiteAgents (getCiteAgents entry) ++ [Space] ++
   getCiteYear entry ++ [Space] ++
-  maybe [] id (getBibLiteral "title" entry) ++
+  fromMaybe [] (getBibLiteral "title" entry) ++
   [Str "."]

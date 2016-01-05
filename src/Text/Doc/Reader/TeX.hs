@@ -158,7 +158,7 @@ header = choice
 
 -- | Parse an @itemize@ group.
 itemize :: Parser Block
-itemize = List <$> (inGrp "itemize" (list (cmd "item") blocks))
+itemize = List <$> inGrp "itemize" (list (cmd "item") blocks)
 
 
 ---------- Inline parsers
@@ -167,7 +167,7 @@ itemize = List <$> (inGrp "itemize" (list (cmd "item") blocks))
 --
 -- Anonymous groups are flattened.
 inlines :: Parser [Inline]
-inlines = concat <$> (many (count 1 inline <|> inGrp "" inlines))
+inlines = concat <$> many (count 1 inline <|> inGrp "" inlines)
 
 -- | Parse a single inline element.
 inline :: Parser Inline

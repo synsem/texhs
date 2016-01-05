@@ -146,17 +146,17 @@ data MacroCmd
 
 -- | Test whether a 'MacroCmd' is a user-defined command.
 isMacroCmdUser :: MacroCmd -> Bool
-isMacroCmdUser (MacroCmdUser{}) = True
+isMacroCmdUser MacroCmdUser{} = True
 isMacroCmdUser _ = False
 
 -- | Test whether a 'MacroCmd' is a primitive command.
 isMacroCmdPrim :: MacroCmd -> Bool
-isMacroCmdPrim (MacroCmdPrim{}) = True
+isMacroCmdPrim MacroCmdPrim{} = True
 isMacroCmdPrim _ = False
 
 -- | Test whether a 'MacroCmd' is an implicit character.
 isMacroCmdChar :: MacroCmd -> Bool
-isMacroCmdChar (MacroCmdChar{}) = True
+isMacroCmdChar MacroCmdChar{} = True
 isMacroCmdChar _ = False
 
 -------------------- Macro Environments
@@ -179,9 +179,9 @@ data MacroEnv = MacroEnv
 -- Given a macro definition body and a list of actual arguments,
 -- substitute the parameter tokens in the macro body by the actual arguments.
 applyMacro :: [Token] -> [[Token]] -> [Token]
-applyMacro ((Param i n):ts) args = if n == 1
+applyMacro (Param i n : ts) args = if n == 1
                                    then (args !! (i-1)) ++ applyMacro ts args
-                                   else (Param i (n-1)) : applyMacro ts args
+                                   else Param i (n-1) : applyMacro ts args
 applyMacro (tok@(TeXChar _ _):ts) args = tok : applyMacro ts args
 applyMacro (tok@(CtrlSeq _ _):ts) args = tok : applyMacro ts args
 applyMacro [] _ = []

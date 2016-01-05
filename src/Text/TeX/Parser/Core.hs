@@ -32,7 +32,7 @@ type TeXParser = Parsec [Token] ()
 
 -- | Run a TeX parser on a 'Token' input stream.
 runTeXParser :: TeXParser a -> String -> [Token] -> Either ParseError a
-runTeXParser p name input = parse p name input
+runTeXParser = parse
 
 -------------------- Fundamental parsers
 
@@ -41,7 +41,7 @@ satisfy :: (Token -> Bool) -> TeXParser Token
 satisfy p = tokenPrim show nextpos test
   where
     nextpos pos _ _ = updatePosToken pos
-    test = \t -> if p t then Just t else Nothing
+    test t = if p t then Just t else Nothing
 
 -- Increment column for each token, ignore line number.
 updatePosToken :: SourcePos -> SourcePos
