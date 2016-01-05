@@ -26,15 +26,12 @@ import Text.TeX.Parser.Types (TeXAtom(..), Arg(..), MathType(..))
 tests :: Test
 tests = testGroup "Text.TeXSpec"
   [ testsBasic
+  , testsWhitespace
   ]
 
 testsBasic :: Test
 testsBasic = testGroup "basic"
-  [ testCase "merge spaces" $
-    readTeX "" "a  \n  b"
-    @?=
-    [Plain "a", White, Plain "b"]
-  , testCase "two words" $
+  [ testCase "two words" $
     readTeX "" "hello\n  world"
     @?=
     [Plain "hello", White, Plain "world"]
@@ -122,4 +119,20 @@ testsBasic = testGroup "basic"
     readTeX "" "\\[a\\]"
     @?=
     [MathGroup MathDisplay [Plain "a"]]
+  ]
+
+testsWhitespace :: Test
+testsWhitespace = testGroup "whitespace"
+  [ testCase "merge spaces" $
+    readTeX "" "a  \n  b"
+    @?=
+    [Plain "a", White, Plain "b"]
+  , testCase "merge spaces with enclosed control space" $
+    readTeX "" "a  \\ \n  b"
+    @?=
+    [Plain "a", White, Plain "b"]
+  , testCase "merge multiple control spaces followed by normal space" $
+    readTeX "" "a\\ \\ \\  b"
+    @?=
+    [Plain "a", White, Plain "b"]
   ]

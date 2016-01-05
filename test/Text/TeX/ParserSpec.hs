@@ -203,6 +203,10 @@ testsWhitespace = testGroup "whitespace"
       , OptArg [ Group "" []
                  [ Group "" []
                    [ White, Plain "b", Par]]]]]
+  , testCase "interpret control space" $
+    parseTeX "" [mkLetter 'a', CtrlSeq " " False, mkLetter 'b']
+    @?=
+    [Plain "a", White, Plain "b"]
   ]
 
 testsSymbols :: Test

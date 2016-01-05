@@ -160,6 +160,7 @@ command = ctrlseq >>= processCtrlseq
 processCtrlseq :: String -> TeXParser TeXAtom
 processCtrlseq name = case name of
   "par" -> return Par
+  " " -> return White -- control space
   "\\" -> optional optarg *> return Newline
   "begin" -> env
   _ -> do
