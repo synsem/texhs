@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 ----------------------------------------------------------------------
 -- |
 -- Module      :  Text.Doc.Filter.Bib
@@ -21,6 +22,11 @@ module Text.Doc.Filter.Bib
  , distributeMeta
  ) where
 
+#if MIN_VERSION_base(4,8,0)
+-- Prelude exports all required operators from Control.Applicative
+#else
+import Control.Applicative ((<$>))
+#endif
 import Control.Monad.Trans.Reader
 import Data.List (intercalate)
 import qualified Data.Map.Strict as M
