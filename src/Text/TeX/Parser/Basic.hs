@@ -25,13 +25,14 @@ module Text.TeX.Parser.Basic
 import Control.Applicative ((<*), (<*>), (*>), (<$), (<$>))
 #endif
 import Control.Monad (void)
-import Data.Maybe (catMaybes)
+import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
+import Data.Maybe (catMaybes)
 import Text.Parsec
   ((<|>), choice, optional, optionMaybe, many, many1, manyTill,
    count, between, (<?>), parserFail, eof)
 
-import Text.TeX.Filter (symbols, diacritics, dbldiacritics)
+import Text.TeX.Filter (argspecsSyntactic)
 import Text.TeX.Lexer.Catcode
 import Text.TeX.Lexer.Token
 import Text.TeX.Parser.Core
@@ -175,26 +176,21 @@ processCtrlseq name = case name of
   "\\" -> optional optarg *> return Newline
   "begin" -> env
   _ -> do
-    args <- maybe parseUnknownArgSpec parseArgSpec (lookup name commandDB)
+    args <- maybe parseUnknownArgSpec parseArgSpec (M.lookup name commandDB)
     return (Command name args)
 
 -- Lookup table for the ArgSpec of known commands.
 --
 -- We use a pair @(nrOptArgs, nrOblArgs)@ as a simplified
 -- ArgSpec representation here.
-commandDB :: [(String, (Int, Int))]
-commandDB =
-  [ -- semantic commands
-    ("rm", (0,0))
-  , ("it", (0,0))
-  , ("textrm", (0,1))
-  , ("textit", (0,1))
-    -- syntactic commands
-  , ("discretionary", (0,3))
-  ]
-  ++ zip (M.keys symbols) (repeat (0,0))
-  ++ zip (M.keys diacritics) (repeat (0,1))
-  ++ zip (M.keys dbldiacritics) (repeat (0,2))
+commandDB :: Map String (Int, Int)
+commandDB = M.union argspecsSyntactic argspecsSemantic
+  where
+    argspecsSemantic = M.fromList
+      [ ("rm", (0,0))
+      , ("it", (0,0))
+      , ("textrm", (0,1))
+      , ("textit", (0,1))]
 
 -- Lookup table for the ArgSpec of known environments. Stub.
 envDB :: [(String, (Int, Int))]

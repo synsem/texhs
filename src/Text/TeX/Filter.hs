@@ -19,8 +19,12 @@ module Text.TeX.Filter
     -- * Symbols and diacritics
     -- ** Resolver functions
   , resolveSymbols
+    -- ** Argument specifications
+  , argspecsSyntactic
     -- ** Data maps
+  , CmdMap
   , SymbolMap
+  , syntactic
   , symbols
   , diacritics
   , dbldiacritics
@@ -78,6 +82,20 @@ dbldiacritics :: SymbolMap
 dbldiacritics = M.unions
   [ Plain.dbldiacritics
   ]
+
+
+---------- ArgSpec DB
+
+-- | Lookup table for the ArgSpecs of registered syntactic commands.
+--
+-- This table may be used by the TeX parser in "Text.TeX.Parser"
+-- to determine the number of arguments a given command takes.
+argspecsSyntactic :: Map String (Int, Int)
+argspecsSyntactic = M.unions
+  [ M.map (const (0,0)) symbols
+  , M.map (const (0,1)) diacritics
+  , M.map (const (0,2)) dbldiacritics
+  , M.map fst syntactic]
 
 
 ---------- Resolve symbols
