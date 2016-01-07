@@ -173,10 +173,13 @@ processCtrlseq name = case name of
 -- ArgSpec representation here.
 commandDB :: [(String, (Int, Int))]
 commandDB =
-  [ ("rm", (0,0))
+  [ -- semantic commands
+    ("rm", (0,0))
   , ("it", (0,0))
   , ("textrm", (0,1))
   , ("textit", (0,1))
+    -- syntactic commands
+  , ("discretionary", (0,3))
   ]
   ++ zip (M.keys symbols) (repeat (0,0))
   ++ zip (M.keys diacritics) (repeat (0,1))

@@ -28,6 +28,7 @@ tests :: Test
 tests = testGroup "Text.TeX.ParserSpec"
   [ testsBasic
   , testsWhitespace
+  , testsSyntactic
   , testsSymbols
   , testsAccents
   ]
@@ -209,6 +210,27 @@ testsWhitespace = testGroup "whitespace"
     [Plain "a", White, Plain "b"]
   ]
 
+testsSyntactic :: Test
+testsSyntactic = testGroup "syntactic commands"
+  [ testCase "simple discretionary with empty pre-break and post-break" $
+    parseTeX "" (concat
+      [ [mkCtrlSeq "discretionary"]
+      , mkGroup []
+      , mkGroup []
+      , mkGroup [mkLetter 'c']])
+    @?=
+    [Plain "c"]
+  , testCase "discretionary takes three arguments" $
+    parseTeX "" (concat
+      [ [mkCtrlSeq "discretionary"]
+      , mkGroup [mkLetter 'a']
+      , mkGroup [mkLetter 'b']
+      , mkGroup [mkLetter 'c']
+      , mkGroup [mkLetter 'd']])
+    @?=
+    [Plain "c", Group "" [] [Plain "d"]]
+  ]
+
 testsSymbols :: Test
 testsSymbols = testGroup "symbols"
   [ testCase "top-level dagger" $
@@ -227,6 +249,20 @@ testsSymbols = testGroup "symbols"
     parseTeX "" (mkString "bet" ++ [mkCtrlSeq "dagger"] ++ mkString "er")
     @?=
     [Plain "bet", Plain "\x2020", Plain "er"]
+  , testCase "interpret discretionary hyphen" $
+    parseTeX "" (concat
+      [ mkString "a"
+      , [mkCtrlSeq "-"]
+      , mkString "b"])
+    @?=
+    [Plain "a", Plain "\x00AD", Plain "b"]
+  , testCase "ignore italic correction" $
+    parseTeX "" (concat
+      [ mkString "a"
+      , [mkCtrlSeq "/"]
+      , mkString "b"])
+    @?=
+    [Plain "a", Plain "", Plain "b"]
   ]
 
 testsAccents :: Test

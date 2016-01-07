@@ -26,6 +26,7 @@ library
                        Text.TeX.Context.Walk
                        Text.TeX.Filter
                        Text.TeX.Filter.Plain
+                       Text.TeX.Filter.Primitive
                        Text.TeX.Lexer
                        Text.TeX.Lexer.Catcode
                        Text.TeX.Lexer.Macro

@@ -31,10 +31,15 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 
 import qualified Text.TeX.Filter.Plain as Plain
+import qualified Text.TeX.Filter.Primitive as Primitive
 import Text.TeX.Parser.Types
 
 
 ---------- Types
+
+-- | Data map from TeX command names
+-- to (argspec, expansion function) pairs.
+type CmdMap = Map String ((Int, Int), Args -> TeX)
 
 -- | Data map from TeX command names to Unicode symbols.
 type SymbolMap = Map String String
@@ -42,19 +47,33 @@ type SymbolMap = Map String String
 
 ---------- Data
 
+-- | A map that contains all registered syntactic commands
+-- that are not 'symbols', 'diacritics' or 'dbldiacritics'.
+syntactic :: CmdMap
+syntactic = M.unions
+  [ Primitive.syntactic
+  ]
+
 -- | A map that contains all registered symbols.
+--
+-- Symbols are syntactic commands that take no argument.
 symbols :: SymbolMap
 symbols = M.unions
-  [ Plain.symbols
+  [ Primitive.symbols
+  , Plain.symbols
   ]
 
 -- | A map that contains all registered diacritics.
+--
+-- Diacritics are syntactic commands that take a single argument.
 diacritics :: SymbolMap
 diacritics = M.unions
   [ Plain.diacritics
   ]
 
 -- | A map that contains all registered double diacritics.
+--
+-- Double diacritics are syntactic commands that take two arguments.
 dbldiacritics :: SymbolMap
 dbldiacritics = M.unions
   [ Plain.dbldiacritics
@@ -65,10 +84,10 @@ dbldiacritics = M.unions
 
 -- | Resolve symbols and diacritics.
 resolveSymbols :: TeX -> TeX
-resolveSymbols = map (resolve (symbols, diacritics))
+resolveSymbols = map (resolve (symbols, diacritics, syntactic))
 
-resolve :: (SymbolMap, SymbolMap) -> TeXAtom -> TeXAtom
-resolve db@(symdb, accdb) (Command name args) =
+resolve :: (SymbolMap, SymbolMap, CmdMap) -> TeXAtom -> TeXAtom
+resolve db@(symdb, accdb, syndb) (Command name args) =
   case M.lookup name symdb of
     Just str -> Plain str
     Nothing -> case M.lookup name accdb of
@@ -76,7 +95,9 @@ resolve db@(symdb, accdb) (Command name args) =
         -- Nested diacritics need to be processed bottom-up.
         let target = map (resolve db) (getOblArg 0 args)
         in wrapAsAtom (insertAccent str target)
-      Nothing -> Command name (fmapArgs (map (resolve db)) args)
+      Nothing -> case M.lookup name syndb of
+        Just (_, f) -> wrapAsAtom (f args)
+        Nothing -> Command name (fmapArgs (map (resolve db)) args)
 resolve db atom = fmapAtom (map (resolve db)) atom
 
 -- Insert combining accent after the first character and any following
