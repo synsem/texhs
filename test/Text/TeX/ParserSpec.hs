@@ -27,6 +27,7 @@ import Text.TeX.Parser.Types (TeXAtom(..), Arg(..), MathType(..))
 tests :: Test
 tests = testGroup "Text.TeX.ParserSpec"
   [ testsBasic
+  , testsActiveChars
   , testsWhitespace
   , testsSyntactic
   , testsSymbols
@@ -135,6 +136,14 @@ testsBasic = testGroup "basic"
       [ Command "text"
         [ OblArg [Plain "t", MathGroup MathDisplay [Plain "a"]]]
       , Plain "b"]]
+  ]
+
+testsActiveChars :: Test
+testsActiveChars = testGroup "active characters"
+  [ testCase "handle non-breaking space" $
+    parseTeX "" (mkString "ab" ++ [CtrlSeq "~" True] ++ mkString "cd")
+    @?=
+    [Plain "ab", Plain "\x00A0", Plain "cd"]
   ]
 
 testsWhitespace :: Test
@@ -271,6 +280,10 @@ testsAccents = testGroup "accents"
     parseTeX "" (mkCtrlSeq "\"": mkString "ab")
     @?=
     [Plain "a\x0308", Plain "b"]
+  , testCase "top-level tilde applied to single char" $
+    parseTeX "" (mkCtrlSeq "~": mkString "ab")
+    @?=
+    [Plain "a\x0303", Plain "b"]
   , testCase "diaeresis applied to multi-character group argument" $
     parseTeX "" (mkCtrlSeq "\"": mkGroup (mkString "ab"))
     @?=

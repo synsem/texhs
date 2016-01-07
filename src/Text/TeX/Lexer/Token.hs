@@ -20,6 +20,7 @@ module Text.TeX.Lexer.Token
     -- ** Token predicates
   , isTeXChar
   , isCtrlSeq
+  , isActiveChar
   , isParam
     -- ** TeXChar predicates
   , isCharEq
@@ -102,10 +103,20 @@ isTeXChar :: Token -> Bool
 isTeXChar (TeXChar _ _) = True
 isTeXChar _ = False
 
--- | Test whether a 'Token' is a 'CtrlSeq'.
+-- | Test whether a 'Token' is a non-active 'CtrlSeq'.
+--
+-- This is only true for proper control sequences,
+-- it is false for active characters.
 isCtrlSeq :: Token -> Bool
-isCtrlSeq (CtrlSeq _ _) = True
+isCtrlSeq (CtrlSeq _ active) = not active
 isCtrlSeq _ = False
+
+-- | Test whether a 'Token' is an active 'CtrlSeq'.
+--
+-- This is only true for active characters.
+isActiveChar :: Token -> Bool
+isActiveChar (CtrlSeq _ active) = active
+isActiveChar _ = False
 
 -- | Test whether a 'Token' is a 'Param'.
 isParam :: Token -> Bool

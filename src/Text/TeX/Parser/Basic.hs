@@ -29,7 +29,7 @@ import Data.Maybe (catMaybes)
 import qualified Data.Map.Strict as M
 import Text.Parsec
   ((<|>), choice, optional, optionMaybe, many, many1, manyTill,
-   count, between, (<?>), eof)
+   count, between, (<?>), parserFail, eof)
 
 import Text.TeX.Filter (symbols, diacritics, dbldiacritics)
 import Text.TeX.Lexer.Catcode
@@ -65,6 +65,10 @@ alignMark = AlignMark <$ charCC AlignTab
 -- | Parse a control sequence and return its name.
 ctrlseq :: TeXParser String
 ctrlseq = getName <$> satisfy isCtrlSeq
+
+-- | Parse an active character and return its name.
+activechar :: TeXParser String
+activechar = getName <$> satisfy isActiveChar
 
 -- | Parse a single character irrespective of its catcode.
 char :: Char -> TeXParser TeXAtom
@@ -155,7 +159,14 @@ optargInner = choice [plainExcept "[]", group, command, white, alignMark,
 
 -- | Parse a control sequence.
 command :: TeXParser TeXAtom
-command = ctrlseq >>= processCtrlseq
+command = choice
+  [ ctrlseq >>= processCtrlseq
+  , activechar >>= processActiveChar]
+
+processActiveChar :: String -> TeXParser TeXAtom
+processActiveChar name = case name of
+  "~" -> return (Plain "\x00A0") -- NO-BREAK SPACE
+  _ -> parserFail ("Encountered unknown active character: " ++ name)
 
 processCtrlseq :: String -> TeXParser TeXAtom
 processCtrlseq name = case name of

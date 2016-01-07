@@ -201,6 +201,11 @@ testsNames = testGroup "name lists"
     @?=
     [Agent [Str "Charles", Space, Str "Louis", Space, Str "Xavier", Space, Str "Joseph"]
       [Str "de", Space, Str "la"] [Str "Valle\x0301\&e", Space, Str "Poussin"] []]
+  , testCase "one name, no commas, with non-breaking spaces" $
+    parseAgents (readTeX "" "Charles Louis Xavier~Joseph de~la Vall\\'ee~Poussin")
+    @?=
+    [Agent [Str "Charles", Space, Str "Louis", Space, Str ("Xavier" ++ "\x00A0" ++ "Joseph")]
+      [Str ("de" ++ "\x00A0" ++ "la")] [Str ("Valle\x0301\&e" ++ "\x00A0" ++ "Poussin")] []]
   ]
 
 testsLiteralList :: Test
