@@ -32,6 +32,7 @@ tests = testGroup "Text.TeX.ParserSpec"
   , testsSyntactic
   , testsSymbols
   , testsAccents
+  , testsLigatures
   ]
 
 testsBasic :: Test
@@ -304,4 +305,50 @@ testsAccents = testGroup "accents"
       [mathTok])
     @?=
     [MathGroup MathInline [Plain "a\x0302\x0308"]]
+  ]
+
+testsLigatures :: Test
+testsLigatures = testGroup "TeX ligatures"
+  [ testCase "smart quotes" $
+    parseTeX "" (mkDefault "a ``b`c c'dd''.")
+    @?=
+    [ Plain "a", White, Plain "\x201C\&b\x2018\&c", White
+    , Plain "c\x2019\&dd\x201D."]
+  , testCase "smart quotes separated by spaces" $
+    parseTeX "" (mkDefault "` `` '' '")
+    @?=
+    [ Plain "\x2018", White, Plain "\x201C", White
+    , Plain "\x201D", White, Plain "\x2019"]
+  , testCase "en dash between letters" $
+    parseTeX "" (mkDefault "a--b")
+    @?=
+    [ Plain "a\x2013\&b"]
+  , testCase "em dash between letters" $
+    parseTeX "" (mkDefault "a---b")
+    @?=
+    [ Plain "a\x2014\&b"]
+  , testCase "Spanish ligatures" $
+    parseTeX "" (mkDefault "?`a!`b")
+    @?=
+    [ Plain "\x00BF\&a\x00A1\&b"]
+  , testCase "Spanish ligatures surrounded by smart quotes" $
+    parseTeX "" (mkDefault "?``a`!```b")
+    @?=
+    [ Plain "\x00BF\&\x2018\&a\x2018\&\x00A1\&\x201C\&b"]
+  , testCase "smart quotes around question mark" $
+    parseTeX "" (mkDefault "`?'")
+    @?=
+    [ Plain "\x2018?\x2019"]
+  , testCase "smart quotes around exclamation mark" $
+    parseTeX "" (mkDefault "`!'")
+    @?=
+    [ Plain "\x2018!\x2019"]
+  , testCase "intervening empty group prevents ligature" $
+    parseTeX "" (mkDefault "-{}-")
+    @?=
+    [ Plain "-", Group "" [] [], Plain "-"]
+  , testCase "group structure can prevent ligatures" $
+    parseTeX "" (mkDefault "-{-}-")
+    @?=
+    [ Plain "-", Group "" [] [Plain "-"], Plain "-"]
   ]

@@ -10,29 +10,40 @@
 -- Portability :  GHC
 --
 -- Filters for normalizing whitespace and for resolving syntactic
--- TeX and LaTeX macros (symbols and diacritics).
+-- TeX commands (symbols, diacritics) and ligatures.
 ----------------------------------------------------------------------
 
 module Text.TeX.Filter
   ( -- * Normalization
     normalize
-    -- * Symbols and diacritics
-    -- ** Resolver functions
-  , resolveSymbols
-    -- ** Argument specifications
-  , argspecsSyntactic
-    -- ** Data maps
+    -- * Syntax Expansion
+  , resolveSyntacticTeX
+    -- ** Control sequences
+    -- *** Types
   , CmdMap
   , SymbolMap
+    -- *** Data
   , syntactic
   , symbols
   , diacritics
   , dbldiacritics
+    -- *** Argument specifications
+  , argspecsSyntactic
+    -- ** Ligatures
+    -- *** Types
+  , LigatureMap
+    -- *** Data
+  , texLigatures
+    -- *** Functions
+  , replaceLigatures
   ) where
 
 import Data.Char (isMark)
+import Data.List (sortBy, stripPrefix)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
+import Data.Monoid (First(..))
+import Data.Ord (comparing)
 
 import qualified Text.TeX.Filter.Plain as Plain
 import qualified Text.TeX.Filter.Primitive as Primitive
@@ -47,6 +58,9 @@ type CmdMap = Map String ((Int, Int), Args -> TeX)
 
 -- | Data map from TeX command names to Unicode symbols.
 type SymbolMap = Map String String
+
+-- | Data map for TeX ligatures.
+type LigatureMap = Map String String
 
 
 ---------- Data
@@ -100,12 +114,14 @@ argspecsSyntactic = M.unions
 
 ---------- Resolve symbols
 
--- | Resolve symbols and diacritics.
-resolveSymbols :: TeX -> TeX
-resolveSymbols = map (resolve (symbols, diacritics, syntactic))
+-- | Resolve syntactic control sequences (symbols, diacritics)
+-- and TeX ligatures.
+resolveSyntacticTeX :: TeX -> TeX
+resolveSyntacticTeX = map (resolve (symbols, diacritics, syntactic, texLigatures))
 
-resolve :: (SymbolMap, SymbolMap, CmdMap) -> TeXAtom -> TeXAtom
-resolve db@(symdb, accdb, syndb) (Command name args) =
+resolve :: (SymbolMap, SymbolMap, CmdMap, LigatureMap) -> TeXAtom -> TeXAtom
+resolve (_, _, _, ligdb) (Plain str) = Plain (replaceLigatures ligdb str)
+resolve db@(symdb, accdb, syndb, _) (Command name args) =
   case M.lookup name symdb of
     Just str -> Plain str
     Nothing -> case M.lookup name accdb of
@@ -144,6 +160,43 @@ wrapAsAtom :: TeX -> TeXAtom
 wrapAsAtom [] = Group "" [] []
 wrapAsAtom [x] = x
 wrapAsAtom xs@(_:_) = Group "" [] xs
+
+
+---------- Ligatures
+
+-- Note: Needles (keys) are overlapping,
+-- start replacements with longest needles.
+-- | Default TeX ligatures.
+texLigatures :: LigatureMap
+texLigatures = M.fromList
+  [ -- quotation marks
+    ("``", "\x201C")  -- LEFT DOUBLE QUOTATION MARK
+  , ("''", "\x201D")  -- RIGHT DOUBLE QUOTATION MARK
+  , ("`", "\x2018")   -- LEFT SINGLE QUOTATION MARK
+  , ("'", "\x2019")   -- RIGHT SINGLE QUOTATION MARK
+    -- dashes
+  , ("--", "\x2013")  -- EN DASH
+  , ("---", "\x2014") -- EM DASH
+    -- Spanish ligatures
+  , ("?`", "\x00BF")  -- INVERTED QUESTION MARK
+  , ("!`", "\x00A1")  -- INVERTED EXCLAMATION MARK
+  ]
+
+-- | Replace ligatures in a string.
+replaceLigatures :: LigatureMap -> String -> String
+replaceLigatures _ [] = []
+replaceLigatures ligdb haystack@(hh:ht) =
+  case getFirst (mconcat (map (First . (`replaceLigature` haystack)) ligatures)) of
+    Just (xs, ys) -> xs ++ replaceLigatures ligdb ys
+    Nothing -> hh : replaceLigatures ligdb ht
+  where
+    -- Sort ligatures by length of key (needle) in descending order.
+    -- (This is necessary because ligature keys are overlapping. See 'texLigatures'.)
+    ligatures :: [(String, String)]
+    ligatures = sortBy (flip (comparing (length . fst))) (M.assocs ligdb)
+    -- Search for a ligature at the left end (prefix) of a string.
+    replaceLigature :: (String, String) -> String -> Maybe (String, String)
+    replaceLigature (from, to) = fmap ((,) to) . stripPrefix from
 
 
 ---------- Normalization
