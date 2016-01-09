@@ -37,6 +37,6 @@ import Text.TeX.Parser.Types (TeX)
 -- and resolve citations against a bibliographic database.
 tex2docWithBib :: Maybe BibDB -> String -> TeX -> Doc
 tex2docWithBib Nothing name input =
-  tex2doc name input
+  distributeMeta (tex2doc name input)
 tex2docWithBib (Just db) name input =
   distributeMeta (docBibFilter db (tex2doc name input))

@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
 ----------------------------------------------------------------------
 --
 -- Module      :  Text.Doc.Reader.TeXSpec
@@ -19,6 +20,7 @@ module Text.Doc.Reader.TeXSpec
 #else
 import Control.Applicative ((<$>), (<*>), (*>))
 #endif
+import qualified Data.Map.Strict as M
 import Test.Framework (Test, testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit ((@?=))
@@ -35,8 +37,10 @@ import Text.Doc.Reader.TeX
 tests :: Test
 tests = testGroup "Text.Doc.Reader.TeXSpec"
   [ testsBasic
+  , testsBlocks
   , testsInlines
   , testsLists
+  , testsCrossrefs
   ]
 
 testsBasic :: Test
@@ -77,6 +81,19 @@ testsBasic = testGroup "basic traversals"
     runParser inlines example3
     @?=
     Right [Emph [Str "hello"], Space, Str "world", Str "!"]
+  ]
+
+testsBlocks :: Test
+testsBlocks = testGroup "block elements"
+  [ testCase "single section header" $
+    runParser block
+      [Command "section" [OblArg [Plain "one"]]]
+    @?=
+    Right (Header 3 (SectionAnchor [0,0,1,0,0,0]) [Str "one"])
+  , testCase "single paragraph" $
+    runParser block [Plain "hello"]
+    @?=
+    Right (Para [Str "hello"])
   ]
 
 testsInlines :: Test
@@ -132,6 +149,43 @@ testsLists = testGroup "list blocks"
                   , List [ [Para [Str "down-one",Space]]
                          , [Para [Str "down-two",Space]]]]
                 , [ Para [ Str "up-three"]]])
+  ]
+
+testsCrossrefs :: Test
+testsCrossrefs = testGroup "cross-references"
+  [ testCase "labels are dropped" $
+    runParser (inlines <* eof)
+      [Command "label" [OblArg [Plain "mylabel"]]]
+    @?=
+    Right []
+  , testCase "simple pointer with undefined target" $
+    runParser block
+      [Command "ref" [OblArg [Plain "nosuchtarget"]]]
+    @?=
+    Right (Para [Pointer "nosuchtarget" Nothing])
+  , testCase "section label and reference" $
+    runParser (blocks <* eof)
+      [ Command "section" [OblArg [Plain "one"]]
+      , Command "label" [OblArg [Plain "mylabel"]]
+      , Command "ref" [OblArg [Plain "mylabel"]]
+      ]
+    @?=
+    Right
+      [ Header 3 (SectionAnchor [0,0,1,0,0,0]) [Str "one"]
+      , Para [Pointer "mylabel" Nothing]]
+  , testCase "retrieve section number" $
+    either (error . show) (M.lookup "mylabel" . metaAnchorMap . snd)
+      (runParserWithState (blocks <* eof)
+        [ Command "section" [OblArg [Plain "one"]]
+        , Command "section" [OblArg [Plain "two"]]
+        , Command "subsection" [OblArg [Plain "two-one"]]
+        , Command "label" [OblArg [Plain "mylabel"]]
+        , Command "section" [OblArg [Plain "three"]]
+        , Command "section" [OblArg [Plain "four"]]
+        , Command "ref" [OblArg [Plain "mylabel"]]
+        ])
+    @?=
+    Just (SectionAnchor [0,0,2,1,0,0])
   ]
 
 

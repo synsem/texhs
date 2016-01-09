@@ -24,6 +24,12 @@ module Text.Doc.Types
   , CiteDB
   , CiteEntry(..)
   , registerCiteKeys
+  , Label
+  , Anchor(..)
+  , anchorURI
+  , anchorDescription
+  , registerAnchorLabel
+  , incSection
     -- ** Blocks
   , Content
   , Level
@@ -76,6 +82,9 @@ data Meta = Meta
   , metaCiteDB :: CiteDB
   , metaCiteMap :: Map CiteKey Int
   , metaCiteCount :: Int
+  , metaAnchorCurrent :: Anchor
+  , metaAnchorMap :: Map Label Anchor
+  , metaSectionCurrent :: [Int]
   } deriving (Eq, Show)
 
 -- | Default (empty) meta information of a document.
@@ -87,6 +96,9 @@ defaultMeta = Meta
   , metaCiteDB = M.empty
   , metaCiteMap = M.empty
   , metaCiteCount = 0
+  , metaAnchorCurrent = DocumentAnchor
+  , metaAnchorMap = M.empty
+  , metaSectionCurrent = replicate 6 0
   }
 
 -- | A class for document types that hold meta information.
@@ -96,6 +108,42 @@ class HasMeta d where
 
 instance HasMeta Doc where
   docMeta (Doc meta _) = meta
+
+---------- Cross-references
+
+-- | An anchor is a location in a document
+-- that can be the target of a 'Pointer'.
+-- Anchors and pointers are used to model cross-references.
+data Anchor
+  = DocumentAnchor -- initial anchor in a document
+  | SectionAnchor [Int]
+  deriving (Eq, Show)
+
+-- | Generate identifying string for an anchor.
+anchorURI :: Anchor -> Text
+anchorURI DocumentAnchor = ""
+anchorURI (SectionAnchor xs) = T.concat $ zipWith T.append
+  ["Pt", "Ch", "S", "s", "ss", "p"]
+  (map (T.pack . show) xs)
+
+-- | Generate description text for an anchor.
+anchorDescription :: Anchor -> Text
+anchorDescription DocumentAnchor = "start"
+anchorDescription (SectionAnchor xs) = T.intercalate "." (map (T.pack . show) xs)
+
+-- | A label is a name of an anchor.
+--
+-- In particular, it can be used by a 'Pointer' as
+-- a way to refer to an 'Anchor' in the document.
+type Label = Text
+
+-- | Assign a label to the current anchor
+-- in the document meta information.
+registerAnchorLabel :: Label -> Meta -> Meta
+registerAnchorLabel label meta =
+  let anchor = metaAnchorCurrent meta
+      newMap = M.insert label anchor (metaAnchorMap meta)
+  in meta { metaAnchorMap = newMap }
 
 ---------- Citations
 
@@ -128,6 +176,14 @@ registerCiteKeys keys meta =
           , metaCiteCount = newCount
           }
 
+---------- Sections
+
+-- | Increment the current section at the given level.
+incSection :: Level -> [Int] -> [Int]
+incSection n c = uncurry (++) $ fmap incLevels $ splitAt (n-1) c
+  where
+    incLevels [] = []
+    incLevels (x:xs) = x+1 : replicate (length xs) 0
 
 -------------------- Content type
 
@@ -140,7 +196,7 @@ type Level = Int
 -- | Block elements in a 'Doc' document.
 data Block
   = Para [Inline]
-  | Header Level [Inline]
+  | Header Level Anchor [Inline]
   | List [[Block]]
   deriving (Eq, Show)
 
@@ -151,6 +207,7 @@ data Inline
   | Emph [Inline]
   | Space
   | Citation MultiCite (Maybe [Inline])
+  | Pointer Label (Maybe Anchor)
   deriving (Eq, Show)
 
 -- | A list of 'SingleCite' citations
@@ -191,17 +248,17 @@ data CiteMode
 
 -- | Test whether a 'Block' is a 'Para'.
 isPara :: Block -> Bool
-isPara (Para _) = True
+isPara Para{} = True
 isPara _ = False
 
 -- | Test whether a 'Block' is a 'Header'.
 isHeader :: Block -> Bool
-isHeader (Header _ _) = True
+isHeader Header{} = True
 isHeader _ = False
 
 -- | Test whether a 'Block' is a 'List'.
 isList :: Block -> Bool
-isList (List _) = True
+isList List{} = True
 isList _ = False
 
 
@@ -209,17 +266,17 @@ isList _ = False
 
 -- | Test whether an 'Inline' is a 'Str'.
 isStr :: Inline -> Bool
-isStr (Str _) = True
+isStr Str{} = True
 isStr _ = False
 
 -- | Test whether an 'Inline' is a 'Normal'.
 isNormal :: Inline -> Bool
-isNormal (Normal _) = True
+isNormal Normal{} = True
 isNormal _ = False
 
 -- | Test whether an 'Inline' is an 'Emph'.
 isEmph :: Inline -> Bool
-isEmph (Emph _) = True
+isEmph Emph{} = True
 isEmph _ = False
 
 -- | Test whether an 'Inline' is a 'Space'.
@@ -250,6 +307,7 @@ plain (Normal is) = concatMap plain is
 plain (Emph is) = concatMap plain is
 plain Space = " "
 plain (Citation (MultiCite _ _ _ xs) _) = T.unpack (plainCites xs)
+plain (Pointer label _) = T.unpack (T.concat ["<", label, ">"])
 
 -- Helper for showing raw citations.
 plainCites :: [SingleCite] -> Text

@@ -123,13 +123,15 @@ date = do
 
 ---------- combinators
 
--- Combinator that drops trailing whitespace.
+-- Combinator that drops trailing whitespace ('White')
+-- and void inter-level elements.
 lexeme :: Parser a -> Parser a
-lexeme p = p <* many skipSpace
+lexeme p = p <* many (choice [skipSpace, skipInterlevel])
 
--- Combinator that drops any trailing 'White' and 'Par'.
+-- Combinator that drops any trailing whitespace ('White'),
+-- paragraph breaks ('Par') and void inter-level elements.
 lexemeBlock :: Parser a -> Parser a
-lexemeBlock p = p <* many skipWhite
+lexemeBlock p = p <* many (choice [skipWhite, skipInterlevel])
 
 
 ---------- Block parsers
@@ -148,13 +150,26 @@ para = Para <$> (some inline <* optional skipPar)
 
 -- | Parse a chapter or section heading.
 header :: Parser Block
-header = choice
-         [ Header 1 <$> inlineCmd "part"
-         , Header 2 <$> inlineCmd "chapter"
-         , Header 3 <$> inlineCmd "section"
-         , Header 4 <$> inlineCmd "subsection"
-         , Header 5 <$> inlineCmd "subsubsection"
-         ] <* skipWhite
+header = do
+  (level', title') <- choice
+    [ (,) 1 <$> inlineCmd "part"
+    , (,) 2 <$> inlineCmd "chapter"
+    , (,) 3 <$> inlineCmd "section"
+    , (,) 4 <$> inlineCmd "subsection"
+    , (,) 5 <$> inlineCmd "subsubsection"
+    ]
+  anchor' <- registerHeader level'
+  void $ many (choice [skipWhite, skipInterlevel])
+  return (Header level' anchor' title')
+
+registerHeader :: Level -> Parser Anchor
+registerHeader level = do
+  meta <- getMeta
+  let sectionCurrent = incSection level (metaSectionCurrent meta)
+  putMeta (meta { metaSectionCurrent = sectionCurrent
+                , metaAnchorCurrent = SectionAnchor sectionCurrent
+                })
+  return (SectionAnchor sectionCurrent)
 
 -- | Parse an @itemize@ group.
 itemize :: Parser Block
@@ -167,15 +182,22 @@ itemize = List <$> inGrp "itemize" (list (cmd "item") blocks)
 --
 -- Anonymous groups are flattened.
 inlines :: Parser [Inline]
-inlines = concat <$> many (count 1 inline <|> inGrp "" inlines)
+inlines = concat <$> many (choice
+  [ count 1 inline
+  , inGrp "" inlines
+  , [] <$ skipInterlevel ])
 
 -- | Parse a single inline element.
 inline :: Parser Inline
-inline = choice [space, str, emph, em, rm, cite]
+inline = choice [space, str, emph, em, rm, cite, ref]
 
 -- Parse inline elements in the first mandatory argument of a command.
 inlineCmd :: String -> Parser [Inline]
 inlineCmd name = inCmd name inlines
+
+-- Parse raw textual label in the first mandatory argument of a command.
+textLabel :: String -> Parser Label
+textLabel name = inCmd name (satisfy isPlain >>= \(Plain xs) -> return (T.pack xs))
 
 -- | Parse whitespace.
 space :: Parser Inline
@@ -206,8 +228,25 @@ cite = do
   let mcite = MultiCite CiteParen [] [] [SingleCite [] [] keys]
   return (Citation mcite Nothing)
 
+-- | Parse @ref@ command.
+ref :: Parser Inline
+ref = flip Pointer Nothing <$> textLabel "ref"
 
----------- Unit parsers
+
+---------- Unit parsers: void inter-level elements
+
+-- | Skip a single inter-level element.
+skipInterlevel :: Parser ()
+skipInterlevel = label
+
+-- | Parse @label@ command.
+label :: Parser ()
+label = do
+  label' <- textLabel "label"
+  modifyMeta (registerAnchorLabel label')
+
+
+---------- Unit parsers: whitespace
 
 -- | Skip a single whitespace element ('White').
 skipSpace :: Parser ()

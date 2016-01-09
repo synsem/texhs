@@ -79,8 +79,8 @@ distributeMetaToContent = mapM distributeMetaToBlock
 distributeMetaToBlock :: Block -> Reader Meta Block
 distributeMetaToBlock (Para xs) =
   Para <$> mapM distributeMetaToInline xs
-distributeMetaToBlock (Header l xs) =
-  Header l <$> mapM distributeMetaToInline xs
+distributeMetaToBlock (Header l a xs) =
+  Header l a <$> mapM distributeMetaToInline xs
 distributeMetaToBlock (List xss) =
   List <$> mapM (mapM distributeMetaToBlock) xss
 
@@ -96,6 +96,9 @@ distributeMetaToInline Space =
 distributeMetaToInline (Citation cit _) =
   asks metaCiteDB >>= \ db ->
   return $ Citation cit (Just (fmtMultiCite db cit))
+distributeMetaToInline (Pointer label _) =
+  asks metaAnchorMap >>= \ db ->
+  return $ Pointer label (M.lookup label db)
 
 -- Stub. Ignores citation mode and pre-/post-notes.
 fmtMultiCite :: CiteDB -> MultiCite -> [Inline]

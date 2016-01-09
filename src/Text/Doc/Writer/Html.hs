@@ -21,11 +21,12 @@ module Text.Doc.Writer.Html
 
 import Data.Monoid
 import Data.Text.Lazy (Text)
+import qualified Data.Text as T
 import Text.Blaze.Html5
-  ( (!), Html, toHtml, docTypeHtml, meta, title
-  , h1, h2, ul, li, p, em)
+  ( (!), Html, toHtml, textValue, docTypeHtml, title
+  , h1, h2, ul, li, p, em, a)
 import Text.Blaze.Html5.Attributes
-  (name, charset, content, style)
+  (name, charset, content, style, href)
 import Text.Blaze.Html.Renderer.Text (renderHtml)
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -49,10 +50,10 @@ convertDoc doc = docTypeHtml $ mkHead doc <> mkBody doc
 -- Create @<head>@ element.
 mkHead :: Doc -> Html
 mkHead doc = H.head $ do
-  meta ! charset "utf-8"
+  H.meta ! charset "utf-8"
   title $ inlines (docTitle doc)
-  meta ! name "viewport" ! content "width=device-width, initial-scale=1.0"
-  meta ! name "generator" ! content "texhs"
+  H.meta ! name "viewport" ! content "width=device-width, initial-scale=1.0"
+  H.meta ! name "generator" ! content "texhs"
 
 
 ---------- content
@@ -75,7 +76,9 @@ inlines = mapM_ inline
 -- Convert a single 'Block' element to HTML.
 block :: Block -> Html
 block (Para xs) = p $ inlines xs
-block (Header level xs) = heading level $ inlines xs
+block (Header level anchor xs) =
+  heading level ! A.id (textValue (anchorURI anchor)) $
+  inlines xs
 block (List xss) = ul $ mapM_ (li . blocks) xss
 
 -- Convert a single 'Inline' element to HTML.
@@ -91,6 +94,11 @@ inline (Citation _ Nothing) =
 inline (Citation _ (Just xs)) =
   H.span ! A.class_ "citation" $
   inlines xs
+inline (Pointer _ Nothing) =
+  error "HTML Writer does not support unprocessed or undefined pointers."
+inline (Pointer _ (Just anchor)) =
+  a ! href (textValue (T.cons '#' (anchorURI anchor))) $
+  toHtml (anchorDescription anchor)
 
 -- Map header level to 'Html' combinator.
 heading :: Level -> Html -> Html

@@ -35,7 +35,7 @@ instance HasMeta SectionDoc where
 
 -- | A 'Section' consists of header information (level, title) and
 -- the content of the section, followed by a list of subsections.
-data Section = Section Level [Inline] [Block] [Section]
+data Section = Section Level Anchor [Inline] [Block] [Section]
   deriving (Eq, Show)
 
 
@@ -51,15 +51,15 @@ doc2secdoc (Doc meta content) = SectionDoc meta (blocks2sections content)
 -- Note: Block elements that precede the first heading are dropped.
 blocks2sections :: [Block] -> [Section]
 blocks2sections [] = []
-blocks2sections (Header hlevel htitle : bls) =
+blocks2sections (Header hlevel hanchor htitle : bls) =
   let (secbody, secs) = break isHeader bls
       (subsecs, aftersec) = break (isHeaderNotWithin hlevel) secs
-  in Section hlevel htitle secbody (blocks2sections subsecs) : blocks2sections aftersec
+  in Section hlevel hanchor htitle secbody (blocks2sections subsecs) : blocks2sections aftersec
 blocks2sections (_:bls) = blocks2sections bls -- drop leading non-headers
 
 -- Test whether a 'Block' is a 'Header' that is not within a given level.
 --
 -- This is used to detect section breaks.
 isHeaderNotWithin :: Level -> Block -> Bool
-isHeaderNotWithin n (Header m _) = m <= n
+isHeaderNotWithin n (Header m _ _) = m <= n
 isHeaderNotWithin _ _ = False

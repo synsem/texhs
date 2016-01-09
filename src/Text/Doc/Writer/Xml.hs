@@ -107,8 +107,10 @@ inlines = mapM_ inline
 
 -- Convert a single 'Section' element to XML.
 section :: Section -> Markup
-section (Section hlevel htitle secbody subsecs) =
-  el "div" ! attr "type" (textValue (levelname hlevel)) $ do
+section (Section hlevel hanchor htitle secbody subsecs) =
+  el "div" !
+  attr "xml:id" (textValue (anchorURI hanchor)) !
+  attr "type" (textValue (levelname hlevel)) $ do
     el "head" $ inlines htitle
     blocks secbody
     sections subsecs
@@ -126,7 +128,7 @@ levelname i = fromMaybe "unknown" (lookup i (zip [1..] levels))
 -- all header information is collected in Section elements.
 block :: Block -> Markup
 block (Para xs) = p $ inlines xs
-block (Header _ xs) = el "head" $ inlines xs
+block (Header _ _ xs) = el "head" $ inlines xs
 block (List xss) = el "list" $ mapM_ (el "item" . blocks) xss
 
 -- Convert a single 'Inline' element to XML.
@@ -142,6 +144,11 @@ inline (Citation _ Nothing) =
 inline (Citation _ (Just xs)) =
   el "ref" ! attr "type" "citation" $
   inlines xs
+inline (Pointer _ Nothing) =
+  error "XML Writer does not support unprocessed or undefined pointers."
+inline (Pointer _ (Just anchor)) =
+  el "ref" ! attr "target" (textValue (T.cons '#' (anchorURI anchor))) $
+  text (anchorDescription anchor)
 
 
 ---------- String to text helper functions
