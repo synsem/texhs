@@ -41,6 +41,7 @@ data OutputFormat
   | HTML
   | NativeTokens
   | NativeTeX
+  | NativeDoc
   | InvalidFormat String
   deriving (Eq, Show)
 
@@ -92,6 +93,7 @@ parseOutputFormat xs =
     "html" -> HTML
     "itok" -> NativeTokens
     "itex" -> NativeTeX
+    "idoc" -> NativeDoc
     _ -> InvalidFormat xs
 
 parseOptions :: String -> [String] -> IO (Options, [String])
@@ -116,6 +118,7 @@ runConversion opts filename = do
       (readFile filename >>= lexTeXIO filename) >>= output opts
     NativeTeX -> T.pack . show <$>
       (readFile filename >>= readTeXIO filename) >>= output opts
+    NativeDoc -> T.pack . show <$> parseDoc filename bib >>= output opts
     InvalidFormat fmt -> error $ "invalid or unsupported format: " ++ fmt
 
 parseBib :: FilePath -> IO (Maybe BibDB)
