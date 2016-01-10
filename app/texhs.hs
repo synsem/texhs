@@ -22,6 +22,7 @@ import Control.Applicative ((<$>), (*>))
 #endif
 import Data.Char (toLower)
 import Data.Text.Lazy (Text)
+import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.IO as T
 import System.Console.GetOpt
 import System.Environment (getArgs, getProgName)
@@ -29,6 +30,7 @@ import System.IO
 
 import Text.Bib (BibDB, fromBibTeXFile)
 import Text.TeX (readTeXIO)
+import Text.TeX.Lexer (lexTeXIO)
 import Text.Doc (Doc, tex2docWithBib, doc2xml, doc2html)
 
 
@@ -37,6 +39,7 @@ import Text.Doc (Doc, tex2docWithBib, doc2xml, doc2html)
 data OutputFormat
   = XML
   | HTML
+  | NativeTokens
   | InvalidFormat String
   deriving (Eq, Show)
 
@@ -86,6 +89,7 @@ parseOutputFormat xs =
   case map toLower xs of
     "xml" -> XML
     "html" -> HTML
+    "itok" -> NativeTokens
     _ -> InvalidFormat xs
 
 parseOptions :: String -> [String] -> IO (Options, [String])
@@ -103,10 +107,11 @@ usageHeader name = "Usage: " ++ name ++ " [options] texfile"
 runConversion :: Options -> String -> IO ()
 runConversion opts filename = do
   bib <- maybe (return Nothing) parseBib (optBibFile opts)
-  doc <- parseDoc filename bib
   case optOutputFormat opts of
-    HTML -> output opts (doc2html doc)
-    XML -> output opts (doc2xml doc)
+    HTML -> doc2html <$> parseDoc filename bib >>= output opts
+    XML -> doc2xml <$> parseDoc filename bib >>= output opts
+    NativeTokens -> T.pack . show <$>
+      (readFile filename >>= lexTeXIO filename) >>= output opts
     InvalidFormat fmt -> error $ "invalid or unsupported format: " ++ fmt
 
 parseBib :: FilePath -> IO (Maybe BibDB)
