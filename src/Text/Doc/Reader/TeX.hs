@@ -201,7 +201,7 @@ textLabel name = inCmd name (satisfy isPlain >>= \(Plain xs) -> return (T.pack x
 
 -- | Parse whitespace.
 space :: Parser Inline
-space = Space <$ satisfy isWhite
+space = Space <$ lexeme (satisfy isWhite)
 
 -- | Parse character data.
 str :: Parser Inline

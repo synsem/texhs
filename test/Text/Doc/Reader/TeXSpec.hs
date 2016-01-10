@@ -41,6 +41,7 @@ tests = testGroup "Text.Doc.Reader.TeXSpec"
   , testsInlines
   , testsLists
   , testsCrossrefs
+  , testsWhitespace
   ]
 
 testsBasic :: Test
@@ -158,6 +159,21 @@ testsCrossrefs = testGroup "cross-references"
       [Command "label" [OblArg [Plain "mylabel"]]]
     @?=
     Right []
+  , testCase "labels between spaces do not prevent whitespace conflation" $
+    runParser (inlines <* eof)
+      [White, Command "label" [OblArg [Plain "mylabel"]], White]
+    @?=
+    Right [Space]
+  , testCase "spaces after labels are not dropped" $
+    runParser (inlines <* eof)
+      [Plain "a", Command "label" [OblArg [Plain "mylabel"]], White]
+    @?=
+    Right [Str "a", Space]
+  , testCase "spaces after labels are conflated" $
+    runParser (inlines <* eof)
+      [Plain "a", Command "label" [OblArg [Plain "mylabel"]], White, White]
+    @?=
+    Right [Str "a", Space]
   , testCase "labels between plain strings are dropped by inlines parser" $
     runParser (inlines <* eof)
       [ Plain "a"
@@ -202,6 +218,24 @@ testsCrossrefs = testGroup "cross-references"
     Just (SectionAnchor [0,0,2,1,0,0])
   ]
 
+testsWhitespace :: Test
+testsWhitespace = testGroup "whitespace"
+  [ testCase "inline whitespace is conflated" $
+    runParser (inlines <* eof)
+      [White, White]
+    @?=
+    Right [Space]
+  , testCase "inline whitespace within paragraphs is conflated" $
+    runParser (blocks <* eof)
+      [Plain "a", White, White, Plain "b"]
+    @?=
+    Right [Para [Str "a", Space, Str "b"]]
+  , testCase "whitespace after paragraphs is dropped" $
+    runParser (blocks <* eof)
+      [Plain "a", Par, White, Plain "b"]
+    @?=
+    Right [Para [Str "a"], Para [Str "b"]]
+  ]
 
 -------------------- examples
 
