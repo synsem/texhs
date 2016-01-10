@@ -222,6 +222,10 @@ testsWhitespace = testGroup "whitespace"
     parseTeX "" [mkLetter 'a', CtrlSeq " " False, mkLetter 'b']
     @?=
     [Plain "a", White, Plain "b"]
+  , testCase "interpret control newline" $
+    parseTeX "" [mkLetter 'a', CtrlSeq "\n" False, mkLetter 'b']
+    @?=
+    [Plain "a", White, Plain "b"]
   ]
 
 testsSyntactic :: Test
