@@ -145,6 +145,10 @@ testsActiveChars = testGroup "active characters"
     parseTeX "" (mkString "ab" ++ [CtrlSeq "~" True] ++ mkString "cd")
     @?=
     [Plain "ab", Plain "\x00A0", Plain "cd"]
+  , testCase "allow non-breaking space in named environments" $
+    parseTeX "" (mkEnv "a" [CtrlSeq "~" True])
+    @?=
+    [Group "a" [] [Plain "\x00A0"]]
   ]
 
 testsWhitespace :: Test

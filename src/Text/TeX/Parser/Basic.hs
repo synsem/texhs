@@ -158,17 +158,25 @@ optargInner :: TeXParser TeXAtom
 optargInner = choice [plainExcept "[]", group, command, white, alignMark,
                       mathgroup, subscript, supscript]
 
--- | Parse a control sequence.
+-- | Parse a control sequence or an active character.
 command :: TeXParser TeXAtom
-command = choice
-  [ ctrlseq >>= processCtrlseq
-  , activechar >>= processActiveChar]
+command = commandCtrlseq <|> commandActiveChar
 
+-- | Parse an active character.
+commandActiveChar :: TeXParser TeXAtom
+commandActiveChar = activechar >>= processActiveChar
+
+-- Interpret an active character.
 processActiveChar :: String -> TeXParser TeXAtom
 processActiveChar name = case name of
   "~" -> return (Plain "\x00A0") -- NO-BREAK SPACE
   _ -> parserFail ("Encountered unknown active character: " ++ name)
 
+-- | Parse a control sequence.
+commandCtrlseq :: TeXParser TeXAtom
+commandCtrlseq = ctrlseq >>= processCtrlseq
+
+-- Interpret a control sequence.
 processCtrlseq :: String -> TeXParser TeXAtom
 processCtrlseq name = case name of
   "par" -> return Par
@@ -230,12 +238,12 @@ env = do
 -- Parse the body of an environment.
 envInner :: String -> TeXParser [TeXAtom]
 envInner name = commandEnvInner name <|> ((:) <$>
-  -- like 'atom' but without 'command'
-  choice [plain, group, white, alignMark,
+  -- like 'atom' but without 'commandCtrlseq' (in 'command')
+  choice [plain, group, commandActiveChar, white, alignMark,
           mathgroup, subscript, supscript] <*>
   envInner name)
 
--- Parse a command inside the body of an environment.
+-- Parse a command (control sequence) inside the body of an environment.
 commandEnvInner :: String -> TeXParser [TeXAtom]
 commandEnvInner name = do
   cname <- ctrlseq
