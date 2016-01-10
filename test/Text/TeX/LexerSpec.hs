@@ -945,6 +945,10 @@ testsActiveChars = testGroup "active characters"
     lexTeX "" "\\catcode`|=13\\def|{a}|||"
     @?=
     replicate 3 (TeXChar 'a' Letter)
+  , testCase "macro bodies may contain active characters" $
+    lexTeX "" "\\def\\a#1{~#1~}\\a{b}"
+    @?=
+    [CtrlSeq "~" True, TeXChar 'b' Letter, CtrlSeq "~" True]
   ]
 
 testsChar :: Test

@@ -211,7 +211,7 @@ ctrlseqNoExpand :: Monad m => LexerT m Token
 ctrlseqNoExpand = ctrlseqT <|> ctrlseqC <|> activeC
 
 ctrlseqT :: Monad m => LexerT m Token
-ctrlseqT = satisfyToken isCtrlSeq
+ctrlseqT = satisfyToken isCtrlSeq <|> satisfyToken isActiveChar
 
 ctrlseqC :: Monad m => LexerT m Token
 ctrlseqC = do
