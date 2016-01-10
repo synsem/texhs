@@ -146,7 +146,7 @@ block = choice [header, itemize, para]
 
 -- | Parse a single (non-empty) paragraph.
 para :: Parser Block
-para = Para <$> (some inline <* optional skipPar)
+para = Para <$> ((:) <$> inline <*> inlines <* optional skipPar)
 
 -- | Parse a chapter or section heading.
 header :: Parser Block

@@ -158,6 +158,20 @@ testsCrossrefs = testGroup "cross-references"
       [Command "label" [OblArg [Plain "mylabel"]]]
     @?=
     Right []
+  , testCase "labels between plain strings are dropped by inlines parser" $
+    runParser (inlines <* eof)
+      [ Plain "a"
+      , Command "label" [OblArg [Plain "mylabel"]]
+      , Plain "b"]
+    @?=
+    Right [Str "a", Str "b"]
+  , testCase "labels between plain strings are dropped by blocks parser" $
+    runParser (blocks <* eof)
+      [ Plain "a"
+      , Command "label" [OblArg [Plain "mylabel"]]
+      , Plain "b"]
+    @?=
+    Right [Para [Str "a", Str "b"]]
   , testCase "simple pointer with undefined target" $
     runParser block
       [Command "ref" [OblArg [Plain "nosuchtarget"]]]
