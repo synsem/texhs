@@ -92,6 +92,11 @@ test-suite texhs-test
   hs-source-dirs:    test
   type:              exitcode-stdio-1.0
   main-is:           Spec.hs
+  other-modules:     Text.BibSpec
+                     Text.Doc.Reader.TeXSpec
+                     Text.TeX.LexerSpec
+                     Text.TeX.ParserSpec
+                     Text.TeXSpec
   build-depends:     base                 >=4.5 && <4.9,
                      containers           >=0.5 && <0.6,
                      HUnit                >=1.2 && <1.4,
