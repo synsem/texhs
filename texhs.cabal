@@ -94,6 +94,8 @@ test-suite texhs-test
   main-is:           Spec.hs
   other-modules:     Text.BibSpec
                      Text.Doc.Reader.TeXSpec
+                     Text.Doc.Writer.HtmlSpec
+                     Text.Doc.Writer.XmlSpec
                      Text.TeX.LexerSpec
                      Text.TeX.ParserSpec
                      Text.TeXSpec

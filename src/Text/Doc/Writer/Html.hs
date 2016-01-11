@@ -16,6 +16,8 @@
 module Text.Doc.Writer.Html
  ( -- * Doc to HTML Conversion
    doc2html
+ , blocks2html
+ , inlines2html
  ) where
 
 
@@ -43,6 +45,14 @@ doc2html = renderHtml . convertDoc
 -- Convert 'Doc' to 'Html' type.
 convertDoc :: Doc -> Html
 convertDoc doc = docTypeHtml $ mkHead doc <> mkBody doc
+
+-- | Convert 'Block' elements to an HTML fragment.
+blocks2html :: [Block] -> Text
+blocks2html = renderHtml . blocks
+
+-- | Convert 'Inline' elements to an HTML fragment.
+inlines2html :: [Inline] -> Text
+inlines2html = renderHtml . inlines
 
 
 ---------- meta

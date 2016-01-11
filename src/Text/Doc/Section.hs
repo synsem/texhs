@@ -18,6 +18,7 @@ module Text.Doc.Section
   , Section(..)
     -- * Conversion
   , doc2secdoc
+  , blocks2sections
   ) where
 
 import Text.Doc.Types
@@ -46,7 +47,7 @@ data Section = Section Level Anchor [Inline] [Block] [Section]
 doc2secdoc :: Doc -> SectionDoc
 doc2secdoc (Doc meta content) = SectionDoc meta (blocks2sections content)
 
--- Group a list of blocks into sections.
+-- | Group a list of blocks into sections.
 --
 -- Note: Block elements that precede the first heading are dropped.
 blocks2sections :: [Block] -> [Section]

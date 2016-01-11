@@ -16,6 +16,9 @@
 module Text.Doc.Writer.Xml
  ( -- * Doc to XML Conversion
    doc2xml
+ , sections2xml
+ , blocks2xml
+ , inlines2xml
  ) where
 
 import Data.Maybe (fromMaybe)
@@ -42,6 +45,23 @@ convertDoc doc =
   (preEscapedText "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" <>) $
   el "TEI" ! attr "xmlns" "http://www.tei-c.org/ns/1.0" $
   header doc <> content doc
+
+-- | Convert 'Section' elements to an XML fragment.
+sections2xml :: [Section] -> LT.Text
+sections2xml = renderMarkup . sections
+
+-- | Convert 'Block' elements to an XML fragment.
+--
+-- Note: This function does not convert blocks to sections
+-- and thus will not create section elements for headers.
+-- For a proper rendering of headers, use 'blocks2sections'
+-- and 'sections2xml' instead.
+blocks2xml :: [Block] -> LT.Text
+blocks2xml = renderMarkup . blocks
+
+-- | Convert 'Inline' elements to an XML fragment.
+inlines2xml :: [Inline] -> LT.Text
+inlines2xml = renderMarkup . inlines
 
 
 ---------- meta

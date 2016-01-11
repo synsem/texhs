@@ -13,6 +13,8 @@ import Test.Framework (Test, defaultMain)
 
 import qualified Text.BibSpec
 import qualified Text.Doc.Reader.TeXSpec
+import qualified Text.Doc.Writer.HtmlSpec
+import qualified Text.Doc.Writer.XmlSpec
 import qualified Text.TeX.LexerSpec
 import qualified Text.TeX.ParserSpec
 import qualified Text.TeXSpec
@@ -25,6 +27,8 @@ tests :: [Test]
 tests =
   [ Text.BibSpec.tests
   , Text.Doc.Reader.TeXSpec.tests
+  , Text.Doc.Writer.HtmlSpec.tests
+  , Text.Doc.Writer.XmlSpec.tests
   , Text.TeX.LexerSpec.tests
   , Text.TeX.ParserSpec.tests
   , Text.TeXSpec.tests
