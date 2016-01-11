@@ -39,6 +39,7 @@ doc2xml = renderMarkup . convertDoc . doc2secdoc
 -- Convert 'SectionDoc' to XML 'Markup'.
 convertDoc :: SectionDoc -> Markup
 convertDoc doc =
+  (preEscapedText "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" <>) $
   el "TEI" ! attr "xmlns" "http://www.tei-c.org/ns/1.0" $
   header doc <> content doc
 
