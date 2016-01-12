@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 ----------------------------------------------------------------------
 -- |
 -- Module      :  Text.TeX.Filter
@@ -38,11 +39,15 @@ module Text.TeX.Filter
   , replaceLigatures
   ) where
 
+#if MIN_VERSION_base(4,8,0)
+import Data.Monoid (First(..))
+#else
+import Data.Monoid (Monoid(..), First(..))
+#endif
 import Data.Char (isMark)
 import Data.List (sortBy, stripPrefix)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
-import Data.Monoid (First(..))
 import Data.Ord (comparing)
 
 import qualified Text.TeX.Filter.Plain as Plain

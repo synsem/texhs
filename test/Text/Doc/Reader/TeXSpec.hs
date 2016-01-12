@@ -18,7 +18,7 @@ module Text.Doc.Reader.TeXSpec
 #if MIN_VERSION_base(4,8,0)
 -- Prelude exports all required operators from Control.Applicative
 #else
-import Control.Applicative ((<$>), (<*>), (*>))
+import Control.Applicative ((<$>), (<*>), (<*), (*>))
 #endif
 import qualified Data.Map.Strict as M
 import Test.Framework (Test, testGroup)
