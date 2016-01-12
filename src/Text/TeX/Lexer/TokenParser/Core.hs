@@ -59,7 +59,7 @@ import Control.Monad (MonadPlus)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (MonadTrans, lift)
 import Data.Functor.Identity (Identity, runIdentity)
-import Data.Time (getZonedTime, formatTime, defaultTimeLocale)
+import Data.Time (ZonedTime, getZonedTime)
 import System.FilePath ((<.>), (</>))
 import System.Directory
   (getCurrentDirectory, getPermissions, findFilesWith, readable)
@@ -80,13 +80,12 @@ import Text.TeX.Lexer.TokenParser.State
 -- like @\\input@ or @\\year@.
 class Monad m => HandleTeXIO m where
   handleReadFile :: FilePath -> m String
-  handleReadDate :: m String
+  handleReadDate :: m (Maybe ZonedTime)
 
 -- Execute IO actions.
 instance HandleTeXIO IO where
   handleReadFile = liftIO . readTeXFile
-  handleReadDate =
-    formatTime defaultTimeLocale "%Y-%m-%d %H:%M" <$> liftIO getZonedTime
+  handleReadDate = Just <$> liftIO getZonedTime
 
 -- Read a TeX file.
 -- Appends ".tex" if the provided filename does not exist.
@@ -102,7 +101,7 @@ readTeXFile filename = do
 -- Silently ignore all requests for IO actions.
 instance HandleTeXIO Identity where
   handleReadFile _ = return ""
-  handleReadDate = return ""
+  handleReadDate = return Nothing
 
 instance HandleTeXIO m => HandleTeXIO (ParsecT s u m) where
   handleReadFile = lift . handleReadFile

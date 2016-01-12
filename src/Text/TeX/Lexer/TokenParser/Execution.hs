@@ -25,6 +25,8 @@ import Control.Applicative ((<*), (<*>), (*>), (<$), (<$>))
 #endif
 import Control.Monad ((>=>))
 import Data.Maybe (fromMaybe)
+import Data.Time (formatTime, defaultTimeLocale,
+  ZonedTime(..), LocalTime(..), TimeOfDay(..))
 
 import Text.TeX.Lexer.Catcode
 import Text.TeX.Lexer.Macro
@@ -118,7 +120,10 @@ primitiveMeanings =
   , ("renewenvironment", newenvironment MacroRenew)
   , ("input", readInputFile)
   , ("include", readInputFile)
-  , ("date", mkString <$> handleReadDate)
+  , ("year", fmtDate "%Y")
+  , ("month", fmtDate "%-m") -- no padding
+  , ("day", fmtDate "%-d")   -- no padding
+  , ("time", fmtTime)
   , ("meaning", meaning)
   , ("undefined", error "undefined control sequence")
   ]
@@ -144,6 +149,23 @@ executePrimitive name = fromMaybe throwError $ lookup name primitiveMeanings
 
 readInputFile :: HandleTeXIO m => LexerT m [Token]
 readInputFile = [] <$ (filename >>= (handleReadFile >=> prependString))
+
+---------- Builtin macros: date and time
+
+-- Convert current datetime to a string representation,
+-- using 'formatTime'.
+fmtDate :: HandleTeXIO m => String -> LexerT m [Token]
+fmtDate fmt =
+  let dateFormat = formatTime defaultTimeLocale fmt
+  in (mkString . maybe "" dateFormat) <$> handleReadDate
+
+-- Calculate time of day in minutes since midnight
+-- for the TeX primitive @time@.
+fmtTime :: HandleTeXIO m => LexerT m [Token]
+fmtTime =
+  let toMinutes tod =  60 * todHour tod + todMin tod
+      getMinutes = show . toMinutes . localTimeOfDay . zonedTimeToLocalTime
+  in (mkString . maybe "" getMinutes) <$> handleReadDate
 
 ---------- Builtin macros: meaning
 

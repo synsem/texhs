@@ -114,7 +114,10 @@ defaultPrimitives = map wrapPrim
   , "renewenvironment"
   , "input"
   , "include"
-  , "date"
+  , "year"
+  , "month"
+  , "day"
+  , "time"
   , "meaning"
   , "undefined"
     -- primitive constants
