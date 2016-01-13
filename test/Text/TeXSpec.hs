@@ -27,6 +27,7 @@ tests :: Test
 tests = testGroup "Text.TeXSpec"
   [ testsBasic
   , testsWhitespace
+  , testsLists
   ]
 
 testsBasic :: Test
@@ -135,4 +136,20 @@ testsWhitespace = testGroup "whitespace"
     readTeX "" "a\\ \\ \\  b"
     @?=
     [Plain "a", White, Plain "b"]
+  ]
+
+testsLists :: Test
+testsLists = testGroup "lists"
+  [ testCase "simple list" $
+    readTeX "" "\\begin{itemize}\\item one\\item two\\end{itemize}"
+    @?=
+    [Group "itemize" []
+      [Command "item" [], Plain "one"
+      ,Command "item" [], Plain "two"]]
+  , testCase "par within list item" $
+    readTeX "" "\\begin{itemize}\\item one\n\none\\item two\\end{itemize}"
+    @?=
+    [Group "itemize" []
+      [Command "item" [], Plain "one", Par, Plain "one"
+      ,Command "item" [], Plain "two"]]
   ]
