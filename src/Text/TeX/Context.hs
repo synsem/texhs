@@ -35,6 +35,7 @@ module Text.TeX.Context
     -- ** Commands
   , cmd
   , inCmd
+  , cmdTwoOblArgs
     -- ** Groups
   , grp
   , inGrp

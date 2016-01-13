@@ -28,6 +28,7 @@ tests = testGroup "Text.TeXSpec"
   [ testsBasic
   , testsWhitespace
   , testsLists
+  , testsCmdArgs
   ]
 
 testsBasic :: Test
@@ -152,4 +153,21 @@ testsLists = testGroup "lists"
     [Group "itemize" []
       [Command "item" [], Plain "one", Par, Plain "one"
       ,Command "item" [], Plain "two"]]
+  ]
+
+testsCmdArgs :: Test
+testsCmdArgs = testGroup "command arguments"
+  [ testCase "rm takes no arguments" $
+    readTeX "" "\\rm[one]{two}"
+    @?= [Command "rm" [], Plain "[one]", Group "" [] [Plain "two"]]
+  , testCase "textit takes one mandatory argument" $
+    readTeX "" "\\textit{one}{two}"
+    @?= [Command "textit" [OblArg [Plain "one"]], Group "" [] [Plain "two"]]
+  , testCase "href takes two mandatory arguments" $
+    readTeX "" "\\href{one}{two}{three}"
+    @?=
+    [Command "href"
+      [OblArg [Plain "one"]
+      ,OblArg [Plain "two"]]
+    ,Group "" [] [Plain "three"]]
   ]

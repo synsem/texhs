@@ -98,9 +98,11 @@ distributeMetaToInline Space =
 distributeMetaToInline (Citation cit _) =
   asks metaCiteDB >>= \ db ->
   return $ Citation cit (Just (fmtMultiCite db cit))
-distributeMetaToInline (Pointer label _) =
+distributeMetaToInline (Pointer label Nothing) =
   asks metaAnchorMap >>= \ db ->
-  return $ Pointer label (M.lookup label db)
+  return $ Pointer label (InternalResource <$> M.lookup label db)
+distributeMetaToInline p@(Pointer _ (Just _)) =
+  return p
 
 -- Stub. Ignores citation mode and pre-/post-notes.
 fmtMultiCite :: CiteDB -> MultiCite -> [Inline]

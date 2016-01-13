@@ -101,6 +101,11 @@ testsInlines = testGroup "inlines"
     inlines2html [Str "hello", Space, Emph [Str "world"]]
     @?=
     "hello <em>world</em>"
+  , testCase "link to external resource" $
+    inlines2html [Pointer "external" (Just (ExternalResource
+      [Str "some", Space, Str "description"] "http://example.com/"))]
+    @?=
+    "<a href=\"http://example.com/\">some description</a>"
   ]
 
 

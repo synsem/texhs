@@ -36,7 +36,7 @@ instance HasMeta SectionDoc where
 
 -- | A 'Section' consists of header information (level, title) and
 -- the content of the section, followed by a list of subsections.
-data Section = Section Level Anchor [Inline] [Block] [Section]
+data Section = Section Level InternalAnchor [Inline] [Block] [Section]
   deriving (Eq, Show)
 
 

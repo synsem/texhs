@@ -130,7 +130,7 @@ inlines = mapM_ inline
 section :: Section -> Markup
 section (Section hlevel hanchor htitle secbody subsecs) =
   el "div" !
-  attr "xml:id" (textValue (anchorURI hanchor)) !
+  attr "xml:id" (textValue (anchorID hanchor)) !
   attr "type" (textValue (levelname hlevel)) $ do
     el "head" $ inlines htitle
     blocks secbody
@@ -177,8 +177,8 @@ inline (Citation _ (Just xs)) =
 inline (Pointer _ Nothing) =
   error "XML Writer does not support unprocessed or undefined pointers."
 inline (Pointer _ (Just anchor)) =
-  el "ref" ! attr "target" (textValue (T.cons '#' (anchorURI anchor))) $
-  text (anchorDescription anchor)
+  el "ref" ! attr "target" (textValue (anchorTarget anchor)) $
+  inlines (anchorDescription anchor)
 
 
 ---------- String to text helper functions

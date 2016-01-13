@@ -126,4 +126,9 @@ testsInlines = testGroup "inlines"
     inlines2xml [Str "hello", Space, Emph [Str "world"]]
     @?=
     "hello <emph>world</emph>"
+  , testCase "link to external resource" $
+    inlines2xml [Pointer "external" (Just (ExternalResource
+      [Str "some", Space, Str "description"] "http://example.com/"))]
+    @?=
+    "<ref target=\"http://example.com/\">some description</ref>"
   ]

@@ -25,8 +25,11 @@ module Text.Doc.Types
   , CiteEntry(..)
   , registerCiteKeys
   , Label
+  , Location
   , Anchor(..)
-  , anchorURI
+  , InternalAnchor(..)
+  , anchorID
+  , anchorTarget
   , anchorDescription
   , registerAnchorLabel
   , incSection
@@ -59,7 +62,7 @@ module Text.Doc.Types
   , stripInlines
   ) where
 
-import Data.List (dropWhileEnd, intersperse)
+import Data.List (dropWhileEnd, intersperse, intercalate)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import Data.Text (Text)
@@ -83,8 +86,8 @@ data Meta = Meta
   , metaCiteDB :: CiteDB
   , metaCiteMap :: Map CiteKey Int
   , metaCiteCount :: Int
-  , metaAnchorCurrent :: Anchor
-  , metaAnchorMap :: Map Label Anchor
+  , metaAnchorCurrent :: InternalAnchor
+  , metaAnchorMap :: Map Label InternalAnchor
   , metaSectionCurrent :: [Int]
   } deriving (Eq, Show)
 
@@ -114,29 +117,57 @@ instance HasMeta Doc where
 
 -- | An anchor is a location in a document
 -- that can be the target of a 'Pointer'.
--- Anchors and pointers are used to model cross-references.
 data Anchor
+  = InternalResource InternalAnchor
+  | ExternalResource [Inline] Location
+  deriving (Eq, Show)
+
+-- | An internal anchor is a location within the current document.
+--
+-- Internal anchors and pointers are used to model cross-references.
+data InternalAnchor
   = DocumentAnchor -- initial anchor in a document
   | SectionAnchor [Int]
   deriving (Eq, Show)
 
 -- | Generate identifying string for an anchor.
-anchorURI :: Anchor -> Text
-anchorURI DocumentAnchor = ""
-anchorURI (SectionAnchor xs) = T.concat $ zipWith T.append
+--
+-- This can be used for @xml:id@ attributes.
+anchorID :: InternalAnchor -> Text
+anchorID DocumentAnchor = ""
+anchorID (SectionAnchor xs) = T.concat $ zipWith T.append
   ["Pt", "Ch", "S", "s", "ss", "p"]
   (map (T.pack . show) xs)
 
--- | Generate description text for an anchor.
-anchorDescription :: Anchor -> Text
-anchorDescription DocumentAnchor = "start"
-anchorDescription (SectionAnchor xs) = T.intercalate "." (map (T.pack . show) xs)
+-- | Generate target location string for an anchor.
+--
+-- This can be used for @href@ attributes in HTML hyperlinks.
+anchorTarget :: Anchor -> Text
+anchorTarget (InternalResource i) = T.cons '#' (anchorID i)
+anchorTarget (ExternalResource _ loc) = loc
 
--- | A label is a name of an anchor.
+-- | Generate description text for an anchor.
+anchorDescription :: Anchor -> [Inline]
+anchorDescription (InternalResource i) = internalAnchorDescription i
+anchorDescription (ExternalResource l _) = l
+
+-- Generate description text for an internal anchor.
+--
+-- Helper for 'anchorDescription'.
+internalAnchorDescription :: InternalAnchor -> [Inline]
+internalAnchorDescription DocumentAnchor = [Str "start"]
+internalAnchorDescription (SectionAnchor xs) = [Str (intercalate "." (map show xs))]
+
+-- | A label is a name of an internal anchor.
 --
 -- In particular, it can be used by a 'Pointer' as
--- a way to refer to an 'Anchor' in the document.
+-- a way to refer to an 'InternalAnchor' in the document.
 type Label = Text
+
+-- | A description of the location of a resource, typically an URI.
+--
+-- This is used as the link target of an 'ExternalResource'.
+type Location = Text
 
 -- | Assign a label to the current anchor
 -- in the document meta information.
@@ -201,7 +232,7 @@ data ListType = UnorderedList | OrderedList
 -- | Block elements in a 'Doc' document.
 data Block
   = Para [Inline]
-  | Header Level Anchor [Inline]
+  | Header Level InternalAnchor [Inline]
   | List ListType [[Block]]
   | QuotationBlock [Block]
   deriving (Eq, Show)

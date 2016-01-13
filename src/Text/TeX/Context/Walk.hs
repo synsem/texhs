@@ -32,6 +32,7 @@ module Text.TeX.Context.Walk
   , cmd
   , inCmd
   , cmdDown
+  , cmdTwoOblArgs
     -- * Group parsers
     -- ** Specific group
   , grp
@@ -178,7 +179,22 @@ inCmd n p = cmdDown n *> p <* safeUp
 -- | Descend into the first mandatory argument of a specific command
 -- (all other arguments are dropped).
 cmdDown :: String -> Parser ()
-cmdDown n = step (testHeadErr (isCmd n)) *> step intoCmdArg
+cmdDown n = peek (isCmd n) *> step intoCmdArg
+
+-- Note: We are not creating an isolated context for the argument.
+-- Parsers are expected to operate on the focus value only (no 'up').
+--
+-- | Apply parser to the n-th mandatory argument of a command,
+-- without consuming the command.
+cmdPeekOblArg :: Int -> Parser a -> Parser a
+cmdPeekOblArg n p = step (peekOblArg n) *> p <* safeUp
+
+-- | Parse a specific command and apply two parsers
+-- to its first two mandatory arguments.
+cmdTwoOblArgs :: String -> Parser a -> Parser b -> Parser (a,b)
+cmdTwoOblArgs n p0 p1 = (,) <$> (peek (isCmd n) *>
+  cmdPeekOblArg 0 p0) <*>
+  cmdPeekOblArg 1 p1 <* cmd n
 
 
 ---------- Group parsers
@@ -193,7 +209,7 @@ inGrp n p = grpDown n *> p <* safeUp
 
 -- | Descend into a specific group (ignoring all group arguments).
 grpDown :: String -> Parser ()
-grpDown n = step (testHeadErr (isGrp n)) *> goDown
+grpDown n = peek (isGrp n) *> goDown
 
 -- Apply parser inside a group (any group).
 -- The parser must exhaust the group content.

@@ -30,6 +30,7 @@ module Text.TeX.Context.Types
   , down
   , up
   , intoCmdArg
+  , peekOblArg
     -- ** Extractors
   , getHead
     -- ** Manipulate context
@@ -107,6 +108,14 @@ intoCmdArg :: TeXStep
 intoCmdArg (Context (Command _ args : xs) nxt) =
   return (Context (getOblArg 0 args) (xs:nxt))
 intoCmdArg ctx = failStep ctx
+
+-- | Focus on a mandatory argument of a command.
+--
+-- The original command is preserved as the parent.
+peekOblArg :: Int -> TeXStep
+peekOblArg n (Context foc@(Command _ args:_) nxt) =
+  return (Context (getOblArg n args) (foc:nxt))
+peekOblArg _ ctx = failStep ctx
 
 -- | Extract head of focus.
 getHead :: TeXContext -> Either TeXDocError TeXAtom

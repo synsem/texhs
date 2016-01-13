@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 ----------------------------------------------------------------------
 -- |
 -- Module      :  Text.Doc.Reader.TeX
@@ -164,7 +165,7 @@ header = do
   void $ many (choice [skipWhite, skipInterlevel])
   return (Header level' anchor' title')
 
-registerHeader :: Level -> Parser Anchor
+registerHeader :: Level -> Parser InternalAnchor
 registerHeader level = do
   meta <- getMeta
   let sectionCurrent = incSection level (metaSectionCurrent meta)
@@ -202,7 +203,7 @@ inlines = concat <$> many (choice
 
 -- | Parse a single inline element.
 inline :: Parser Inline
-inline = choice [space, str, emph, em, rm, cite, ref]
+inline = choice [space, str, emph, em, rm, cite, ref, href, url]
 
 -- Parse inline elements in the first mandatory argument of a command.
 inlineCmd :: String -> Parser [Inline]
@@ -210,7 +211,7 @@ inlineCmd name = inCmd name inlines
 
 -- Parse raw textual label in the first mandatory argument of a command.
 textLabel :: String -> Parser Label
-textLabel name = inCmd name (satisfy isPlain >>= \(Plain xs) -> return (T.pack xs))
+textLabel name = inCmd name (T.pack <$> plainValue)
 
 -- | Parse whitespace.
 space :: Parser Inline
@@ -218,7 +219,7 @@ space = Space <$ lexeme (satisfy isWhite)
 
 -- | Parse character data.
 str :: Parser Inline
-str = Str <$> (satisfy isPlain >>= \(Plain xs) -> return xs)
+str = Str <$> plainValue
 
 -- | Parse @emph@ command.
 emph :: Parser Inline
@@ -244,6 +245,25 @@ cite = do
 -- | Parse @ref@ command.
 ref :: Parser Inline
 ref = flip Pointer Nothing <$> textLabel "ref"
+
+-- | Parse @href@ command from @hyperref@ package.
+href :: Parser Inline
+href = do
+  (url', description) <- cmdTwoOblArgs "href" (T.pack <$> plainValue) inlines
+  return (Pointer "external" (Just (ExternalResource description url')))
+
+-- | Parse @url@ command from @hyperref@ package.
+url :: Parser Inline
+url = do
+  url' <- textLabel "url"
+  return (Pointer "external" (Just (ExternalResource [Str (T.unpack url')] url')))
+
+
+---------- Argument parsers
+
+-- | Parse the textual content of a single 'Plain' element.
+plainValue :: Parser String
+plainValue = satisfy isPlain >>= \(Plain xs) -> return xs
 
 
 ---------- Unit parsers: void inter-level elements

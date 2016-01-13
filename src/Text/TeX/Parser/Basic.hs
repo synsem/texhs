@@ -196,10 +196,16 @@ commandDB :: Map String (Int, Int)
 commandDB = M.union argspecsSyntactic argspecsSemantic
   where
     argspecsSemantic = M.fromList
-      [ ("rm", (0,0))
+      [ -- Plain TeX
+        ("rm", (0,0))
       , ("it", (0,0))
+        -- LaTeX
       , ("textrm", (0,1))
-      , ("textit", (0,1))]
+      , ("textit", (0,1))
+        -- hyperref
+      , ("href", (0,2))
+      , ("url", (0,1))
+      ]
 
 -- Lookup table for the ArgSpec of known environments. Stub.
 envDB :: [(String, (Int, Int))]

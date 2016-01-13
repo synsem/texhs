@@ -23,7 +23,6 @@ module Text.Doc.Writer.Html
 
 import Data.Monoid
 import Data.Text.Lazy (Text)
-import qualified Data.Text as T
 import Text.Blaze.Html5
   ( (!), Html, toHtml, textValue, docTypeHtml, title
   , h1, h2, ul, ol, li, p, em, a)
@@ -87,7 +86,7 @@ inlines = mapM_ inline
 block :: Block -> Html
 block (Para xs) = p $ inlines xs
 block (Header level anchor xs) =
-  heading level ! A.id (textValue (anchorURI anchor)) $
+  heading level ! A.id (textValue (anchorID anchor)) $
   inlines xs
 block (List UnorderedList xss) = ul $ mapM_ (li . blocks) xss
 block (List OrderedList xss) = ol $ mapM_ (li . blocks) xss
@@ -109,8 +108,8 @@ inline (Citation _ (Just xs)) =
 inline (Pointer _ Nothing) =
   error "HTML Writer does not support unprocessed or undefined pointers."
 inline (Pointer _ (Just anchor)) =
-  a ! href (textValue (T.cons '#' (anchorURI anchor))) $
-  toHtml (anchorDescription anchor)
+  a ! href (textValue (anchorTarget anchor)) $
+  inlines (anchorDescription anchor)
 
 -- Map header level to 'Html' combinator.
 heading :: Level -> Html -> Html

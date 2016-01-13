@@ -41,6 +41,7 @@ tests = testGroup "Text.Doc.Reader.TeXSpec"
   , testsInlines
   , testsLists
   , testsCrossrefs
+  , testsHyperref
   , testsWhitespace
   ]
 
@@ -233,6 +234,23 @@ testsCrossrefs = testGroup "cross-references"
         ])
     @?=
     Just (SectionAnchor [0,0,2,1,0,0])
+  ]
+
+testsHyperref :: Test
+testsHyperref = testGroup "hyperref package"
+  [ testCase "simple href command" $
+    runParser (inlines <* eof)
+      [Command "href" [OblArg [Plain "http://example.com/"]
+                      ,OblArg [Plain "some", White, Plain "description"]]]
+    @?=
+    Right [Pointer "external" (Just (ExternalResource
+      [Str "some", Space, Str "description"] "http://example.com/"))]
+  , testCase "simple url command" $
+    runParser (inlines <* eof)
+      [Command "url" [OblArg [Plain "http://example.com/"]]]
+    @?=
+    Right [Pointer "external" (Just (ExternalResource
+      [Str "http://example.com/"] "http://example.com/"))]
   ]
 
 testsWhitespace :: Test
