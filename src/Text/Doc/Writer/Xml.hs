@@ -158,6 +158,8 @@ block (Header _ _ xs) = el "head" $ inlines xs
 block (List ltype xss) =
   el "list" ! attr "type" (textValue (showListType ltype)) $
   mapM_ (el "item" . blocks) xss
+block (QuotationBlock xs) =
+  el "quote" $ blocks xs
 
 -- Convert a single 'Inline' element to XML.
 inline :: Inline -> Markup

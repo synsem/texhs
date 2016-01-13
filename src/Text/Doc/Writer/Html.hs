@@ -91,6 +91,7 @@ block (Header level anchor xs) =
   inlines xs
 block (List UnorderedList xss) = ul $ mapM_ (li . blocks) xss
 block (List OrderedList xss) = ol $ mapM_ (li . blocks) xss
+block (QuotationBlock xs) = H.blockquote $ blocks xs
 
 -- Convert a single 'Inline' element to HTML.
 inline :: Inline -> Html

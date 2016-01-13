@@ -83,6 +83,8 @@ distributeMetaToBlock (Header l a xs) =
   Header l a <$> mapM distributeMetaToInline xs
 distributeMetaToBlock (List ltype xss) =
   List ltype <$> mapM (mapM distributeMetaToBlock) xss
+distributeMetaToBlock (QuotationBlock xs) =
+  QuotationBlock <$> mapM distributeMetaToBlock xs
 
 distributeMetaToInline :: Inline -> Reader Meta Inline
 distributeMetaToInline (Str xs) =

@@ -95,6 +95,11 @@ testsBlocks = testGroup "block elements"
     runParser block [Plain "hello"]
     @?=
     Right (Para [Str "hello"])
+  , testCase "simple block quote" $
+    runParser (blocks <* eof)
+      [Group "quotation" [] [Plain "one"]]
+    @?=
+    Right [QuotationBlock [Para [Str "one"]]]
   ]
 
 testsInlines :: Test

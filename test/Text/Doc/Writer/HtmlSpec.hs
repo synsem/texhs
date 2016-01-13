@@ -85,6 +85,10 @@ testsBlocks = testGroup "blocks"
     @?=
     LT.append "<ol><li><p>one</p></li>"
               "<li><p>two</p></li></ol>"
+  , testCase "simple block quote" $
+    blocks2html [QuotationBlock [Para [Str "one"]]]
+    @?=
+    "<blockquote><p>one</p></blockquote>"
   ]
 
 testsInlines :: Test

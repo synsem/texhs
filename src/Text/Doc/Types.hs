@@ -203,6 +203,7 @@ data Block
   = Para [Inline]
   | Header Level Anchor [Inline]
   | List ListType [[Block]]
+  | QuotationBlock [Block]
   deriving (Eq, Show)
 
 -- | Inline elements in a 'Doc' document.

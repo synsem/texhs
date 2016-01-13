@@ -110,6 +110,10 @@ testsBlocks = testGroup "blocks"
     @?=
     LT.append "<list type=\"ordered\"><item><p>one</p></item>"
               "<item><p>two</p></item></list>"
+  , testCase "simple block quote" $
+    blocks2xml [QuotationBlock [Para [Str "one"]]]
+    @?=
+    "<quote><p>one</p></quote>"
   ]
 
 testsInlines :: Test
