@@ -26,7 +26,7 @@ import Data.Text.Lazy (Text)
 import qualified Data.Text as T
 import Text.Blaze.Html5
   ( (!), Html, toHtml, textValue, docTypeHtml, title
-  , h1, h2, ul, li, p, em, a)
+  , h1, h2, ul, ol, li, p, em, a)
 import Text.Blaze.Html5.Attributes
   (name, charset, content, style, href)
 import Text.Blaze.Html.Renderer.Text (renderHtml)
@@ -89,7 +89,8 @@ block (Para xs) = p $ inlines xs
 block (Header level anchor xs) =
   heading level ! A.id (textValue (anchorURI anchor)) $
   inlines xs
-block (List xss) = ul $ mapM_ (li . blocks) xss
+block (List UnorderedList xss) = ul $ mapM_ (li . blocks) xss
+block (List OrderedList xss) = ol $ mapM_ (li . blocks) xss
 
 -- Convert a single 'Inline' element to HTML.
 inline :: Inline -> Html

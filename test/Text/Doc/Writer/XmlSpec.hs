@@ -95,6 +95,21 @@ testsBlocks = testGroup "blocks"
     blocks2xml [Para [Str "hello", Space, Emph [Str "world"]]]
     @?=
     "<p>hello <emph>world</emph></p>"
+  , testCase "simple unordered list" $
+    blocks2xml [List UnorderedList
+      [ [Para [Str "one",Space,Str "one"]]
+      , [Para [Str "two",Space]]
+      , [Para [Str "three"]]]]
+    @?=
+    LT.append "<list type=\"unordered\"><item><p>one one</p></item>"
+              "<item><p>two </p></item><item><p>three</p></item></list>"
+  , testCase "simple ordered list" $
+    blocks2xml [List OrderedList
+      [ [Para [Str "one"]]
+      , [Para [Str "two"]]]]
+    @?=
+    LT.append "<list type=\"ordered\"><item><p>one</p></item>"
+              "<item><p>two</p></item></list>"
   ]
 
 testsInlines :: Test

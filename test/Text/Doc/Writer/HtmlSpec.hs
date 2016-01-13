@@ -70,6 +70,21 @@ testsBlocks = testGroup "blocks"
     blocks2html [Para [Str "hello", Space, Emph [Str "world"]]]
     @?=
     "<p>hello <em>world</em></p>"
+  , testCase "simple unordered list" $
+    blocks2html [List UnorderedList
+      [ [Para [Str "one",Space,Str "one"]]
+      , [Para [Str "two",Space]]
+      , [Para [Str "three"]]]]
+    @?=
+    LT.append "<ul><li><p>one one</p></li><li><p>two </p></li>"
+              "<li><p>three</p></li></ul>"
+  , testCase "simple ordered list" $
+    blocks2html [List OrderedList
+      [ [Para [Str "one"]]
+      , [Para [Str "two"]]]]
+    @?=
+    LT.append "<ol><li><p>one</p></li>"
+              "<li><p>two</p></li></ol>"
   ]
 
 testsInlines :: Test

@@ -33,6 +33,7 @@ module Text.Doc.Types
     -- ** Blocks
   , Content
   , Level
+  , ListType(..)
   , Block(..)
     -- ** Inlines
   , Inline(..)
@@ -193,11 +194,15 @@ type Content = [Block]
 -- | Level of a heading.
 type Level = Int
 
+-- | Type of list: unordered or ordered.
+data ListType = UnorderedList | OrderedList
+  deriving (Eq, Show)
+
 -- | Block elements in a 'Doc' document.
 data Block
   = Para [Inline]
   | Header Level Anchor [Inline]
-  | List [[Block]]
+  | List ListType [[Block]]
   deriving (Eq, Show)
 
 -- | Inline elements in a 'Doc' document.

@@ -143,6 +143,11 @@ levelname i = fromMaybe "unknown" (lookup i (zip [1..] levels))
     levels = [ "part", "chapter", "section"
              , "subsection", "subsubsection" ]
 
+-- Convert a list type to a textual description.
+showListType :: ListType -> Text
+showListType UnorderedList = "unordered"
+showListType OrderedList = "ordered"
+
 -- Convert a single 'Block' element to XML.
 --
 -- Note: SectionDoc documents should not contain Header elements,
@@ -150,7 +155,9 @@ levelname i = fromMaybe "unknown" (lookup i (zip [1..] levels))
 block :: Block -> Markup
 block (Para xs) = p $ inlines xs
 block (Header _ _ xs) = el "head" $ inlines xs
-block (List xss) = el "list" $ mapM_ (el "item" . blocks) xss
+block (List ltype xss) =
+  el "list" ! attr "type" (textValue (showListType ltype)) $
+  mapM_ (el "item" . blocks) xss
 
 -- Convert a single 'Inline' element to XML.
 inline :: Inline -> Markup

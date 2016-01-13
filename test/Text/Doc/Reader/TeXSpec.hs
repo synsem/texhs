@@ -136,20 +136,32 @@ testsInlines = testGroup "inline elements"
 
 testsLists :: Test
 testsLists = testGroup "list blocks"
-  [ testCase "simple list" $
+  [ testCase "simple unordered list" $
     runParser (inlines *> itemize) exampleList1
     @?=
-    Right (List [ [Para [Str "one",Space,Str "one"]]
-                , [Para [Str "two",Space]]
-                , [Para [Str "three"]]])
+    Right (List UnorderedList
+      [ [Para [Str "one",Space,Str "one"]]
+      , [Para [Str "two",Space]]
+      , [Para [Str "three"]]])
+  , testCase "simple ordered list" $
+    runParser (blocks <* eof)
+      [Group "enumerate" []
+        [Command "item" [], Plain "one", White, Plain "one"
+        ,Command "item" [], Plain "two"]]
+    @?=
+    Right [List OrderedList
+      [ [Para [Str "one",Space,Str "one"]]
+      , [Para [Str "two"]]]]
   , testCase "nested list" $
     runParser (inlines *> itemize) exampleList2
     @?=
-    Right (List [ [ Para [ Str "up-one"]]
-                , [ Para [ Str "up-two",Space]
-                  , List [ [Para [Str "down-one",Space]]
-                         , [Para [Str "down-two",Space]]]]
-                , [ Para [ Str "up-three"]]])
+    Right (List UnorderedList
+      [ [ Para [ Str "up-one"]]
+      , [ Para [ Str "up-two",Space]
+        , List UnorderedList
+          [ [Para [Str "down-one",Space]]
+          , [Para [Str "down-two",Space]]]]
+      , [ Para [ Str "up-three"]]])
   ]
 
 testsCrossrefs :: Test

@@ -24,6 +24,7 @@ module Text.Doc.Reader.TeX
  , para
  , header
  , itemize
+ , enumerate
    -- * Inline parsers
  , inlines
  , inline
@@ -142,7 +143,7 @@ blocks = many (lexeme block)
 
 -- | Parse a single block.
 block :: Parser Block
-block = choice [header, itemize, para]
+block = choice [header, itemize, enumerate, para]
 
 -- | Parse a single (non-empty) paragraph.
 para :: Parser Block
@@ -173,7 +174,13 @@ registerHeader level = do
 
 -- | Parse an @itemize@ group.
 itemize :: Parser Block
-itemize = List <$> inGrp "itemize" (list (cmd "item") blocks)
+itemize = List UnorderedList <$>
+  inGrp "itemize" (list (cmd "item") blocks)
+
+-- | Parse an @enumerate@ group.
+enumerate :: Parser Block
+enumerate = List OrderedList <$>
+  inGrp "enumerate" (list (cmd "item") blocks)
 
 
 ---------- Inline parsers
