@@ -87,6 +87,16 @@ distributeMetaToBlock (QuotationBlock xs) =
   QuotationBlock <$> mapM distributeMetaToBlock xs
 distributeMetaToBlock (Figure a l xs) =
   Figure a l <$> mapM distributeMetaToInline xs
+distributeMetaToBlock (Table a xs rows) =
+  Table a <$>
+    mapM distributeMetaToInline xs <*>
+    mapM (mapM distributeMetaToTableCell) rows
+
+distributeMetaToTableCell :: TableCell -> Reader Meta TableCell
+distributeMetaToTableCell (SingleCell xs) =
+  SingleCell <$> mapM distributeMetaToInline xs
+distributeMetaToTableCell (MultiCell i xs) =
+  MultiCell i <$> mapM distributeMetaToInline xs
 
 distributeMetaToInline :: Inline -> Reader Meta Inline
 distributeMetaToInline (Str xs) =

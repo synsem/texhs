@@ -206,6 +206,7 @@ commandDB = M.union argspecsSyntactic argspecsSemantic
       , ("caption", (0,1))
       , ("cite", (1,1))
       , ("centering", (0,0))
+      , ("multicolumn", (0,3))
         -- hyperref
       , ("href", (0,2))
       , ("url", (0,1))

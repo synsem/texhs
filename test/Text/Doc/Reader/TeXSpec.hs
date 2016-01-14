@@ -41,6 +41,7 @@ tests = testGroup "Text.Doc.Reader.TeXSpec"
   , testsInlines
   , testsLists
   , testsFigures
+  , testsTables
   , testsCrossrefs
   , testsHyperref
   , testsWhitespace
@@ -262,6 +263,240 @@ testsFigures = testGroup "figures"
           , Command "label" [OblArg [Plain "figlabel"]]]])
     @?=
     Just (FigureAnchor (2,1))
+  ]
+
+testsTables :: Test
+testsTables = testGroup "tables"
+  [ testCase "empty table" $
+    runParser (blocks <* eof) [Group "table" []
+      [ Group "tabular" [] []
+      , Command "caption" [OblArg [Plain "description"]]]]
+    @?=
+    Right [Table (TableAnchor (0,1)) [Str "description"] []]
+  , testCase "single cell table" $
+    runParser (blocks <* eof) [Group "table" []
+      [ Group "tabular" [] [Plain "hello", Newline]
+      , Command "caption" [OblArg [Plain "description"]]]]
+    @?=
+    Right [Table (TableAnchor (0,1)) [Str "description"]
+      [[SingleCell [Str "hello"]]]]
+  , testCase "simple 2x2 tabular: no whitespace, no label" $
+    runParser tabular
+      [ Group "tabular" []
+        [ Plain "top-left", AlignMark, Plain "top-right", Newline
+        , Plain "bottom-left", AlignMark, Plain "bottom-right", Newline]]
+    @?=
+    Right (
+      [[SingleCell [Str "top-left"], SingleCell [Str "top-right"]]
+      ,[SingleCell [Str "bottom-left"], SingleCell [Str "bottom-right"]]])
+  , testCase "simple 2x2 table: no whitespace, no label" $
+    runParser table [Group "table" []
+      [ Group "tabular" []
+        [ Plain "top-left", AlignMark, Plain "top-right", Newline
+        , Plain "bottom-left", AlignMark, Plain "bottom-right", Newline]
+      , Command "caption" [OblArg [Plain "description"]]]]
+    @?=
+    Right (Table (TableAnchor (0,1)) [Str "description"]
+      [[SingleCell [Str "top-left"], SingleCell [Str "top-right"]]
+      ,[SingleCell [Str "bottom-left"], SingleCell [Str "bottom-right"]]])
+  , testCase "table with some empty cells" $
+    runParser (blocks <* eof) [Group "table" []
+      [ Group "tabular" []
+        [ Plain "top-left", AlignMark, Newline
+        , AlignMark, Plain "bottom-right", Newline]
+      , Command "caption" [OblArg [Plain "description"]]]]
+    @?=
+    Right [Table (TableAnchor (0,1)) [Str "description"]
+      [[SingleCell [Str "top-left"], SingleCell []]
+      ,[SingleCell [], SingleCell [Str "bottom-right"]]]]
+  , testCase "skeleton table with inline whitespace" $
+    runParser (blocks <* eof) [Group "table" []
+      [ White, Group "tabular" []
+        [ White, AlignMark, Newline
+        , White, AlignMark, White, Newline]
+      , Command "caption" [OblArg [Plain "description"]]]]
+    @?=
+    Right [Table (TableAnchor (0,1)) [Str "description"]
+      [[SingleCell [], SingleCell []]
+      ,[SingleCell [], SingleCell []]]]
+  , testCase "simple ragged table" $
+    runParser (blocks <* eof) [Group "table" []
+      [ Group "tabular" []
+        [ Plain "top-left", Newline
+        , Plain "bottom-left", AlignMark, Plain "bottom-right", Newline]
+      , Command "caption" [OblArg [Plain "description"]]]]
+    @?=
+    Right [Table (TableAnchor (0,1)) [Str "description"]
+      [[SingleCell [Str "top-left"]]
+      ,[SingleCell [Str "bottom-left"], SingleCell [Str "bottom-right"]]]]
+  , testCase "empty ragged table" $
+    runParser (blocks <* eof) [Group "table" []
+      [ White, Group "tabular" []
+        [ White, AlignMark, Newline
+        , White, AlignMark, AlignMark, AlignMark, White, Newline]
+      , Command "caption" [OblArg [Plain "description"]]]]
+    @?=
+    Right [Table (TableAnchor (0,1)) [Str "description"]
+      [[SingleCell [], SingleCell []]
+      ,[SingleCell [], SingleCell [], SingleCell [], SingleCell []]]]
+  , testCase "table with centering" $
+    runParser table [Group "table" []
+      [ White, Command "centering" []
+      , Group "tabular" []
+        [ Plain "top-left", AlignMark, Plain "top-right", Newline
+        , Plain "bottom-left", AlignMark, Plain "bottom-right", Newline]
+      , Par
+      , Command "caption" [OblArg [Plain "description"]]
+      , Par]]
+    @?=
+    Right (Table (TableAnchor (0,1)) [Str "description"]
+      [[SingleCell [Str "top-left"], SingleCell [Str "top-right"]]
+      ,[SingleCell [Str "bottom-left"], SingleCell [Str "bottom-right"]]])
+  , testCase "table with center group" $
+    runParser table [Group "table" []
+      [ Group "center" []
+        [ Group "tabular" []
+          [ Plain "top-left", AlignMark, Plain "top-right", Newline
+          , Plain "bottom-left", AlignMark, Plain "bottom-right", Newline]
+        , Par
+        , Command "caption" [OblArg [Plain "description"]]]]]
+    @?=
+    Right (Table (TableAnchor (0,1)) [Str "description"]
+      [[SingleCell [Str "top-left"], SingleCell [Str "top-right"]]
+      ,[SingleCell [Str "bottom-left"], SingleCell [Str "bottom-right"]]])
+  , testCase "table with multi-inline cells" $
+    runParser table [Group "table" []
+      [ Group "tabular" []
+        [ Plain "top", White, Plain "left", AlignMark
+        , Plain "top", White, Plain "right", Newline
+        , Plain "bottom", White, Plain "left", AlignMark
+        , Plain "bottom", White, Plain "right", Newline]
+      , Command "caption" [OblArg [Plain "longer", White, Plain "description"]]]]
+    @?=
+    Right (Table (TableAnchor (0,1)) [Str "longer", Space, Str "description"]
+      [ [ SingleCell [Str "top", Space, Str "left"]
+        , SingleCell [Str "top", Space, Str "right"]]
+      , [ SingleCell [Str "bottom", Space, Str "left"]
+        , SingleCell [Str "bottom", Space, Str "right"]]])
+  , testCase "table with hline commands" $
+    runParser table [Group "table" []
+      [ White, Command "centering" []
+      , Group "tabular" []
+        [ Command "hline" []
+        , Plain "top-left", AlignMark, Plain "top-right", Newline
+        , Command "hline" []
+        , Plain "bottom-left", AlignMark, Plain "bottom-right", Newline
+        , Command "hline" []]
+      , Command "caption" [OblArg [Plain "description"]]]]
+    @?=
+    Right (Table (TableAnchor (0,1)) [Str "description"]
+      [[SingleCell [Str "top-left"], SingleCell [Str "top-right"]]
+      ,[SingleCell [Str "bottom-left"], SingleCell [Str "bottom-right"]]])
+  , testCase "paragraph breaks between tabular rows" $
+    -- in fact, LaTeX allows paragraph breaks within table cells
+    -- and treats them as ordinary inline whitespace
+    runParser table [Group "table" []
+      [ White, Command "centering" []
+      , Group "tabular" []
+        [ Plain "1-1", AlignMark, Plain "1-2", Newline
+        , Command "hline" []
+        , Par
+        , Plain "2-1", AlignMark, Plain "2-2", Newline
+        , Par
+        , Plain "3-1", AlignMark, Plain "3-2", Newline
+        , Par]
+      , Command "caption" [OblArg [Plain "description"]]]]
+    @?=
+    Right (Table (TableAnchor (0,1)) [Str "description"]
+      [[SingleCell [Str "1-1"], SingleCell [Str "1-2"]]
+      ,[SingleCell [Str "2-1"], SingleCell [Str "2-2"]]
+      ,[SingleCell [Str "3-1"], SingleCell [Str "3-2"]]])
+  , testCase "tabular with single multicolumn cell" $
+    runParser tabular
+      [ Group "tabular" []
+        [ Command "multicolumn"
+          [ OblArg [Plain "3"]
+          , OblArg [Plain "c"]
+          , OblArg [Plain "three", White, Plain "cells"]]
+        , Newline]]
+    @?=
+    Right [[MultiCell 3 [Str "three", Space, Str "cells"]]]
+  , testCase "multicolumn cells" $
+    runParser (blocks <* eof) [Group "table" []
+      [ Group "tabular" []
+        [ Plain "1-1", AlignMark, Plain "1-2", AlignMark, Plain "1-3", Newline
+        , Command "multicolumn"
+          [ OblArg [Plain "2"], OblArg [Plain "c"], OblArg [Plain "2-(1,2)"]]
+        , AlignMark, Plain "2-3", Newline
+        , Command "multicolumn"
+          [ OblArg [Plain "3"], OblArg [Plain "l"], OblArg [Plain "3-(1,2,3)"]]
+        , Newline, Plain "4-1", AlignMark
+        , Command "multicolumn"
+          [ OblArg [Plain "2"], OblArg [Plain "c"], OblArg [Plain "4-(2,3)"]]
+        , Newline]
+      , Command "caption" [OblArg [Plain "description"]]]]
+    @?=
+    Right [Table (TableAnchor (0,1)) [Str "description"]
+      [[SingleCell [Str "1-1"], SingleCell [Str "1-2"], SingleCell [Str "1-3"]]
+      ,[MultiCell 2 [Str "2-(1,2)"], SingleCell [Str "2-3"]]
+      ,[MultiCell 3 [Str "3-(1,2,3)"]]
+      ,[SingleCell [Str "4-1"], MultiCell 2 [Str "4-(2,3)"]]]]
+  , testCase "empty table with label before caption" $
+    runParser (blocks <* eof) [Group "table" []
+      [ Group "tabular" [] []
+      , Command "label" [OblArg [Plain "table-label"]]
+      , Command "caption" [OblArg [Plain "description"]]]]
+    @?=
+    Right [Table (TableAnchor (0,1)) [Str "description"] []]
+  , testCase "anchor map is updated with table label" $
+    either (error . show) (M.lookup "table-label" . metaAnchorMap . snd)
+      (runParserWithState (blocks <* eof) [Group "table" []
+      [ Group "tabular" [] []
+      , Command "caption" [OblArg [Plain "description"]]
+      , Command "label" [OblArg [Plain "table-label"]]]])
+    @?=
+    Just (TableAnchor (0,1))
+  , testCase "chapter number is stored in table counter" $
+    either (error . show) (M.lookup "table-label" . metaAnchorMap . snd)
+      (runParserWithState (blocks <* eof)
+        [ Command "chapter" [OblArg [Plain "one"]]
+        , Command "chapter" [OblArg [Plain "two"]]
+        , Group "table" []
+          [ Group "tabular" [] []
+          , Command "caption" [OblArg [Plain "description"]]
+          , Command "label" [OblArg [Plain "table-label"]]]])
+    @?=
+    Just (TableAnchor (2,1))
+  , testCase "table counter is incremented within chapter" $
+    either (error . show) (M.lookup "table-label" . metaAnchorMap . snd)
+      (runParserWithState (blocks <* eof)
+        [ Command "chapter" [OblArg [Plain "one"]]
+        , Group "table" []
+          [ Group "tabular" [] []
+          , Command "caption" [OblArg [Plain "description"]]]
+        , Group "table" []
+          [ Group "tabular" [] []
+          , Command "caption" [OblArg [Plain "description"]]
+          , Command "label" [OblArg [Plain "table-label"]]]])
+    @?=
+    Just (TableAnchor (1,2))
+  , testCase "table counter is reset at chapter boundaries" $
+    either (error . show) (M.lookup "table-label" . metaAnchorMap . snd)
+      (runParserWithState (blocks <* eof)
+        [ Command "chapter" [OblArg [Plain "one"]]
+        , Group "table" []
+          [ Group "tabular" [] []
+          , Command "caption" [OblArg [Plain "description"]]]
+        , Group "table" []
+          [ Group "tabular" [] []
+          , Command "caption" [OblArg [Plain "description"]]]
+        , Command "chapter" [OblArg [Plain "two"]]
+        , Group "table" []
+          [ Group "tabular" [] []
+          , Command "caption" [OblArg [Plain "description"]]
+          , Command "label" [OblArg [Plain "table-label"]]]])
+    @?=
+    Just (TableAnchor (2,1))
   ]
 
 testsCrossrefs :: Test

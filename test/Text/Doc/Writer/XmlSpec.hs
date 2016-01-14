@@ -119,6 +119,32 @@ testsBlocks = testGroup "blocks"
     @?=
     LT.append "<figure xml:id=\"figure1chap2\"><graphic url=\"image.png\" />"
               "<head>description</head></figure>"
+  , testCase "empty table" $
+    blocks2xml [Table (TableAnchor (2,1)) [Str "description"] []]
+    @?=
+    "<table xml:id=\"table1chap2\"><head>description</head></table>"
+  , testCase "simple table" $
+    blocks2xml [Table (TableAnchor (2,1)) [Str "description"]
+      [[SingleCell [Str "top-left"], SingleCell [Str "top-right"]]
+      ,[SingleCell [Str "bottom-left"], SingleCell [Str "bottom-right"]]]]
+    @?=
+    LT.concat [ "<table xml:id=\"table1chap2\">"
+              , "<head>description</head>"
+              , "<row><cell>top-left</cell><cell>top-right</cell></row>"
+              , "<row><cell>bottom-left</cell><cell>bottom-right</cell></row>"
+              , "</table>"]
+  , testCase "table with multi-column cells" $
+    blocks2xml [Table (TableAnchor (3,4)) [Str "description"]
+      [[SingleCell [Str "single", Space, Str "column"], MultiCell 2 [Str "two"]]
+      ,[MultiCell 3 [Str "three", Space, Str "columns"]]
+      ,[SingleCell [Str "1"], SingleCell [Str "2"], SingleCell [Str "3"]]]]
+    @?=
+    LT.concat [ "<table xml:id=\"table4chap3\">"
+              , "<head>description</head>"
+              , "<row><cell>single column</cell><cell cols=\"2\">two</cell></row>"
+              , "<row><cell cols=\"3\">three columns</cell></row>"
+              , "<row><cell>1</cell><cell>2</cell><cell>3</cell></row>"
+              , "</table>"]
   ]
 
 testsInlines :: Test

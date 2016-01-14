@@ -31,11 +31,14 @@ module Text.TeX.Context
     -- ** Combinators
   , choice
   , count
+  , sepBy
+  , sepBy1
   , list
     -- ** Commands
   , cmd
   , inCmd
   , cmdTwoOblArgs
+  , cmdThreeOblArgs
     -- ** Groups
   , grp
   , inGrp

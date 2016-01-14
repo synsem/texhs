@@ -94,6 +94,35 @@ testsBlocks = testGroup "blocks"
     @?=
     LT.append "<figure id=\"figure1chap2\"><img src=\"image.png\">"
               "<figcaption>description</figcaption></figure>"
+  , testCase "empty table" $
+    blocks2html [Table (TableAnchor (2,1)) [Str "description"] []]
+    @?=
+    LT.append "<table id=\"table1chap2\"><caption>description</caption>"
+              "<tbody></tbody></table>"
+  , testCase "simple table" $
+    blocks2html [Table (TableAnchor (2,1)) [Str "description"]
+      [[SingleCell [Str "top-left"], SingleCell [Str "top-right"]]
+      ,[SingleCell [Str "bottom-left"], SingleCell [Str "bottom-right"]]]]
+    @?=
+    LT.concat [ "<table id=\"table1chap2\">"
+              , "<caption>description</caption>"
+              , "<tbody>"
+              , "<tr><td>top-left</td><td>top-right</td></tr>"
+              , "<tr><td>bottom-left</td><td>bottom-right</td></tr>"
+              , "</tbody></table>"]
+  , testCase "table with multi-column cells" $
+    blocks2html [Table (TableAnchor (3,4)) [Str "description"]
+      [[SingleCell [Str "single", Space, Str "column"], MultiCell 2 [Str "two"]]
+      ,[MultiCell 3 [Str "three", Space, Str "columns"]]
+      ,[SingleCell [Str "1"], SingleCell [Str "2"], SingleCell [Str "3"]]]]
+    @?=
+    LT.concat [ "<table id=\"table4chap3\">"
+              , "<caption>description</caption>"
+              , "<tbody>"
+              , "<tr><td>single column</td><td colspan=\"2\">two</td></tr>"
+              , "<tr><td colspan=\"3\">three columns</td></tr>"
+              , "<tr><td>1</td><td>2</td><td>3</td></tr>"
+              , "</tbody></table>"]
   ]
 
 testsInlines :: Test

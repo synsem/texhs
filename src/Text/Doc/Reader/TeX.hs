@@ -28,6 +28,8 @@ module Text.Doc.Reader.TeX
  , enumerate
  , quotation
  , figure
+ , table
+ , tabular
    -- * Inline parsers
  , inlines
  , inline
@@ -41,7 +43,9 @@ module Text.Doc.Reader.TeX
 
 import Control.Applicative
 import Control.Monad
+import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
+import Numeric (readDec)
 
 import Text.TeX.Context
 import Text.TeX.Parser.Types
@@ -146,7 +150,9 @@ blocks = many (lexeme block)
 
 -- | Parse a single block.
 block :: Parser Block
-block = choice [header, itemize, enumerate, quotation, figure, para]
+block = choice
+  [ header, itemize, enumerate, quotation
+  , figure, table, para]
 
 -- | Parse a single (non-empty) paragraph.
 para :: Parser Block
@@ -166,17 +172,23 @@ header = do
   void $ many (choice [skipWhite, skipInterlevel])
   return (Header level' anchor' title')
 
+-- Register header as the current anchor
+-- (e.g. for subsequent @label@ assignments).
 registerHeader :: Level -> Parser InternalAnchor
 registerHeader level = do
   meta <- getMeta
   let sectionCurrent = incSection level (metaSectionCurrent meta)
-  -- reset figure counter at beginning of chapters
+  -- reset figure and table counters at beginning of chapters
   let figureCurrent = if level == 2
                       then (getChapter sectionCurrent, 0)
                       else metaFigureCurrent meta
+  let tableCurrent = if level == 2
+                     then (getChapter sectionCurrent, 0)
+                     else metaTableCurrent meta
   putMeta (meta { metaSectionCurrent = sectionCurrent
                 , metaAnchorCurrent = SectionAnchor sectionCurrent
                 , metaFigureCurrent = figureCurrent
+                , metaTableCurrent = tableCurrent
                 })
   return (SectionAnchor sectionCurrent)
 
@@ -209,6 +221,8 @@ figure = inGrp "figure" $ do
   imgdesc <- lexemeBlock (inlineCmd "caption")
   return (Figure anchor imgloc imgdesc)
 
+-- Register figure as the current anchor
+-- (e.g. for subsequent @label@ assignments).
 registerFigure :: Parser InternalAnchor
 registerFigure = do
   meta <- getMeta
@@ -216,6 +230,46 @@ registerFigure = do
   putMeta (meta { metaFigureCurrent = figCnt
                 , metaAnchorCurrent = FigureAnchor figCnt })
   return (FigureAnchor figCnt)
+
+-- | Parse a @table@ group.
+--
+-- This group is required to contain a @tabular@ group
+-- and a @caption@ command.
+table :: Parser Block
+table = inGrp "table" $ do
+  anchor <- registerTable <* many skipWhite
+  void $ optional (lexemeBlock (choice
+         [ void (cmd "centering")
+         , grpUnwrap "center"]))
+  tabledata <- lexemeBlock (tabular)
+  tabledesc <- lexemeBlock (inlineCmd "caption")
+  return (Table anchor tabledesc tabledata)
+
+-- | Parse a @tabular@ group
+tabular :: Parser [TableRow]
+tabular = inGrp "tabular" $ do
+  let sep = lexeme (satisfy isAlignMark)      -- cell separator: "&"
+      eol = lexemeBlock (satisfy isNewline)   -- end of row: "\\\\"
+      hline = void $ lexemeBlock (cmd "hline")
+      tableRow = tableCell `sepBy` sep <* eol <* many hline
+  many (skipSpace <|> hline) *> many tableRow
+
+-- Parse a table cell in a @tabular@ group.
+tableCell :: Parser TableCell
+tableCell = choice
+  [ (uncurry MultiCell . (\(n,_,d) -> (n,d))) <$>
+    cmdThreeOblArgs "multicolumn" (fromMaybe 1 <$> number) inlines inlines
+  , SingleCell <$> inlines]
+
+-- Register table as the current anchor
+-- (e.g. for subsequent @label@ assignments).
+registerTable :: Parser InternalAnchor
+registerTable = do
+  meta <- getMeta
+  let tableCnt = (+1) <$> metaTableCurrent meta
+  putMeta (meta { metaTableCurrent = tableCnt
+                , metaAnchorCurrent = TableAnchor tableCnt })
+  return (TableAnchor tableCnt)
 
 
 ---------- Inline parsers
@@ -292,6 +346,14 @@ url = do
 -- | Parse the textual content of a single 'Plain' element.
 plainValue :: Parser String
 plainValue = satisfy isPlain >>= \(Plain xs) -> return xs
+
+-- | Parse a decimal number.
+number :: Parser (Maybe Int)
+number = parseDigits <$> plainValue
+  where
+    parseDigits s = case readDec s of
+      [(i,[])] -> Just i
+      _ -> Nothing
 
 
 ---------- Unit parsers: void inter-level elements

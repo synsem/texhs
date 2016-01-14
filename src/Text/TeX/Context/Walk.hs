@@ -26,6 +26,8 @@ module Text.TeX.Context.Walk
     -- * Basic combinators
   , choice
   , count
+  , sepBy
+  , sepBy1
   , list
     -- * Command parsers
     -- ** Specific command
@@ -33,6 +35,7 @@ module Text.TeX.Context.Walk
   , inCmd
   , cmdDown
   , cmdTwoOblArgs
+  , cmdThreeOblArgs
     -- * Group parsers
     -- ** Specific group
   , grp
@@ -159,6 +162,16 @@ count n p
   | n <= 0 = return []
   | otherwise = (:) <$> p <*> count (n-1) p
 
+-- | @sepBy p sep@ parses zero or more occurrences of @p@,
+-- separated by @sep@. Returns a list of values returned by @p@.
+sepBy :: Parser a -> Parser b -> Parser [a]
+sepBy p sep = sepBy1 p sep <|> pure []
+
+-- | @sepBy p sep@ parses one or more occurrences of @p@,
+-- separated by @sep@. Returns a list of values returned by @p@.
+sepBy1 :: Parser a -> Parser b -> Parser [a]
+sepBy1 p sep = (:) <$> p <*> list sep p
+
 -- | @list bullet p@ parses zero or more occurrences of @p@, each prefixed by @bullet@.
 -- Returns a list of values returned by @p@.
 --
@@ -196,6 +209,14 @@ cmdTwoOblArgs :: String -> Parser a -> Parser b -> Parser (a,b)
 cmdTwoOblArgs n p0 p1 = (,) <$> (peek (isCmd n) *>
   cmdPeekOblArg 0 p0) <*>
   cmdPeekOblArg 1 p1 <* cmd n
+
+-- | Parse a specific command and apply three parsers
+-- to its first three mandatory arguments.
+cmdThreeOblArgs :: String -> Parser a -> Parser b -> Parser c -> Parser (a,b,c)
+cmdThreeOblArgs n p0 p1 p2 = (,,) <$> (peek (isCmd n) *>
+  cmdPeekOblArg 0 p0) <*>
+  cmdPeekOblArg 1 p1 <*>
+  cmdPeekOblArg 2 p2 <* cmd n
 
 
 ---------- Group parsers

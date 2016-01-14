@@ -164,6 +164,17 @@ block (Figure anchor imgloc imgdesc) =
   el "figure" ! attr "xml:id" (textValue (anchorID anchor)) $
   leaf "graphic" ! attr "url" (textValue imgloc) <>
   el "head" (inlines imgdesc)
+block (Table anchor tdesc tdata) =
+  el "table" ! attr "xml:id" (textValue (anchorID anchor)) $
+  el "head" (inlines tdesc) <>
+  mapM_ (el "row" . mapM_ tableCell) tdata
+
+-- Convert a single 'TableCell' element to XML.
+tableCell :: TableCell -> Markup
+tableCell (SingleCell xs) =
+  el "cell" $ inlines xs
+tableCell (MultiCell i xs) =
+  el "cell" ! attr "cols" (stringValue (show i)) $ inlines xs
 
 -- Convert a single 'Inline' element to XML.
 inline :: Inline -> Markup

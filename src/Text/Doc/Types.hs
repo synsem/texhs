@@ -38,6 +38,8 @@ module Text.Doc.Types
   , Content
   , Level
   , ListType(..)
+  , TableRow
+  , TableCell(..)
   , Block(..)
     -- ** Inlines
   , Inline(..)
@@ -91,6 +93,7 @@ data Meta = Meta
   , metaAnchorMap :: Map Label InternalAnchor
   , metaSectionCurrent :: [Int]
   , metaFigureCurrent :: (Int, Int)
+  , metaTableCurrent :: (Int, Int)
   } deriving (Eq, Show)
 
 -- | Default (empty) meta information of a document.
@@ -106,6 +109,7 @@ defaultMeta = Meta
   , metaAnchorMap = M.empty
   , metaSectionCurrent = replicate 6 0
   , metaFigureCurrent = (0, 0)
+  , metaTableCurrent = (0, 0)
   }
 
 -- | A class for document types that hold meta information.
@@ -132,6 +136,7 @@ data InternalAnchor
   = DocumentAnchor          -- initial anchor in a document
   | SectionAnchor [Int]     -- section numbers
   | FigureAnchor (Int, Int) -- chapter number and chapter-relative figure count
+  | TableAnchor (Int, Int)  -- chapter number and chapter-relative table count
   deriving (Eq, Show)
 
 -- | Generate identifying string for an anchor.
@@ -145,6 +150,9 @@ anchorID (SectionAnchor xs) = T.concat $ zipWith T.append
 anchorID (FigureAnchor (chap, fignum)) = T.concat $ zipWith T.append
   ["figure", "chap"]
   (map (T.pack . show) [fignum, chap])
+anchorID (TableAnchor (chap, tabnum)) = T.concat $ zipWith T.append
+  ["table", "chap"]
+  (map (T.pack . show) [tabnum, chap])
 
 -- | Generate target location string for an anchor.
 --
@@ -167,6 +175,8 @@ internalAnchorDescription (SectionAnchor xs) =
   [Str (intercalate "." (map show xs))]
 internalAnchorDescription (FigureAnchor (chap, fignum)) =
   [Str (intercalate "." (map show [chap, fignum]))]
+internalAnchorDescription (TableAnchor (chap, tabnum)) =
+  [Str (intercalate "." (map show [chap, tabnum]))]
 
 -- | A label is a name of an internal anchor.
 --
@@ -245,6 +255,20 @@ type Level = Int
 data ListType = UnorderedList | OrderedList
   deriving (Eq, Show)
 
+-- | A table row consist of a list of table cells.
+type TableRow = [TableCell]
+
+-- Note: Table cells can only contain 'Inline' elements at the moment,
+-- but we might have to broaden this to (certain) 'Block' elements.
+--
+-- | A (logical) table cell can span one or more physical cells.
+--
+-- Note: 'MultiCell' elements model multi-column cells, not multi-row cells.
+data TableCell
+  = SingleCell [Inline]
+  | MultiCell Int [Inline]
+  deriving (Eq, Show)
+
 -- | Block elements in a 'Doc' document.
 data Block
   = Para [Inline]
@@ -252,6 +276,7 @@ data Block
   | List ListType [[Block]]
   | QuotationBlock [Block]
   | Figure InternalAnchor Location [Inline]
+  | Table InternalAnchor [Inline] [TableRow]
   deriving (Eq, Show)
 
 -- | Inline elements in a 'Doc' document.

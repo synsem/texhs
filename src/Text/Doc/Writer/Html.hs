@@ -95,6 +95,17 @@ block (Figure anchor imgloc imgdesc) =
   H.figure ! A.id (textValue (anchorID anchor)) $
   H.img ! A.src (textValue imgloc) <>
   H.figcaption (inlines imgdesc)
+block (Table anchor tdesc tdata) =
+  H.table ! A.id (textValue (anchorID anchor)) $
+  H.caption (inlines tdesc) <>
+  H.tbody (mapM_ (H.tr . mapM_ tableCell) tdata)
+
+-- Convert a single 'TableCell' element to HTML.
+tableCell :: TableCell -> Html
+tableCell (SingleCell xs) =
+  H.td $ inlines xs
+tableCell (MultiCell i xs) =
+  H.td ! A.colspan (H.stringValue (show i)) $ inlines xs
 
 -- Convert a single 'Inline' element to HTML.
 inline :: Inline -> Html
