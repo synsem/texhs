@@ -27,6 +27,7 @@ module Text.Doc.Reader.TeX
  , itemize
  , enumerate
  , quotation
+ , figure
    -- * Inline parsers
  , inlines
  , inline
@@ -145,7 +146,7 @@ blocks = many (lexeme block)
 
 -- | Parse a single block.
 block :: Parser Block
-block = choice [header, itemize, enumerate, quotation, para]
+block = choice [header, itemize, enumerate, quotation, figure, para]
 
 -- | Parse a single (non-empty) paragraph.
 para :: Parser Block
@@ -169,8 +170,13 @@ registerHeader :: Level -> Parser InternalAnchor
 registerHeader level = do
   meta <- getMeta
   let sectionCurrent = incSection level (metaSectionCurrent meta)
+  -- reset figure counter at beginning of chapters
+  let figureCurrent = if level == 2
+                      then (getChapter sectionCurrent, 0)
+                      else metaFigureCurrent meta
   putMeta (meta { metaSectionCurrent = sectionCurrent
                 , metaAnchorCurrent = SectionAnchor sectionCurrent
+                , metaFigureCurrent = figureCurrent
                 })
   return (SectionAnchor sectionCurrent)
 
@@ -188,6 +194,28 @@ enumerate = List OrderedList <$>
 quotation :: Parser Block
 quotation = QuotationBlock <$>
   inGrp "quotation" blocks
+
+-- | Parse a @figure@ group.
+--
+-- This group is required to contain the commands
+-- @includegraphics@ (from @graphicx@ package) and @caption@.
+figure :: Parser Block
+figure = inGrp "figure" $ do
+  anchor <- registerFigure <* many skipWhite
+  void $ optional (lexemeBlock (choice
+         [ void (cmd "centering")
+         , grpUnwrap "center"]))
+  imgloc <- lexemeBlock (textLabel "includegraphics")
+  imgdesc <- lexemeBlock (inlineCmd "caption")
+  return (Figure anchor imgloc imgdesc)
+
+registerFigure :: Parser InternalAnchor
+registerFigure = do
+  meta <- getMeta
+  let figCnt = (+1) <$> metaFigureCurrent meta
+  putMeta (meta { metaFigureCurrent = figCnt
+                , metaAnchorCurrent = FigureAnchor figCnt })
+  return (FigureAnchor figCnt)
 
 
 ---------- Inline parsers

@@ -29,6 +29,7 @@ module Text.TeX.Context.Types
     -- ** Vertical movement
   , down
   , up
+  , unwrap
   , intoCmdArg
   , peekOblArg
     -- ** Extractors
@@ -101,6 +102,13 @@ down ctx = failStep ctx
 up :: TeXStep
 up (Context _ (xs:xss)) = return (Context xs xss)
 up (Context _ []) = Left NoParent
+
+-- | Unwrap the body of a group.
+--
+-- Warning: This may extend the scope of contained commands.
+unwrap :: TeXStep
+unwrap (Context (Group _ _ body:xs) nxt) = return (Context (body++xs) nxt)
+unwrap ctx = failStep ctx
 
 -- | Descend into the first mandatory argument of a command
 -- (all other arguments are dropped).

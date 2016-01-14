@@ -114,6 +114,11 @@ testsBlocks = testGroup "blocks"
     blocks2xml [QuotationBlock [Para [Str "one"]]]
     @?=
     "<quote><p>one</p></quote>"
+  , testCase "simple figure" $
+    blocks2xml [Figure (FigureAnchor (2,1)) "image.png" [Str "description"]]
+    @?=
+    LT.append "<figure xml:id=\"figure1chap2\"><graphic url=\"image.png\" />"
+              "<head>description</head></figure>"
   ]
 
 testsInlines :: Test
@@ -131,4 +136,9 @@ testsInlines = testGroup "inlines"
       [Str "some", Space, Str "description"] "http://example.com/"))]
     @?=
     "<ref target=\"http://example.com/\">some description</ref>"
+  , testCase "link to internal figure" $
+    inlines2xml [Str "Figure", Space, Pointer "internallabel"
+      (Just (InternalResource (FigureAnchor (2,1))))]
+    @?=
+    "Figure <ref target=\"#figure1chap2\">2.1</ref>"
   ]

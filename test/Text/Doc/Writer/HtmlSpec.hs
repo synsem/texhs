@@ -89,6 +89,11 @@ testsBlocks = testGroup "blocks"
     blocks2html [QuotationBlock [Para [Str "one"]]]
     @?=
     "<blockquote><p>one</p></blockquote>"
+  , testCase "simple figure" $
+    blocks2html [Figure (FigureAnchor (2,1)) "image.png" [Str "description"]]
+    @?=
+    LT.append "<figure id=\"figure1chap2\"><img src=\"image.png\">"
+              "<figcaption>description</figcaption></figure>"
   ]
 
 testsInlines :: Test
@@ -106,6 +111,11 @@ testsInlines = testGroup "inlines"
       [Str "some", Space, Str "description"] "http://example.com/"))]
     @?=
     "<a href=\"http://example.com/\">some description</a>"
+  , testCase "link to internal figure" $
+    inlines2html [Str "Figure", Space, Pointer "internallabel"
+      (Just (InternalResource (FigureAnchor (2,1))))]
+    @?=
+    "Figure <a href=\"#figure1chap2\">2.1</a>"
   ]
 
 

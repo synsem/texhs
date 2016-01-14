@@ -160,6 +160,10 @@ block (List ltype xss) =
   mapM_ (el "item" . blocks) xss
 block (QuotationBlock xs) =
   el "quote" $ blocks xs
+block (Figure anchor imgloc imgdesc) =
+  el "figure" ! attr "xml:id" (textValue (anchorID anchor)) $
+  leaf "graphic" ! attr "url" (textValue imgloc) <>
+  el "head" (inlines imgdesc)
 
 -- Convert a single 'Inline' element to XML.
 inline :: Inline -> Markup

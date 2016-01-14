@@ -40,6 +40,7 @@ tests = testGroup "Text.Doc.Reader.TeXSpec"
   , testsBlocks
   , testsInlines
   , testsLists
+  , testsFigures
   , testsCrossrefs
   , testsHyperref
   , testsWhitespace
@@ -168,6 +169,99 @@ testsLists = testGroup "list blocks"
           [ [Para [Str "down-one",Space]]
           , [Para [Str "down-two",Space]]]]
       , [ Para [ Str "up-three"]]])
+  ]
+
+testsFigures :: Test
+testsFigures = testGroup "figures"
+  [ testCase "minimal figure: no whitespace, no label" $
+    runParser (blocks <* eof) [Group "figure" []
+      [ Command "includegraphics" [OblArg [Plain "file.png"]]
+      , Command "caption" [OblArg [Plain "description"]]]]
+    @?=
+    Right [Figure (FigureAnchor (0,1)) "file.png" [Str "description"]]
+  , testCase "figure with centering and whitespace" $
+    runParser (blocks <* eof) [Group "figure" []
+      [ White, Command "centering" []
+      , Command "includegraphics" [OblArg [Plain "file.png"]]
+      , Par, Command "caption" [OblArg [Plain "description"]]]]
+    @?=
+    Right [Figure (FigureAnchor (0,1)) "file.png" [Str "description"]]
+  , testCase "figure with center group" $
+    runParser (blocks <* eof) [Group "figure" [] [Group "center" []
+      [ Command "includegraphics" [OblArg [Plain "file.png"]]
+      , Par, Command "caption" [OblArg [Plain "description"]]]]]
+    @?=
+    Right [Figure (FigureAnchor (0,1)) "file.png" [Str "description"]]
+  , testCase "figure with smaller center group" $
+    runParser (blocks <* eof) [Group "figure" []
+      [ Group "center" []
+        [ Command "includegraphics" [OblArg [Plain "file.png"]]]
+      , Command "caption" [OblArg [Plain "description"]]]]
+    @?=
+    Right [Figure (FigureAnchor (0,1)) "file.png" [Str "description"]]
+  , testCase "figure with label after caption" $
+    runParser (blocks <* eof) [Group "figure" []
+      [ Command "includegraphics" [OblArg [Plain "file.png"]]
+      , Command "caption" [OblArg [Plain "description"]]
+      , Command "label" [OblArg [Plain "figlabel"]]]]
+    @?=
+    Right [Figure (FigureAnchor (0,1)) "file.png" [Str "description"]]
+  , testCase "figure with label before caption" $
+    runParser (blocks <* eof) [Group "figure" []
+      [ Command "includegraphics" [OblArg [Plain "file.png"]]
+      , Command "label" [OblArg [Plain "figlabel"]]
+      , Command "caption" [OblArg [Plain "description"]]]]
+    @?=
+    Right [Figure (FigureAnchor (0,1)) "file.png" [Str "description"]]
+  , testCase "anchor map is updated with figure label" $
+    either (error . show) (M.lookup "figlabel" . metaAnchorMap . snd)
+      (runParserWithState (blocks <* eof) [Group "figure" []
+        [ Command "includegraphics" [OblArg [Plain "file.png"]]
+        , Command "caption" [OblArg [Plain "description"]]
+        , Command "label" [OblArg [Plain "figlabel"]]]])
+    @?=
+    Just (FigureAnchor (0,1))
+  , testCase "chapter number is stored in figure counter" $
+    either (error . show) (M.lookup "figlabel" . metaAnchorMap . snd)
+      (runParserWithState (blocks <* eof)
+        [ Command "chapter" [OblArg [Plain "one"]]
+        , Command "chapter" [OblArg [Plain "two"]]
+        , Group "figure" []
+          [ Command "includegraphics" [OblArg [Plain "file.png"]]
+          , Command "caption" [OblArg [Plain "description"]]
+          , Command "label" [OblArg [Plain "figlabel"]]]])
+    @?=
+    Just (FigureAnchor (2,1))
+  , testCase "figure counter is incremented within chapter" $
+    either (error . show) (M.lookup "figlabel" . metaAnchorMap . snd)
+      (runParserWithState (blocks <* eof)
+        [ Command "chapter" [OblArg [Plain "one"]]
+        , Group "figure" []
+          [ Command "includegraphics" [OblArg [Plain "file.png"]]
+          , Command "caption" [OblArg [Plain "description"]]]
+        , Group "figure" []
+          [ Command "includegraphics" [OblArg [Plain "file.png"]]
+          , Command "caption" [OblArg [Plain "description"]]
+          , Command "label" [OblArg [Plain "figlabel"]]]])
+    @?=
+    Just (FigureAnchor (1,2))
+  , testCase "figure counter is reset at chapter boundaries" $
+    either (error . show) (M.lookup "figlabel" . metaAnchorMap . snd)
+      (runParserWithState (blocks <* eof)
+        [ Command "chapter" [OblArg [Plain "one"]]
+        , Group "figure" []
+          [ Command "includegraphics" [OblArg [Plain "file.png"]]
+          , Command "caption" [OblArg [Plain "description"]]]
+        , Group "figure" []
+          [ Command "includegraphics" [OblArg [Plain "file.png"]]
+          , Command "caption" [OblArg [Plain "description"]]]
+        , Command "chapter" [OblArg [Plain "two"]]
+        , Group "figure" []
+          [ Command "includegraphics" [OblArg [Plain "file.png"]]
+          , Command "caption" [OblArg [Plain "description"]]
+          , Command "label" [OblArg [Plain "figlabel"]]]])
+    @?=
+    Just (FigureAnchor (2,1))
   ]
 
 testsCrossrefs :: Test

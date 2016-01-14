@@ -85,6 +85,8 @@ distributeMetaToBlock (List ltype xss) =
   List ltype <$> mapM (mapM distributeMetaToBlock) xss
 distributeMetaToBlock (QuotationBlock xs) =
   QuotationBlock <$> mapM distributeMetaToBlock xs
+distributeMetaToBlock (Figure a l xs) =
+  Figure a l <$> mapM distributeMetaToInline xs
 
 distributeMetaToInline :: Inline -> Reader Meta Inline
 distributeMetaToInline (Str xs) =

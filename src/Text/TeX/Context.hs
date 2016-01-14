@@ -40,6 +40,7 @@ module Text.TeX.Context
   , grp
   , inGrp
   , grpDown
+  , grpUnwrap
   , optNested
     -- ** Low-level parsers
   , eof

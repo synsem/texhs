@@ -202,15 +202,30 @@ commandDB = M.union argspecsSyntactic argspecsSemantic
         -- LaTeX
       , ("textrm", (0,1))
       , ("textit", (0,1))
+      , ("label", (0,1))
+      , ("caption", (0,1))
+      , ("cite", (1,1))
+      , ("centering", (0,0))
         -- hyperref
       , ("href", (0,2))
       , ("url", (0,1))
+        -- graphicx
+      , ("includegraphics", (1,1))
       ]
 
--- Lookup table for the ArgSpec of known environments. Stub.
+-- Lookup table for the ArgSpec of known environments.
+--
+-- We use a pair @(nrOptArgs, nrOblArgs)@ as a simplified
+-- ArgSpec representation here.
 envDB :: [(String, (Int, Int))]
 envDB =
-  [ ("tabular", (1,1))
+  [ -- LaTeX
+    ("document", (0,0))
+  , ("quotation", (0,0))
+  , ("center", (0,0))
+  , ("figure", (1,0))
+  , ("table", (1,0))
+  , ("tabular", (1,1))
   ]
 
 -- Parse a given ArgSpec.

@@ -33,6 +33,7 @@ module Text.Doc.Types
   , anchorDescription
   , registerAnchorLabel
   , incSection
+  , getChapter
     -- ** Blocks
   , Content
   , Level
@@ -89,6 +90,7 @@ data Meta = Meta
   , metaAnchorCurrent :: InternalAnchor
   , metaAnchorMap :: Map Label InternalAnchor
   , metaSectionCurrent :: [Int]
+  , metaFigureCurrent :: (Int, Int)
   } deriving (Eq, Show)
 
 -- | Default (empty) meta information of a document.
@@ -103,6 +105,7 @@ defaultMeta = Meta
   , metaAnchorCurrent = DocumentAnchor
   , metaAnchorMap = M.empty
   , metaSectionCurrent = replicate 6 0
+  , metaFigureCurrent = (0, 0)
   }
 
 -- | A class for document types that hold meta information.
@@ -126,8 +129,9 @@ data Anchor
 --
 -- Internal anchors and pointers are used to model cross-references.
 data InternalAnchor
-  = DocumentAnchor -- initial anchor in a document
-  | SectionAnchor [Int]
+  = DocumentAnchor          -- initial anchor in a document
+  | SectionAnchor [Int]     -- section numbers
+  | FigureAnchor (Int, Int) -- chapter number and chapter-relative figure count
   deriving (Eq, Show)
 
 -- | Generate identifying string for an anchor.
@@ -138,6 +142,9 @@ anchorID DocumentAnchor = ""
 anchorID (SectionAnchor xs) = T.concat $ zipWith T.append
   ["Pt", "Ch", "S", "s", "ss", "p"]
   (map (T.pack . show) xs)
+anchorID (FigureAnchor (chap, fignum)) = T.concat $ zipWith T.append
+  ["figure", "chap"]
+  (map (T.pack . show) [fignum, chap])
 
 -- | Generate target location string for an anchor.
 --
@@ -156,7 +163,10 @@ anchorDescription (ExternalResource l _) = l
 -- Helper for 'anchorDescription'.
 internalAnchorDescription :: InternalAnchor -> [Inline]
 internalAnchorDescription DocumentAnchor = [Str "start"]
-internalAnchorDescription (SectionAnchor xs) = [Str (intercalate "." (map show xs))]
+internalAnchorDescription (SectionAnchor xs) =
+  [Str (intercalate "." (map show xs))]
+internalAnchorDescription (FigureAnchor (chap, fignum)) =
+  [Str (intercalate "." (map show [chap, fignum]))]
 
 -- | A label is a name of an internal anchor.
 --
@@ -217,6 +227,12 @@ incSection n c = uncurry (++) $ fmap incLevels $ splitAt (n-1) c
     incLevels [] = []
     incLevels (x:xs) = x+1 : replicate (length xs) 0
 
+-- | Extract chapter number from section cursor.
+getChapter :: [Int] -> Int
+getChapter sec
+  | length sec >= 2 = sec !! 1
+  | otherwise = 0
+
 -------------------- Content type
 
 -- | Content of a 'Doc' document.
@@ -235,6 +251,7 @@ data Block
   | Header Level InternalAnchor [Inline]
   | List ListType [[Block]]
   | QuotationBlock [Block]
+  | Figure InternalAnchor Location [Inline]
   deriving (Eq, Show)
 
 -- | Inline elements in a 'Doc' document.

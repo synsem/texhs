@@ -91,6 +91,10 @@ block (Header level anchor xs) =
 block (List UnorderedList xss) = ul $ mapM_ (li . blocks) xss
 block (List OrderedList xss) = ol $ mapM_ (li . blocks) xss
 block (QuotationBlock xs) = H.blockquote $ blocks xs
+block (Figure anchor imgloc imgdesc) =
+  H.figure ! A.id (textValue (anchorID anchor)) $
+  H.img ! A.src (textValue imgloc) <>
+  H.figcaption (inlines imgdesc)
 
 -- Convert a single 'Inline' element to HTML.
 inline :: Inline -> Html

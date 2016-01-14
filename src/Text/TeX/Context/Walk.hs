@@ -38,6 +38,7 @@ module Text.TeX.Context.Walk
   , grp
   , inGrp
   , grpDown
+  , grpUnwrap
     -- ** Any group
   , optNested
   , goDown
@@ -210,6 +211,12 @@ inGrp n p = grpDown n *> p <* safeUp
 -- | Descend into a specific group (ignoring all group arguments).
 grpDown :: String -> Parser ()
 grpDown n = peek (isGrp n) *> goDown
+
+-- | Unwrap the content of a specific group.
+--
+-- Warning: This may extend the scope of contained commands.
+grpUnwrap :: String -> Parser ()
+grpUnwrap n = peek (isGrp n) *> step unwrap
 
 -- Apply parser inside a group (any group).
 -- The parser must exhaust the group content.
