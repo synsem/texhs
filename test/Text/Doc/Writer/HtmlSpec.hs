@@ -145,6 +145,14 @@ testsInlines = testGroup "inlines"
       (Just (InternalResource (FigureAnchor (2,1))))]
     @?=
     "Figure <a href=\"#figure1chap2\">2.1</a>"
+  , testCase "empty footnote (only mark)" $
+    inlines2html [Note (NoteAnchor (2,8)) []]
+    @?=
+    "<a id=\"fn8chap2ref\" class=\"fnRef\" href=\"#fn8chap2\"><sup>2.8</sup></a>"
+  , testCase "simple footnote (only mark)" $
+    inlines2html [Note (NoteAnchor (1,2)) [Para [Str "hello"]]]
+    @?=
+    "<a id=\"fn2chap1ref\" class=\"fnRef\" href=\"#fn2chap1\"><sup>1.2</sup></a>"
   ]
 
 

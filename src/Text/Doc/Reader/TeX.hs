@@ -43,6 +43,7 @@ module Text.Doc.Reader.TeX
 
 import Control.Applicative
 import Control.Monad
+import qualified Data.Map.Strict as M
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import Numeric (readDec)
@@ -154,6 +155,10 @@ block = choice
   [ header, itemize, enumerate, quotation
   , figure, table, para]
 
+-- Parse block elements in the first mandatory argument of a command.
+blockCmd :: String -> Parser [Block]
+blockCmd name = inCmd name blocks
+
 -- | Parse a single (non-empty) paragraph.
 para :: Parser Block
 para = Para <$> ((:) <$> inline <*> inlines <* optional skipPar)
@@ -178,17 +183,21 @@ registerHeader :: Level -> Parser InternalAnchor
 registerHeader level = do
   meta <- getMeta
   let sectionCurrent = incSection level (metaSectionCurrent meta)
-  -- reset figure and table counters at beginning of chapters
+  -- at beginning of chapters reset counters for figures, tables and notes
   let figureCurrent = if level == 2
                       then (getChapter sectionCurrent, 0)
                       else metaFigureCurrent meta
-  let tableCurrent = if level == 2
-                     then (getChapter sectionCurrent, 0)
-                     else metaTableCurrent meta
+  let tableCurrent  = if level == 2
+                      then (getChapter sectionCurrent, 0)
+                      else metaTableCurrent meta
+  let noteCurrent   = if level == 2
+                      then (getChapter sectionCurrent, 0)
+                      else metaNoteCurrent meta
   putMeta (meta { metaSectionCurrent = sectionCurrent
                 , metaAnchorCurrent = SectionAnchor sectionCurrent
                 , metaFigureCurrent = figureCurrent
                 , metaTableCurrent = tableCurrent
+                , metaNoteCurrent = noteCurrent
                 })
   return (SectionAnchor sectionCurrent)
 
@@ -285,7 +294,9 @@ inlines = concat <$> many (choice
 
 -- | Parse a single inline element.
 inline :: Parser Inline
-inline = choice [space, str, emph, em, rm, cite, ref, href, url]
+inline = choice
+  [ space, str, emph, em, rm
+  , cite, note, ref, href, url]
 
 -- Parse inline elements in the first mandatory argument of a command.
 inlineCmd :: String -> Parser [Inline]
@@ -323,6 +334,24 @@ cite = do
   modifyMeta (registerCiteKeys keys)
   let mcite = MultiCite CiteParen [] [] [SingleCite [] [] keys]
   return (Citation mcite Nothing)
+
+-- | Parse @footnote@ command.
+note :: Parser Inline
+note = do
+  fntext <- blockCmd "footnote"
+  anchor <- registerNote fntext
+  return (Note anchor fntext)
+
+-- Register new footnote: assign number and store footnote text
+-- in the document meta information.
+registerNote :: [Block] -> Parser InternalAnchor
+registerNote fntext = do
+  meta <- getMeta
+  let newCnt = (+1) <$> metaNoteCurrent meta
+      newMap = M.insert newCnt fntext (metaNoteMap meta)
+  putMeta (meta { metaNoteCurrent = newCnt
+                , metaNoteMap = newMap })
+  return (NoteAnchor newCnt)
 
 -- | Parse @ref@ command.
 ref :: Parser Inline

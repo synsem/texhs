@@ -86,17 +86,17 @@ inlines = mapM_ inline
 block :: Block -> Html
 block (Para xs) = p $ inlines xs
 block (Header level anchor xs) =
-  heading level ! A.id (textValue (anchorID anchor)) $
+  heading level ! A.id (textValue (internalAnchorID anchor)) $
   inlines xs
 block (List UnorderedList xss) = ul $ mapM_ (li . blocks) xss
 block (List OrderedList xss) = ol $ mapM_ (li . blocks) xss
 block (QuotationBlock xs) = H.blockquote $ blocks xs
 block (Figure anchor imgloc imgdesc) =
-  H.figure ! A.id (textValue (anchorID anchor)) $
+  H.figure ! A.id (textValue (internalAnchorID anchor)) $
   H.img ! A.src (textValue imgloc) <>
   H.figcaption (inlines imgdesc)
 block (Table anchor tdesc tdata) =
-  H.table ! A.id (textValue (anchorID anchor)) $
+  H.table ! A.id (textValue (internalAnchorID anchor)) $
   H.caption (inlines tdesc) <>
   H.tbody (mapM_ (H.tr . mapM_ tableCell) tdata)
 
@@ -125,6 +125,11 @@ inline (Pointer _ Nothing) =
 inline (Pointer _ (Just anchor)) =
   a ! href (textValue (anchorTarget anchor)) $
   inlines (anchorDescription anchor)
+inline (Note anchor _) =
+  a ! A.id (textValue (internalAnchorIDRef anchor))
+    ! A.class_ "fnRef"
+    ! href (textValue (internalAnchorTarget anchor)) $
+  H.sup $ inlines (internalAnchorDescription anchor)
 
 -- Map header level to 'Html' combinator.
 heading :: Level -> Html -> Html

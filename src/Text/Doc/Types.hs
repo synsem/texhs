@@ -27,10 +27,14 @@ module Text.Doc.Types
   , Label
   , Location
   , Anchor(..)
-  , InternalAnchor(..)
-  , anchorID
   , anchorTarget
   , anchorDescription
+  , InternalAnchor(..)
+  , internalAnchorID
+  , internalAnchorIDRef
+  , internalAnchorTarget
+  , internalAnchorDescription
+  , internalAnchorDescriptionAsText
   , registerAnchorLabel
   , incSection
   , getChapter
@@ -91,9 +95,11 @@ data Meta = Meta
   , metaCiteCount :: Int
   , metaAnchorCurrent :: InternalAnchor
   , metaAnchorMap :: Map Label InternalAnchor
+  , metaNoteMap :: Map (Int, Int) [Block]
   , metaSectionCurrent :: [Int]
   , metaFigureCurrent :: (Int, Int)
   , metaTableCurrent :: (Int, Int)
+  , metaNoteCurrent :: (Int, Int)
   } deriving (Eq, Show)
 
 -- | Default (empty) meta information of a document.
@@ -107,9 +113,11 @@ defaultMeta = Meta
   , metaCiteCount = 0
   , metaAnchorCurrent = DocumentAnchor
   , metaAnchorMap = M.empty
+  , metaNoteMap = M.empty
   , metaSectionCurrent = replicate 6 0
   , metaFigureCurrent = (0, 0)
   , metaTableCurrent = (0, 0)
+  , metaNoteCurrent = (0, 0)
   }
 
 -- | A class for document types that hold meta information.
@@ -137,46 +145,76 @@ data InternalAnchor
   | SectionAnchor [Int]     -- section numbers
   | FigureAnchor (Int, Int) -- chapter number and chapter-relative figure count
   | TableAnchor (Int, Int)  -- chapter number and chapter-relative table count
+  | NoteAnchor (Int, Int)   -- chapter number and chapter-relative note count
   deriving (Eq, Show)
 
--- | Generate identifying string for an anchor.
+-- | Generate identifying string for an internal anchor.
 --
 -- This can be used for @xml:id@ attributes.
-anchorID :: InternalAnchor -> Text
-anchorID DocumentAnchor = ""
-anchorID (SectionAnchor xs) = T.concat $ zipWith T.append
+internalAnchorID :: InternalAnchor -> Text
+internalAnchorID DocumentAnchor = ""
+internalAnchorID (SectionAnchor xs) = T.concat $ zipWith T.append
   ["Pt", "Ch", "S", "s", "ss", "p"]
   (map (T.pack . show) xs)
-anchorID (FigureAnchor (chap, fignum)) = T.concat $ zipWith T.append
-  ["figure", "chap"]
-  (map (T.pack . show) [fignum, chap])
-anchorID (TableAnchor (chap, tabnum)) = T.concat $ zipWith T.append
-  ["table", "chap"]
-  (map (T.pack . show) [tabnum, chap])
+internalAnchorID (FigureAnchor nums) = anchorIDFromPair "figure" nums
+internalAnchorID (TableAnchor nums) = anchorIDFromPair "table" nums
+internalAnchorID (NoteAnchor nums) = anchorIDFromPair "fn" nums
+
+-- | Generate identifying string for a reference to an anchor.
+--
+-- This is mainly used for footnote back-references: The footnote text
+-- (main anchor) contains a back-reference to the footnote mark.
+internalAnchorIDRef :: InternalAnchor -> Text
+internalAnchorIDRef anchor = T.append (internalAnchorID anchor) "ref"
+
+-- Generate identifying string for basic element anchors.
+--
+-- Helper for 'internalAnchorID'.
+anchorIDFromPair :: Text -> (Int, Int) -> Text
+anchorIDFromPair anchortype (chap, num) =
+  T.concat $ zipWith T.append [anchortype, "chap"]
+    (map (T.pack . show) [num, chap])
 
 -- | Generate target location string for an anchor.
 --
 -- This can be used for @href@ attributes in HTML hyperlinks.
 anchorTarget :: Anchor -> Text
-anchorTarget (InternalResource i) = T.cons '#' (anchorID i)
+anchorTarget (InternalResource res) = internalAnchorTarget res
 anchorTarget (ExternalResource _ loc) = loc
+
+-- | Generate target location string for an internal anchor.
+--
+-- This can be used for @href@ attributes in HTML hyperlinks.
+internalAnchorTarget :: InternalAnchor -> Text
+internalAnchorTarget = T.cons '#' . internalAnchorID
 
 -- | Generate description text for an anchor.
 anchorDescription :: Anchor -> [Inline]
 anchorDescription (InternalResource i) = internalAnchorDescription i
 anchorDescription (ExternalResource l _) = l
 
--- Generate description text for an internal anchor.
+-- | Generate description text for an internal anchor.
 --
--- Helper for 'anchorDescription'.
+-- Intended to be used in running 'Inline' text.
 internalAnchorDescription :: InternalAnchor -> [Inline]
-internalAnchorDescription DocumentAnchor = [Str "start"]
-internalAnchorDescription (SectionAnchor xs) =
-  [Str (intercalate "." (map show xs))]
-internalAnchorDescription (FigureAnchor (chap, fignum)) =
-  [Str (intercalate "." (map show [chap, fignum]))]
-internalAnchorDescription (TableAnchor (chap, tabnum)) =
-  [Str (intercalate "." (map show [chap, tabnum]))]
+internalAnchorDescription = (:[]) . Str . internalAnchorDescriptionAsText
+
+-- | Generate raw description text for an internal anchor.
+--
+-- Intended to be used in XML attribute values.
+internalAnchorDescriptionAsText :: InternalAnchor -> String
+internalAnchorDescriptionAsText DocumentAnchor = "start"
+internalAnchorDescriptionAsText (SectionAnchor xs) = dotSep xs
+internalAnchorDescriptionAsText (FigureAnchor (ch, n)) = dotSep [ch, n]
+internalAnchorDescriptionAsText (TableAnchor (ch, n)) = dotSep [ch, n]
+internalAnchorDescriptionAsText (NoteAnchor (ch, n)) = dotSep [ch, n]
+
+-- Given a list of numbers, format them as an inline string
+-- with a separating period between numbers (e.g. "2.3.1").
+--
+-- Helper for 'internalAnchorDescriptionAsText'.
+dotSep :: [Int] -> String
+dotSep = intercalate "." . map show
 
 -- | A label is a name of an internal anchor.
 --
@@ -287,6 +325,7 @@ data Inline
   | Space
   | Citation MultiCite (Maybe [Inline])
   | Pointer Label (Maybe Anchor)
+  | Note InternalAnchor [Block]
   deriving (Eq, Show)
 
 -- | A list of 'SingleCite' citations
@@ -378,7 +417,10 @@ docAuthors = metaAuthors . docMeta
 docDate :: HasMeta d => d -> [Inline]
 docDate = metaDate . docMeta
 
--- Warning: The citation formatter drops any prenotes and postnotes.
+-- Warning: does not preserve full content.
+-- - strips font styles
+-- - drops footnotes
+-- - drops prenotes and postnotes in citations
 -- | Extract plain character data from an 'Inline' element.
 plain :: Inline -> String
 plain (Str xs) = xs
@@ -387,6 +429,7 @@ plain (Emph is) = concatMap plain is
 plain Space = " "
 plain (Citation (MultiCite _ _ _ xs) _) = T.unpack (plainCites xs)
 plain (Pointer label _) = T.unpack (T.concat ["<", label, ">"])
+plain Note{} = ""
 
 -- Helper for showing raw citations.
 plainCites :: [SingleCite] -> Text

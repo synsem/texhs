@@ -130,7 +130,7 @@ inlines = mapM_ inline
 section :: Section -> Markup
 section (Section hlevel hanchor htitle secbody subsecs) =
   el "div" !
-  attr "xml:id" (textValue (anchorID hanchor)) !
+  attr "xml:id" (textValue (internalAnchorID hanchor)) !
   attr "type" (textValue (levelname hlevel)) $ do
     el "head" $ inlines htitle
     blocks secbody
@@ -161,11 +161,11 @@ block (List ltype xss) =
 block (QuotationBlock xs) =
   el "quote" $ blocks xs
 block (Figure anchor imgloc imgdesc) =
-  el "figure" ! attr "xml:id" (textValue (anchorID anchor)) $
+  el "figure" ! attr "xml:id" (textValue (internalAnchorID anchor)) $
   leaf "graphic" ! attr "url" (textValue imgloc) <>
   el "head" (inlines imgdesc)
 block (Table anchor tdesc tdata) =
-  el "table" ! attr "xml:id" (textValue (anchorID anchor)) $
+  el "table" ! attr "xml:id" (textValue (internalAnchorID anchor)) $
   el "head" (inlines tdesc) <>
   mapM_ (el "row" . mapM_ tableCell) tdata
 
@@ -194,6 +194,13 @@ inline (Pointer _ Nothing) =
 inline (Pointer _ (Just anchor)) =
   el "ref" ! attr "target" (textValue (anchorTarget anchor)) $
   inlines (anchorDescription anchor)
+inline (Note anchor notetext) =
+  el "note" !
+    attr "xml:id" (textValue (internalAnchorID anchor)) !
+    attr "type" "footnote" !
+    attr "place" "bottom" !
+    attr "n" (stringValue (internalAnchorDescriptionAsText anchor)) $
+  blocks notetext
 
 
 ---------- String to text helper functions

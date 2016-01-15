@@ -115,6 +115,8 @@ distributeMetaToInline (Pointer label Nothing) =
   return $ Pointer label (InternalResource <$> M.lookup label db)
 distributeMetaToInline p@(Pointer _ (Just _)) =
   return p
+distributeMetaToInline (Note a bs) =
+  Note a <$> mapM distributeMetaToBlock bs
 
 -- Stub. Ignores citation mode and pre-/post-notes.
 fmtMultiCite :: CiteDB -> MultiCite -> [Inline]

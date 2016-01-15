@@ -42,6 +42,7 @@ tests = testGroup "Text.Doc.Reader.TeXSpec"
   , testsLists
   , testsFigures
   , testsTables
+  , testsFootnotes
   , testsCrossrefs
   , testsHyperref
   , testsWhitespace
@@ -497,6 +498,39 @@ testsTables = testGroup "tables"
           , Command "label" [OblArg [Plain "table-label"]]]])
     @?=
     Just (TableAnchor (2,1))
+  ]
+
+testsFootnotes :: Test
+testsFootnotes = testGroup "footnotes"
+  [ testCase "empty footnote" $
+    runParser (inlines <* eof) [Command "footnote" []]
+    @?=
+    Right [Note (NoteAnchor (0,1)) []]
+  , testCase "simple footnote" $
+    runParser (inlines <* eof) [Command "footnote" [OblArg [Plain "hello"]]]
+    @?=
+    Right [Note (NoteAnchor (0,1)) [Para [Str "hello"]]]
+  , testCase "multi-paragraph footnote" $
+    runParser (inlines <* eof)
+      [Command "footnote" [OblArg [Plain "one", Par, Plain "two"]]]
+    @?=
+    Right [Note (NoteAnchor (0,1)) [Para [Str "one"], Para [Str "two"]]]
+  , testCase "note counter is incremented within chapter" $
+    runParser (block *> inline *> inline <* eof)
+      [ Command "chapter" [OblArg [Plain "one"]]
+      , Command "footnote" [OblArg [Plain "fn-one"]]
+      , Command "footnote" [OblArg [Plain "fn-two"]]]
+    @?=
+    Right (Note (NoteAnchor (1,2)) [Para [Str "fn-two"]])
+  , testCase "note counter is reset at chapter boundaries" $
+    runParser (block *> inline *> inline *> block *> inline <* eof)
+      [ Command "chapter" [OblArg [Plain "one"]]
+      , Command "footnote" [OblArg [Plain "fn-1-1"]]
+      , Command "footnote" [OblArg [Plain "fn-1-2"]]
+      , Command "chapter" [OblArg [Plain "two"]]
+      , Command "footnote" [OblArg [Plain "fn-2-1"]]]
+    @?=
+    Right (Note (NoteAnchor (2,1)) [Para [Str "fn-2-1"]])
   ]
 
 testsCrossrefs :: Test

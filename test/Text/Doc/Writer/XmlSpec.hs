@@ -167,4 +167,19 @@ testsInlines = testGroup "inlines"
       (Just (InternalResource (FigureAnchor (2,1))))]
     @?=
     "Figure <ref target=\"#figure1chap2\">2.1</ref>"
+  , testCase "empty footnote" $
+    inlines2xml [Note (NoteAnchor (2,8)) []]
+    @?=
+    LT.append "<note xml:id=\"fn8chap2\" type=\"footnote\" place=\"bottom\" n=\"2.8\">"
+              "</note>"
+  , testCase "simple footnote" $
+    inlines2xml [Note (NoteAnchor (1,2)) [Para [Str "hello"]]]
+    @?=
+    LT.append "<note xml:id=\"fn2chap1\" type=\"footnote\" place=\"bottom\" n=\"1.2\">"
+              "<p>hello</p></note>"
+  , testCase "multi-paragraph footnote" $
+    inlines2xml [Note (NoteAnchor (1,2)) [Para [Str "one"], Para [Str "two"]]]
+    @?=
+    LT.append "<note xml:id=\"fn2chap1\" type=\"footnote\" place=\"bottom\" n=\"1.2\">"
+              "<p>one</p><p>two</p></note>"
   ]
