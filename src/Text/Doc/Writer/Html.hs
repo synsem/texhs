@@ -20,9 +20,14 @@ module Text.Doc.Writer.Html
  , inlines2html
  ) where
 
-
+import Control.Arrow (first)
+import Control.Monad (unless)
+import Data.List (nub)
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as M
 import Data.Monoid
 import Data.Text.Lazy (Text)
+import qualified Data.Text as T
 import Text.Blaze.Html5
   ( (!), Html, toHtml, textValue, docTypeHtml, title
   , h1, h2, ul, ol, li, p, em, a)
@@ -64,6 +69,43 @@ mkHead doc = H.head $ do
   H.meta ! name "viewport" ! content "width=device-width, initial-scale=1.0"
   H.meta ! name "generator" ! content "texhs"
 
+-- Create section for footnotes.
+footnotes :: Doc -> Html
+footnotes (Doc meta _) =
+  let notes = metaNoteMap meta
+      keys = M.keys notes             -- 'M.keys' returns sorted list
+      chapters = (nub . map fst) keys -- only chapters with notes
+  in unless (null keys) $
+    (h1 ! A.id "footnotes" $ "Footnotes") <>
+    mapM_ (footnotesForChapter notes) chapters
+
+-- Create footnotes for a given chapter number.
+footnotesForChapter :: Map (Int, Int) [Block] -> Int -> Html
+footnotesForChapter notes chapnum =
+  let chap = T.pack (show chapnum)
+      headerID = textValue (T.append "footnotesChap" chap)
+      headerTitle = toHtml (T.append "Chapter " chap)
+      fndata = filter ((chapnum==) . fst . fst) (M.assocs notes)
+  in (h2 ! A.id headerID $ headerTitle) <>
+     ol (mapM_ (footnote . first NoteAnchor) fndata)
+
+-- Create a single footnote.
+footnote :: (InternalAnchor, [Block]) -> Html
+footnote (anchor, fntext) =
+  li ! A.id (textValue (internalAnchorID anchor)) $
+  blocks fntext <>
+  backreference anchor
+
+-- Create a backreference to an anchor.
+--
+-- For example, insert a backreference into a footnote text
+-- in order to refer back to the corresponding footnote mark.
+backreference :: InternalAnchor -> Html
+backreference anchor =
+  let backrefText = "^"
+  in p $ a ! href (textValue (internalAnchorTargetRef anchor)) $
+     backrefText
+
 
 ---------- content
 
@@ -73,6 +115,7 @@ mkBody doc@(Doc _ docbody) = H.body $ do
   h1 $ inlines (docTitle doc)
   h2 $ mapM_ inlines (docAuthors doc)
   blocks docbody
+  footnotes doc
 
 -- Convert 'Block' elements to HTML.
 blocks :: [Block] -> Html

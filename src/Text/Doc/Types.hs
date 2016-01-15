@@ -33,6 +33,7 @@ module Text.Doc.Types
   , internalAnchorID
   , internalAnchorIDRef
   , internalAnchorTarget
+  , internalAnchorTargetRef
   , internalAnchorDescription
   , internalAnchorDescriptionAsText
   , registerAnchorLabel
@@ -187,6 +188,13 @@ anchorTarget (ExternalResource _ loc) = loc
 -- This can be used for @href@ attributes in HTML hyperlinks.
 internalAnchorTarget :: InternalAnchor -> Text
 internalAnchorTarget = T.cons '#' . internalAnchorID
+
+-- | Generate target location string for a reference to an internal anchor.
+--
+-- This is mainly used for footnote back-references: The footnote text
+-- (main anchor) contains a back-reference to the footnote mark.
+internalAnchorTargetRef :: InternalAnchor -> Text
+internalAnchorTargetRef = T.cons '#' . internalAnchorIDRef
 
 -- | Generate description text for an anchor.
 anchorDescription :: Anchor -> [Inline]

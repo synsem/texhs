@@ -17,6 +17,7 @@ module Text.Doc.Writer.HtmlSpec
 import Test.Framework (Test, testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit ((@?=))
+import qualified Data.Map.Strict as M
 import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy as LT
 
@@ -48,7 +49,7 @@ testsDoc = testGroup "documents"
               , "</body></html>"]
   , testCase "simple document" $
     doc2html (Doc
-      defaultMeta { metaTitle = [Str "No title"]
+      defaultMeta { metaTitle = [Str "No", Space, Str "title"]
                   , metaAuthors = [[Str "Nobody"]]
                   , metaDate = [Str "2015-12-31"] }
       [Para [Str "hello", Space, Emph [Str "world"]]])
@@ -62,6 +63,62 @@ testsDoc = testGroup "documents"
               , "<h1>No title</h1><h2>Nobody</h2>"
               , "<p>hello <em>world</em></p>"
               , "</body></html>"]
+  , testCase "document with chapters and footnotes" $
+    doc2html (Doc
+      defaultMeta { metaTitle = [Str "No", Space, Str "title"]
+                  , metaAuthors = [[Str "Nobody"]]
+                  , metaNoteMap = M.fromList
+                    [((1,1), [Para [Str "Footnote", Space, Str "one"]])
+                    ,((3,1), [Para [Str "Footnote", Space, Str "two"]])
+                    ,((3,2), [Para [Str "Footnote", Space, Str "three"]])
+                    ,((3,3), [Para [Str "Footnote", Space, Str "four"]])]}
+      [ Header 2 (SectionAnchor [0,1,0,0,0,0]) [Str "one"]
+      , Para [ Str "One"
+             , Note (NoteAnchor (1,1)) [Para [Str "Footnote", Space, Str "one"]]
+             , Str "."]
+      , Header 2 (SectionAnchor [0,2,0,0,0,0]) [Str "two"]
+      , Para [ Str "No", Space, Str "footnotes", Space, Str "in", Space
+             , Str "Chapter", Space, Str "two."]
+      , Header 2 (SectionAnchor [0,3,0,0,0,0]) [Str "three"]
+      , Para [ Str "Hello"
+             , Note (NoteAnchor (3,1)) [Para [Str "Footnote", Space, Str "two"]]
+             , Space, Str "world"
+             , Note (NoteAnchor (3,2)) [Para [Str "Footnote", Space, Str "three"]]
+             , Str "."]
+      , Para [ Str "Hello"
+             , Note (NoteAnchor (3,3)) [Para [Str "Footnote", Space, Str "four"]], Str "."]])
+    @?=
+    LT.concat [ "<!DOCTYPE HTML>\n<html><head>"
+              , metaCharset
+              , "<title>No title</title>"
+              , metaViewport
+              , metaGenerator
+              , "</head><body>"
+              , "<h1>No title</h1><h2>Nobody</h2>"
+                -- body
+              , "<h2 id=\"Pt0Ch1S0s0ss0p0\">one</h2>"
+              , "<p>One"
+              , "<a id=\"fn1chap1ref\" class=\"fnRef\" href=\"#fn1chap1\"><sup>1.1</sup></a>"
+              , ".</p>"
+              , "<h2 id=\"Pt0Ch2S0s0ss0p0\">two</h2>"
+              , "<p>No footnotes in Chapter two.</p>"
+              , "<h2 id=\"Pt0Ch3S0s0ss0p0\">three</h2>"
+              , "<p>Hello"
+              , "<a id=\"fn1chap3ref\" class=\"fnRef\" href=\"#fn1chap3\"><sup>3.1</sup></a>"
+              , " world"
+              , "<a id=\"fn2chap3ref\" class=\"fnRef\" href=\"#fn2chap3\"><sup>3.2</sup></a>"
+              , ".</p><p>Hello"
+              , "<a id=\"fn3chap3ref\" class=\"fnRef\" href=\"#fn3chap3\"><sup>3.3</sup></a>"
+              , ".</p>"
+                -- footnotes
+              , "<h1 id=\"footnotes\">Footnotes</h1>"
+              , "<h2 id=\"footnotesChap1\">Chapter 1</h2><ol>"
+              , "<li id=\"fn1chap1\"><p>Footnote one</p><p><a href=\"#fn1chap1ref\">^</a></p></li>"
+              , "</ol><h2 id=\"footnotesChap3\">Chapter 3</h2><ol>"
+              , "<li id=\"fn1chap3\"><p>Footnote two</p><p><a href=\"#fn1chap3ref\">^</a></p></li>"
+              , "<li id=\"fn2chap3\"><p>Footnote three</p><p><a href=\"#fn2chap3ref\">^</a></p></li>"
+              , "<li id=\"fn3chap3\"><p>Footnote four</p><p><a href=\"#fn3chap3ref\">^</a></p></li>"
+              , "</ol></body></html>"]
   ]
 
 testsBlocks :: Test
