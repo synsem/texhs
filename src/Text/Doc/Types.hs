@@ -36,6 +36,7 @@ module Text.Doc.Types
   , internalAnchorTargetRef
   , internalAnchorDescription
   , internalAnchorDescriptionAsText
+  , internalAnchorLocalNum
   , registerAnchorLabel
   , incSection
   , getChapter
@@ -43,6 +44,7 @@ module Text.Doc.Types
   , Content
   , Level
   , ListType(..)
+  , ListItem(..)
   , TableRow
   , TableCell(..)
   , Block(..)
@@ -101,6 +103,7 @@ data Meta = Meta
   , metaFigureCurrent :: (Int, Int)
   , metaTableCurrent :: (Int, Int)
   , metaNoteCurrent :: (Int, Int)
+  , metaItemCurrent :: (Int, [Int])
   } deriving (Eq, Show)
 
 -- | Default (empty) meta information of a document.
@@ -119,6 +122,7 @@ defaultMeta = Meta
   , metaFigureCurrent = (0, 0)
   , metaTableCurrent = (0, 0)
   , metaNoteCurrent = (0, 0)
+  , metaItemCurrent = (0, [0])
   }
 
 -- | A class for document types that hold meta information.
@@ -143,10 +147,12 @@ data Anchor
 -- Internal anchors and pointers are used to model cross-references.
 data InternalAnchor
   = DocumentAnchor          -- initial anchor in a document
-  | SectionAnchor [Int]     -- section numbers
+  | SectionAnchor [Int]     -- section numbers: [part, chap, sect, ...]
   | FigureAnchor (Int, Int) -- chapter number and chapter-relative figure count
   | TableAnchor (Int, Int)  -- chapter number and chapter-relative table count
   | NoteAnchor (Int, Int)   -- chapter number and chapter-relative note count
+  | ItemAnchor (Int, [Int]) -- chapter number and chapter-relative item numbers
+                            --   in reverse order, e.g. [1,3,2] --> \"2.3.1\"
   deriving (Eq, Show)
 
 -- | Generate identifying string for an internal anchor.
@@ -160,6 +166,8 @@ internalAnchorID (SectionAnchor xs) = T.concat $ zipWith T.append
 internalAnchorID (FigureAnchor nums) = anchorIDFromPair "figure" nums
 internalAnchorID (TableAnchor nums) = anchorIDFromPair "table" nums
 internalAnchorID (NoteAnchor nums) = anchorIDFromPair "fn" nums
+internalAnchorID (ItemAnchor (chap, nums)) = T.append "item-"
+  (T.pack (hyphenSep (chap:reverse nums)))
 
 -- | Generate identifying string for a reference to an anchor.
 --
@@ -216,13 +224,31 @@ internalAnchorDescriptionAsText (SectionAnchor xs) = dotSep xs
 internalAnchorDescriptionAsText (FigureAnchor (ch, n)) = dotSep [ch, n]
 internalAnchorDescriptionAsText (TableAnchor (ch, n)) = dotSep [ch, n]
 internalAnchorDescriptionAsText (NoteAnchor (ch, n)) = dotSep [ch, n]
+internalAnchorDescriptionAsText (ItemAnchor (ch, ns)) = dotSep (ch:reverse ns)
+
+-- Note: For some anchor types, fallback values are returned --
+-- consider throwing an exception in these cases instead.
+-- Note: This function is mainly used for 'ItemAnchor' values.
+-- | Extract value at the innermost level of an internal anchor.
+internalAnchorLocalNum :: InternalAnchor -> Int
+internalAnchorLocalNum DocumentAnchor = 0 -- fallback
+internalAnchorLocalNum (SectionAnchor xs@(_:_)) = last xs
+internalAnchorLocalNum (SectionAnchor []) = 0 -- fallback
+internalAnchorLocalNum (FigureAnchor (_, n)) = n
+internalAnchorLocalNum (TableAnchor (_, n)) = n
+internalAnchorLocalNum (NoteAnchor (_, n)) = n
+internalAnchorLocalNum (ItemAnchor (_, n:_)) = n
+internalAnchorLocalNum (ItemAnchor (_, [])) = 0 -- fallback
 
 -- Given a list of numbers, format them as an inline string
--- with a separating period between numbers (e.g. "2.3.1").
---
--- Helper for 'internalAnchorDescriptionAsText'.
+-- with a separating period between numbers (e.g. \"2.3.1\").
 dotSep :: [Int] -> String
 dotSep = intercalate "." . map show
+
+-- Given a list of numbers, format them as an inline string
+-- with a separating hyphen between numbers (e.g. \"2-3-1\").
+hyphenSep :: [Int] -> String
+hyphenSep = intercalate "-" . map show
 
 -- | A label is a name of an internal anchor.
 --
@@ -301,6 +327,15 @@ type Level = Int
 data ListType = UnorderedList | OrderedList
   deriving (Eq, Show)
 
+-- | A list item with a globally unique number.
+--
+-- These elements of a 'ListItemBlock' are list items
+-- with the special property that they have a unique
+-- number based on a global counter. They can be used
+-- to model @gb4e@-style linguistic examples.
+data ListItem = ListItem InternalAnchor [Block]
+  deriving (Eq, Show)
+
 -- | A table row consist of a list of table cells.
 type TableRow = [TableCell]
 
@@ -320,6 +355,7 @@ data Block
   = Para [Inline]
   | Header Level InternalAnchor [Inline]
   | List ListType [[Block]]
+  | ListItemBlock [ListItem]
   | QuotationBlock [Block]
   | Figure InternalAnchor Location [Inline]
   | Table InternalAnchor [Inline] [TableRow]

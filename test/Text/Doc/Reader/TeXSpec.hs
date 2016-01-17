@@ -40,6 +40,7 @@ tests = testGroup "Text.Doc.Reader.TeXSpec"
   , testsBlocks
   , testsInlines
   , testsLists
+  , testsListItems
   , testsFigures
   , testsTables
   , testsFootnotes
@@ -171,6 +172,116 @@ testsLists = testGroup "list blocks"
           [ [Para [Str "down-one",Space]]
           , [Para [Str "down-two",Space]]]]
       , [ Para [ Str "up-three"]]])
+  ]
+
+testsListItems :: Test
+testsListItems = testGroup "list item blocks"
+  [ testCase "empty item list" $
+    runParser block [Group "exe" [] []]
+    @?=
+    Right (ListItemBlock [])
+  , testCase "item list with single item" $
+    runParser block [Group "exe" []
+      [ Command "ex" [], Plain "hello", White, Plain "world" ]]
+    @?=
+    Right (ListItemBlock
+      [ListItem (ItemAnchor (0,[1]))
+        [Para [Str "hello", Space, Str "world"]]])
+  , testCase "item list with single multi-paragraph item" $
+    runParser block [Group "exe" []
+      [ Command "ex" [], Par, Plain "hello", Par, White, Plain "world" ]]
+    @?=
+    Right (ListItemBlock
+      [ListItem (ItemAnchor (0,[1]))
+        [Para [Str "hello"], Para [Str "world"]]])
+  , testCase "item list with two items" $
+    runParser block [Group "exe" []
+      [ Command "ex" [], Plain "one"
+      , Command "ex" [], Plain "two"]]
+    @?=
+    Right (ListItemBlock
+      [ ListItem (ItemAnchor (0,[1])) [Para [Str "one"]]
+      , ListItem (ItemAnchor (0,[2])) [Para [Str "two"]]])
+  , testCase "item list with two items in sublist" $
+    runParser block [Group "exe" []
+      [ Command "ex" [], Group "xlist" []
+        [ Command "ex" [], Plain "sub-one"
+        , Command "ex" [], Plain "sub-two"]]]
+    @?=
+    Right (ListItemBlock
+      [ ListItem (ItemAnchor (0,[1]))
+        [ ListItemBlock
+          [ ListItem (ItemAnchor (0,[1,1])) [Para [Str "sub-one"]]
+          , ListItem (ItemAnchor (0,[2,1])) [Para [Str "sub-two"]]]]])
+  , testCase "item list with multiple nested sublists" $
+    runParser blocks [Group "exe" []
+      [ Command "ex" [], Plain "one", Group "xlist" []
+        [ Command "ex" [], Plain "one-one"
+        , Command "ex" [], Plain "one-two"]
+      , Command "ex" [], Plain "two", Group "xlist" []
+        [ Command "ex" [], Plain "two-one", Group "xlist" []
+          [ Command "ex" [], Plain "two-one-one"
+          , Command "ex" [], Plain "two-one-two"]
+        , Command "ex" [], Plain "two-two"]]]
+    @?=
+    Right [ListItemBlock
+      [ ListItem (ItemAnchor (0,[1]))
+        [ Para [Str "one"], ListItemBlock
+          [ ListItem (ItemAnchor (0,[1,1])) [Para [Str "one-one"]]
+          , ListItem (ItemAnchor (0,[2,1])) [Para [Str "one-two"]]]]
+      , ListItem (ItemAnchor (0,[2]))
+        [ Para [Str "two"], ListItemBlock
+          [ ListItem (ItemAnchor (0,[1,2]))
+            [ Para [Str "two-one"], ListItemBlock
+              [ ListItem (ItemAnchor (0,[1,1,2])) [Para [Str "two-one-one"]]
+              , ListItem (ItemAnchor (0,[2,1,2])) [Para [Str "two-one-two"]]]]
+          , ListItem (ItemAnchor (0,[2,2])) [Para [Str "two-two"]]]]]]
+  , testCase "anchor map is updated with top-level item label" $
+    either (error . show) (M.lookup "my-label" . metaAnchorMap . snd)
+      (runParserWithState (blocks <* eof) [Group "exe" []
+        [ Command "ex" [], Plain "hello"
+        , Command "label" [OblArg [Plain "my-label"]]]])
+    @?=
+    Just (ItemAnchor (0,[1]))
+  , testCase "anchor map is updated with embedded item label" $
+    either (error . show) (M.lookup "my-label" . metaAnchorMap . snd)
+      (runParserWithState (blocks <* eof) [Group "exe" []
+        [ Command "ex" [], Plain "outer", Group "xlist" []
+          [ Command "ex" [], Plain "inner-1"
+          , Command "ex" [], Plain "inner-2"
+          , Command "label" [OblArg [Plain "my-label"]]]]])
+    @?=
+    Just (ItemAnchor (0,[2,1]))
+  , testCase "chapter number is stored in item counter" $
+    either (error . show) (M.lookup "my-label" . metaAnchorMap . snd)
+      (runParserWithState (blocks <* eof)
+        [ Command "chapter" [OblArg [Plain "one"]]
+        , Command "chapter" [OblArg [Plain "two"]]
+        , Group "exe" []
+          [ Command "ex" []
+          , Command "label" [OblArg [Plain "my-label"]]]])
+    @?=
+    Just (ItemAnchor (2,[1]))
+  , testCase "item counter is incremented within chapter" $
+    either (error . show) (M.lookup "my-label" . metaAnchorMap . snd)
+      (runParserWithState (blocks <* eof)
+        [ Command "chapter" [OblArg [Plain "one"]]
+        , Group "exe" [] [ Command "ex" [], Plain "example"]
+        , Group "exe" [] [ Command "ex" [], Plain "example"
+          , Command "label" [OblArg [Plain "my-label"]]]])
+    @?=
+    Just (ItemAnchor (1,[2]))
+  , testCase "item counter is reset at chapter boundaries" $
+    either (error . show) (M.lookup "my-label" . metaAnchorMap . snd)
+      (runParserWithState (blocks <* eof)
+        [ Command "chapter" [OblArg [Plain "one"]]
+        , Group "exe" [] [ Command "ex" [], Plain "example"]
+        , Group "exe" [] [ Command "ex" [], Plain "example"]
+        , Command "chapter" [OblArg [Plain "two"]]
+        , Group "exe" [] [ Command "ex" [], Plain "example"
+          , Command "label" [OblArg [Plain "my-label"]]]])
+    @?=
+    Just (ItemAnchor (2,[1]))
   ]
 
 testsFigures :: Test

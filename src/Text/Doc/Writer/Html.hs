@@ -133,6 +133,9 @@ block (Header level anchor xs) =
   inlines xs
 block (List UnorderedList xss) = ul $ mapM_ (li . blocks) xss
 block (List OrderedList xss) = ol $ mapM_ (li . blocks) xss
+block (ListItemBlock xs) =
+  ol ! A.class_ "numbered-item-list" $
+  mapM_ listitem xs
 block (QuotationBlock xs) = H.blockquote $ blocks xs
 block (Figure anchor imgloc imgdesc) =
   H.figure ! A.id (textValue (internalAnchorID anchor)) $
@@ -149,6 +152,14 @@ tableCell (SingleCell xs) =
   H.td $ inlines xs
 tableCell (MultiCell i xs) =
   H.td ! A.colspan (H.stringValue (show i)) $ inlines xs
+
+-- Convert a single 'ListItem' element to HTML.
+listitem :: ListItem -> Html
+listitem (ListItem anchor xs) =
+  li ! A.id (textValue (internalAnchorID anchor))
+     ! A.class_ "numbered-item"
+     ! A.value (H.stringValue (show (internalAnchorLocalNum anchor))) $
+  blocks xs
 
 -- Convert a single 'Inline' element to HTML.
 inline :: Inline -> Html

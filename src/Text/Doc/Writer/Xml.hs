@@ -158,6 +158,9 @@ block (Header _ _ xs) = el "head" $ inlines xs
 block (List ltype xss) =
   el "list" ! attr "type" (textValue (showListType ltype)) $
   mapM_ (el "item" . blocks) xss
+block (ListItemBlock xs) =
+  el "list" ! attr "type" "numbered-item-list" $
+  mapM_ listitem xs
 block (QuotationBlock xs) =
   el "quote" $ blocks xs
 block (Figure anchor imgloc imgdesc) =
@@ -175,6 +178,15 @@ tableCell (SingleCell xs) =
   el "cell" $ inlines xs
 tableCell (MultiCell i xs) =
   el "cell" ! attr "cols" (stringValue (show i)) $ inlines xs
+
+-- Convert a single 'ListItem' element to XML.
+listitem :: ListItem -> Markup
+listitem (ListItem anchor xs) =
+  el "item"
+    ! attr "xml:id" (textValue (internalAnchorID anchor))
+    ! attr "type" "numbered-item"
+    ! attr "n" (stringValue (show (internalAnchorLocalNum anchor))) $
+  blocks xs
 
 -- Convert a single 'Inline' element to XML.
 inline :: Inline -> Markup

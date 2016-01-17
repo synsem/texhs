@@ -153,7 +153,7 @@ blocks = many (lexeme block)
 block :: Parser Block
 block = choice
   [ header, itemize, enumerate, quotation
-  , figure, table, para]
+  , itemblock, figure, table, para]
 
 -- Parse block elements in the first mandatory argument of a command.
 blockCmd :: String -> Parser [Block]
@@ -183,7 +183,7 @@ registerHeader :: Level -> Parser InternalAnchor
 registerHeader level = do
   meta <- getMeta
   let sectionCurrent = incSection level (metaSectionCurrent meta)
-  -- at beginning of chapters reset counters for figures, tables and notes
+  -- at beginning of chapters reset counters for figures, tables, notes and items
   let figureCurrent = if level == 2
                       then (getChapter sectionCurrent, 0)
                       else metaFigureCurrent meta
@@ -193,11 +193,15 @@ registerHeader level = do
   let noteCurrent   = if level == 2
                       then (getChapter sectionCurrent, 0)
                       else metaNoteCurrent meta
+  let itemCurrent   = if level == 2
+                      then (getChapter sectionCurrent, [0])
+                      else metaItemCurrent meta
   putMeta (meta { metaSectionCurrent = sectionCurrent
                 , metaAnchorCurrent = SectionAnchor sectionCurrent
                 , metaFigureCurrent = figureCurrent
                 , metaTableCurrent = tableCurrent
                 , metaNoteCurrent = noteCurrent
+                , metaItemCurrent = itemCurrent
                 })
   return (SectionAnchor sectionCurrent)
 
@@ -215,6 +219,61 @@ enumerate = List OrderedList <$>
 quotation :: Parser Block
 quotation = QuotationBlock <$>
   inGrp "quotation" blocks
+
+-- Note: For simplicity, we allow top-level @xlist@ groups.
+-- They are numbered relative to the most recent @ex@ item.
+--
+-- | Parse an @exe@ or @xlist@ group of list items
+-- that are numbered relative to a global counter.
+--
+-- (See @gb4e@ package for LaTeX.)
+itemblock :: Parser Block
+itemblock = lexemeBlock $ choice
+  [ inGrp "exe" itemblockInner
+  , inGrp "xlist" (withItemSubList itemblockInner)]
+
+-- Parse the body of an @exe@ or @xlist@ group.
+itemblockInner :: Parser Block
+itemblockInner = many skipWhite *>
+  (ListItemBlock <$> many (lexemeBlock exItem))
+
+-- Parse an @ex@ command (in an @exe@ or @xlist@ group)
+-- as an item in a 'ListItemBlock'.
+exItem :: Parser ListItem
+exItem = do
+  anchor' <- cmd "ex" *> lexemeBlock registerListItem
+  ListItem anchor' <$> blocks
+
+-- Register listitem as the current anchor
+-- (e.g. for subsequent @label@ assignments).
+registerListItem :: Parser InternalAnchor
+registerListItem = do
+  meta <- getMeta
+  let (ch, itemCntOld) = metaItemCurrent meta
+  let itemCnt = case itemCntOld of
+        (x:xs) -> x+1:xs -- increment item count at current level
+        [] -> error "registerListItem: encountered invalid (empty) item stack"
+  putMeta (meta { metaItemCurrent = (ch, itemCnt)
+                , metaAnchorCurrent = ItemAnchor (ch, itemCnt) })
+  return (ItemAnchor (ch, itemCnt))
+
+-- Run parser in an environment with an additional sublist layer.
+withItemSubList :: Parser a -> Parser a
+withItemSubList p = pushItemSubList *> p <* popItemSubList
+  where
+    -- Push a sublist layer to the current listitem counter
+    -- and initialize it with zero.
+    pushItemSubList :: Parser ()
+    pushItemSubList = modifyMeta $ \meta ->
+      meta { metaItemCurrent = (0:) <$> metaItemCurrent meta }
+    -- Pop a sublist layer from the current listitem counter.
+    popItemSubList :: Parser ()
+    popItemSubList = modifyMeta $ \meta ->
+      let newItemCurrent = case metaItemCurrent meta of
+            (ch, _:xs@(_:_)) -> (ch, xs)
+            (_, [_]) -> error "withItemSubList: encountered invalid (singleton) item stack"
+            (_, []) -> error "withItemSubList: encountered invalid (empty) item stack"
+      in meta { metaItemCurrent = newItemCurrent }
 
 -- | Parse a @figure@ group.
 --
@@ -250,7 +309,7 @@ table = inGrp "table" $ do
   void $ optional (lexemeBlock (choice
          [ void (cmd "centering")
          , grpUnwrap "center"]))
-  tabledata <- lexemeBlock (tabular)
+  tabledata <- lexemeBlock tabular
   tabledesc <- lexemeBlock (inlineCmd "caption")
   return (Table anchor tabledesc tabledata)
 

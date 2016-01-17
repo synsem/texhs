@@ -142,6 +142,55 @@ testsBlocks = testGroup "blocks"
     @?=
     LT.append "<ol><li><p>one</p></li>"
               "<li><p>two</p></li></ol>"
+  , testCase "empty item list" $
+    blocks2html [ListItemBlock []]
+    @?=
+    "<ol class=\"numbered-item-list\"></ol>"
+  , testCase "item list with single item" $
+    blocks2html [ListItemBlock [ListItem (ItemAnchor (0,[1]))
+      [Para [Str "hello", Space, Str "world"]]]]
+    @?=
+    LT.concat [ "<ol class=\"numbered-item-list\">"
+              , "<li id=\"item-0-1\" class=\"numbered-item\" value=\"1\">"
+              , "<p>hello world</p></li></ol>"]
+  , testCase "item list with multiple nested sublists" $
+    blocks2html [ListItemBlock
+      [ ListItem (ItemAnchor (0,[1]))
+        [ Para [Str "one"], ListItemBlock
+          [ ListItem (ItemAnchor (0,[1,1])) [Para [Str "one-one"]]
+          , ListItem (ItemAnchor (0,[2,1])) [Para [Str "one-two"]]]]
+      , ListItem (ItemAnchor (0,[2]))
+        [ Para [Str "two"], ListItemBlock
+          [ ListItem (ItemAnchor (0,[1,2]))
+            [ Para [Str "two-one"], ListItemBlock
+              [ ListItem (ItemAnchor (0,[1,1,2])) [Para [Str "two-one-one"]]
+              , ListItem (ItemAnchor (0,[2,1,2])) [Para [Str "two-one-two"]]]]
+          , ListItem (ItemAnchor (0,[2,2])) [Para [Str "two-two"]]]]]]
+    @?=
+    LT.concat [ "<ol class=\"numbered-item-list\">"
+              , "<li id=\"item-0-1\" class=\"numbered-item\" value=\"1\">"
+              , "<p>one</p>"
+              , "<ol class=\"numbered-item-list\">"
+              , "<li id=\"item-0-1-1\" class=\"numbered-item\" value=\"1\">"
+              , "<p>one-one</p></li>"
+              , "<li id=\"item-0-1-2\" class=\"numbered-item\" value=\"2\">"
+              , "<p>one-two</p></li>"
+              , "</ol></li>"
+              , "<li id=\"item-0-2\" class=\"numbered-item\" value=\"2\">"
+              , "<p>two</p>"
+              , "<ol class=\"numbered-item-list\">"
+              , "<li id=\"item-0-2-1\" class=\"numbered-item\" value=\"1\">"
+              , "<p>two-one</p>"
+              , "<ol class=\"numbered-item-list\">"
+              , "<li id=\"item-0-2-1-1\" class=\"numbered-item\" value=\"1\">"
+              , "<p>two-one-one</p></li>"
+              , "<li id=\"item-0-2-1-2\" class=\"numbered-item\" value=\"2\">"
+              , "<p>two-one-two</p></li>"
+              , "</ol></li>"
+              , "<li id=\"item-0-2-2\" class=\"numbered-item\" value=\"2\">"
+              , "<p>two-two</p>"
+              , "</li></ol></li></ol>"
+              ]
   , testCase "simple block quote" $
     blocks2html [QuotationBlock [Para [Str "one"]]]
     @?=

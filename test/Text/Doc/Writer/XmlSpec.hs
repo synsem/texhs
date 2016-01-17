@@ -110,6 +110,55 @@ testsBlocks = testGroup "blocks"
     @?=
     LT.append "<list type=\"ordered\"><item><p>one</p></item>"
               "<item><p>two</p></item></list>"
+  , testCase "empty item list" $
+    blocks2xml [ListItemBlock []]
+    @?=
+    "<list type=\"numbered-item-list\"></list>"
+  , testCase "item list with single item" $
+    blocks2xml [ListItemBlock [ListItem (ItemAnchor (0,[1]))
+      [Para [Str "hello", Space, Str "world"]]]]
+    @?=
+    LT.concat [ "<list type=\"numbered-item-list\">"
+              , "<item xml:id=\"item-0-1\" type=\"numbered-item\" n=\"1\">"
+              , "<p>hello world</p></item></list>"]
+  , testCase "item list with multiple nested sublists" $
+    blocks2xml [ListItemBlock
+      [ ListItem (ItemAnchor (0,[1]))
+        [ Para [Str "one"], ListItemBlock
+          [ ListItem (ItemAnchor (0,[1,1])) [Para [Str "one-one"]]
+          , ListItem (ItemAnchor (0,[2,1])) [Para [Str "one-two"]]]]
+      , ListItem (ItemAnchor (0,[2]))
+        [ Para [Str "two"], ListItemBlock
+          [ ListItem (ItemAnchor (0,[1,2]))
+            [ Para [Str "two-one"], ListItemBlock
+              [ ListItem (ItemAnchor (0,[1,1,2])) [Para [Str "two-one-one"]]
+              , ListItem (ItemAnchor (0,[2,1,2])) [Para [Str "two-one-two"]]]]
+          , ListItem (ItemAnchor (0,[2,2])) [Para [Str "two-two"]]]]]]
+    @?=
+    LT.concat [ "<list type=\"numbered-item-list\">"
+              , "<item xml:id=\"item-0-1\" type=\"numbered-item\" n=\"1\">"
+              , "<p>one</p>"
+              , "<list type=\"numbered-item-list\">"
+              , "<item xml:id=\"item-0-1-1\" type=\"numbered-item\" n=\"1\">"
+              , "<p>one-one</p></item>"
+              , "<item xml:id=\"item-0-1-2\" type=\"numbered-item\" n=\"2\">"
+              , "<p>one-two</p></item>"
+              , "</list></item>"
+              , "<item xml:id=\"item-0-2\" type=\"numbered-item\" n=\"2\">"
+              , "<p>two</p>"
+              , "<list type=\"numbered-item-list\">"
+              , "<item xml:id=\"item-0-2-1\" type=\"numbered-item\" n=\"1\">"
+              , "<p>two-one</p>"
+              , "<list type=\"numbered-item-list\">"
+              , "<item xml:id=\"item-0-2-1-1\" type=\"numbered-item\" n=\"1\">"
+              , "<p>two-one-one</p></item>"
+              , "<item xml:id=\"item-0-2-1-2\" type=\"numbered-item\" n=\"2\">"
+              , "<p>two-one-two</p></item>"
+              , "</list></item>"
+              , "<item xml:id=\"item-0-2-2\" type=\"numbered-item\" n=\"2\">"
+              , "<p>two-two</p>"
+              , "</item></list></item></list>"
+              ]
   , testCase "simple block quote" $
     blocks2xml [QuotationBlock [Para [Str "one"]]]
     @?=

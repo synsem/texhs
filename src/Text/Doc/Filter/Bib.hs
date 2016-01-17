@@ -83,6 +83,8 @@ distributeMetaToBlock (Header l a xs) =
   Header l a <$> mapM distributeMetaToInline xs
 distributeMetaToBlock (List ltype xss) =
   List ltype <$> mapM (mapM distributeMetaToBlock) xss
+distributeMetaToBlock (ListItemBlock xs) =
+  ListItemBlock <$> mapM distributeMetaToListItem xs
 distributeMetaToBlock (QuotationBlock xs) =
   QuotationBlock <$> mapM distributeMetaToBlock xs
 distributeMetaToBlock (Figure a l xs) =
@@ -91,6 +93,10 @@ distributeMetaToBlock (Table a xs rows) =
   Table a <$>
     mapM distributeMetaToInline xs <*>
     mapM (mapM distributeMetaToTableCell) rows
+
+distributeMetaToListItem :: ListItem -> Reader Meta ListItem
+distributeMetaToListItem (ListItem a bs) =
+  ListItem a <$> mapM distributeMetaToBlock bs
 
 distributeMetaToTableCell :: TableCell -> Reader Meta TableCell
 distributeMetaToTableCell (SingleCell xs) =
