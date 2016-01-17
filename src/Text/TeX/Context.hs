@@ -42,6 +42,7 @@ module Text.TeX.Context
     -- ** Groups
   , grp
   , inGrp
+  , inGrpChoice
   , grpDown
   , grpUnwrap
   , optNested

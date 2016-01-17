@@ -40,6 +40,7 @@ module Text.TeX.Context.Walk
     -- ** Specific group
   , grp
   , inGrp
+  , inGrpChoice
   , grpDown
   , grpUnwrap
     -- ** Any group
@@ -228,6 +229,10 @@ grp = satisfy . isGrp
 -- | Apply parser to specific group body.
 inGrp :: String -> Parser a -> Parser a
 inGrp n p = grpDown n *> p <* safeUp
+
+-- | Apply parser to the body of one of the specified groups.
+inGrpChoice :: [String] -> Parser a -> Parser a
+inGrpChoice ns p = choice (map grpDown ns) *> p <* safeUp
 
 -- | Descend into a specific group (ignoring all group arguments).
 grpDown :: String -> Parser ()
