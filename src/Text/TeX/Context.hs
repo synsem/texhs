@@ -33,6 +33,8 @@ module Text.TeX.Context
   , count
   , sepBy
   , sepBy1
+  , sepEndBy
+  , sepEndBy1
   , list
     -- ** Commands
   , cmd

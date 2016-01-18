@@ -28,6 +28,8 @@ module Text.TeX.Context.Walk
   , count
   , sepBy
   , sepBy1
+  , sepEndBy
+  , sepEndBy1
   , list
     -- * Command parsers
     -- ** Specific command
@@ -172,6 +174,18 @@ sepBy p sep = sepBy1 p sep <|> pure []
 -- separated by @sep@. Returns a list of values returned by @p@.
 sepBy1 :: Parser a -> Parser b -> Parser [a]
 sepBy1 p sep = (:) <$> p <*> list sep p
+
+-- | @sepEndBy p sep@ parses zero or more occurrences of @p@,
+-- separated and optionally ended by @sep@.
+-- Returns a list of values returned by @p@.
+sepEndBy :: Parser a -> Parser b -> Parser [a]
+sepEndBy p sep = sepEndBy1 p sep <|> pure []
+
+-- | @sepEndBy1 p sep@ parses one or more occurrences of @p@,
+-- separated and optionally ended by @sep@.
+-- Returns a list of values returned by @p@.
+sepEndBy1 :: Parser a -> Parser b -> Parser [a]
+sepEndBy1 p sep = (:) <$> p <*> ((sep *> sepEndBy p sep) <|> pure [])
 
 -- | @list bullet p@ parses zero or more occurrences of @p@, each prefixed by @bullet@.
 -- Returns a list of values returned by @p@.
