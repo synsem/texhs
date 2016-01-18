@@ -93,6 +93,8 @@ distributeMetaToBlock (Table a xs rows) =
   Table a <$>
     mapM distributeMetaToInline xs <*>
     mapM (mapM distributeMetaToTableCell) rows
+distributeMetaToBlock (SimpleTable rows) =
+  SimpleTable <$> mapM (mapM distributeMetaToTableCell) rows
 
 distributeMetaToListItem :: ListItem -> Reader Meta ListItem
 distributeMetaToListItem (ListItem a bs) =

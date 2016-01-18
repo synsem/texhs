@@ -194,6 +194,41 @@ testsBlocks = testGroup "blocks"
               , "<row><cell cols=\"3\">three columns</cell></row>"
               , "<row><cell>1</cell><cell>2</cell><cell>3</cell></row>"
               , "</table>"]
+  , testCase "empty simpletable" $
+    blocks2xml [SimpleTable []]
+    @?=
+    "<table></table>"
+  , testCase "simple simpletable" $
+    blocks2xml [SimpleTable
+      [[SingleCell [Str "one"], SingleCell [Str "one"]]
+      ,[SingleCell [Str "two"], SingleCell [Str "two"]]]]
+    @?=
+    LT.concat [ "<table>"
+              , "<row><cell>one</cell><cell>one</cell></row>"
+              , "<row><cell>two</cell><cell>two</cell></row>"
+              , "</table>"]
+  , testCase "igt simpletable with translation line" $
+    blocks2xml [SimpleTable
+      [ [SingleCell [Str "one"], SingleCell [Str "one"]]
+      , [SingleCell [Str "two"], SingleCell [Str "two"]]
+      , [MultiCell 2 [Str "translation", Space, Str "line"]]]]
+    @?=
+    LT.concat [ "<table>"
+              , "<row><cell>one</cell><cell>one</cell></row>"
+              , "<row><cell>two</cell><cell>two</cell></row>"
+              , "<row><cell cols=\"2\">translation line</cell></row>"
+              , "</table>"]
+  , testCase "misaligned igt simpletable with translation line" $
+    blocks2xml [SimpleTable
+      [ [SingleCell [Str "one"]]
+      , replicate 3 (SingleCell [Str "two"])
+      , [MultiCell 3 [Str "translation", Space, Str "line"]]]]
+    @?=
+    LT.concat [ "<table>"
+              , "<row><cell>one</cell></row>"
+              , "<row><cell>two</cell><cell>two</cell><cell>two</cell></row>"
+              , "<row><cell cols=\"3\">translation line</cell></row>"
+              , "</table>"]
   ]
 
 testsInlines :: Test

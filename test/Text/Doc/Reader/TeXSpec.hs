@@ -41,6 +41,7 @@ tests = testGroup "Text.Doc.Reader.TeXSpec"
   , testsInlines
   , testsLists
   , testsListItems
+  , testsInterlinear
   , testsFigures
   , testsTables
   , testsFootnotes
@@ -282,6 +283,94 @@ testsListItems = testGroup "list item blocks"
           , Command "label" [OblArg [Plain "my-label"]]]])
     @?=
     Just (ItemAnchor (2,[1]))
+  ]
+
+testsInterlinear :: Test
+testsInterlinear = testGroup "interlinear glossed text"
+  [ testCase "two lines with one word" $
+    runParser block
+      [ Command "gll" []
+      , Plain "one", Newline
+      , Plain "two", Newline]
+    @?=
+    Right (SimpleTable [[SingleCell [Str "one"]], [SingleCell [Str "two"]]])
+  , testCase "two lines with two words" $
+    runParser block
+      [ Command "gll" []
+      , Plain "one", White, Plain "one", Newline
+      , Plain "two", White, Plain "two", White, Newline]
+    @?=
+    Right (SimpleTable [ [SingleCell [Str "one"], SingleCell [Str "one"]]
+                       , [SingleCell [Str "two"], SingleCell [Str "two"]]])
+  , testCase "two lines with translation line" $
+    runParser block
+      [ Command "gll" []
+      , Plain "one", White, Plain "one", Newline
+      , Plain "two", White, Plain "two", Newline
+      , Command "trans" [], Plain "translation", White, Plain "line", Par]
+    @?=
+    Right (SimpleTable [ [SingleCell [Str "one"], SingleCell [Str "one"]]
+                       , [SingleCell [Str "two"], SingleCell [Str "two"]]
+                       , [MultiCell 2 [Str "translation", Space, Str "line"]]])
+  , testCase "misaligned lines with translation" $
+    runParser block
+      [ Command "gll" []
+      , Plain "one", Newline
+      , Plain "two", White, Plain "two", White, Plain "two", Newline
+      , Command "trans" [], Plain "translation", White, Plain "line", Par]
+    @?=
+    Right (SimpleTable [ [SingleCell [Str "one"]]
+                       , replicate 3 (SingleCell [Str "two"])
+                       , [MultiCell 3 [Str "translation", Space, Str "line"]]])
+  , testCase "four lines without translation" $
+    runParser block
+      [ Command "gllll" []
+      , Plain "one", White, Plain "one", Newline
+      , Plain "two", White, Plain "two", White, Newline
+      , Plain "three", White, Plain "three", White, Newline
+      , Plain "four", White, Plain "four", Newline]
+    @?=
+    Right (SimpleTable [ replicate 2 (SingleCell [Str "one"])
+                       , replicate 2 (SingleCell [Str "two"])
+                       , replicate 2 (SingleCell [Str "three"])
+                       , replicate 2 (SingleCell [Str "four"])])
+  , testCase "two lines with composed words" $
+    runParser block
+      [ Command "gll" []
+      , Group "" [] [Plain "one", White, Plain "one"], White, Plain "one", Newline
+      , Plain "two", White, Plain "two", Newline]
+    @?=
+    Right (SimpleTable [ [SingleCell [Str "one", Space, Str "one"], SingleCell [Str "one"]]
+                       , replicate 2 (SingleCell [Str "two"])])
+  , testCase "adjacent groups form a single word" $
+    runParser block
+      [ Command "gll" []
+      , Group "" [] [Plain "one", White, Plain "one"], Plain "one", White
+      , Plain "one", Newline
+      , Plain "two", White
+      , Group "" [] [Plain "two"], Group "" [] [Plain "two", White, Plain "two"], Newline]
+    @?=
+    Right (SimpleTable
+      [ [SingleCell [Str "one", Space, Str "one", Str "one"], SingleCell [Str "one"]]
+      , [SingleCell [Str "two"], SingleCell [Str "two", Str "two", Space, Str "two"]]])
+  , testCase "empty group is treated as a word" $
+    runParser block
+      [ Command "gll" []
+      , Group "" [] [], White, Plain "one", Newline
+      , Plain "two", Newline]
+    @?=
+    Right (SimpleTable
+      [ [SingleCell [], SingleCell [Str "one"]]
+      , [SingleCell [Str "two"]]])
+  , testCase "whitespace within group is treated as a word" $
+    runParser block
+      [ Command "gll" []
+      , Group "" [] [White], White, Plain "one", Newline
+      , Plain "two", Newline]
+    @?=
+    Right (SimpleTable
+      [ [SingleCell [Space], SingleCell [Str "one"]]
+      , [SingleCell [Str "two"]]])
   ]
 
 testsFigures :: Test

@@ -153,7 +153,7 @@ blocks = many (lexeme block)
 block :: Parser Block
 block = choice
   [ header, itemize, enumerate, quotation
-  , itemblock, figure, table, para]
+  , itemblock, igt, figure, table, para]
 
 -- Parse block elements in the first mandatory argument of a command.
 blockCmd :: String -> Parser [Block]
@@ -275,6 +275,29 @@ withItemSubList p = pushItemSubList *> p <* popItemSubList
             (_, []) -> error "withItemSubList: encountered invalid (empty) item stack"
       in meta { metaItemCurrent = newItemCurrent }
 
+-- | Parse interlinear glossed text (igt)
+-- following a @gll@ command (from @gb4e@ package)
+-- with an optional trailing @glt@ or @trans@ line.
+igt :: Parser Block
+igt = do
+  let linerange = [2..8] -- allowed number of aligned lines in an igt block
+  numlines <- choice (map (\n ->
+    n <$ lexemeBlock (cmd ('g' : replicate n 'l'))) linerange)
+  alignedlines <- count numlines glossline
+  maybetrans <- optional ((cmd "glt" <|> cmd "trans") *> inlines)
+  let cols = maximum (map length alignedlines)
+      wraptrans t = [[MultiCell cols t]]
+      translation = maybe [] wraptrans maybetrans
+  return (SimpleTable (alignedlines ++ translation))
+
+-- Parse a single line of words (to be aligned),
+-- separated by whitespace.
+glossline :: Parser TableRow
+glossline =
+  let word = concat <$> some (some inlineWord <|> inGrp "" inlines)
+      eol = lexemeBlock (satisfy isNewline)
+  in (SingleCell <$> word) `sepEndBy` lexeme space <* eol
+
 -- | Parse a @figure@ group.
 --
 -- This group is required to contain the commands
@@ -353,8 +376,12 @@ inlines = concat <$> many (choice
 
 -- | Parse a single inline element.
 inline :: Parser Inline
-inline = choice
-  [ space, str, emph, em, rm
+inline = space <|> inlineWord
+
+-- Parse a non-space inline element.
+inlineWord :: Parser Inline
+inlineWord = choice
+  [ str, emph, em, rm
   , cite, note, ref, href, url]
 
 -- Parse inline elements in the first mandatory argument of a command.

@@ -145,6 +145,9 @@ block (Table anchor tdesc tdata) =
   H.table ! A.id (textValue (internalAnchorID anchor)) $
   H.caption (inlines tdesc) <>
   H.tbody (mapM_ (H.tr . mapM_ tableCell) tdata)
+block (SimpleTable tdata) =
+  H.table $
+  H.tbody (mapM_ (H.tr . mapM_ tableCell) tdata)
 
 -- Convert a single 'TableCell' element to HTML.
 tableCell :: TableCell -> Html

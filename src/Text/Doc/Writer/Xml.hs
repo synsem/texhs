@@ -171,6 +171,9 @@ block (Table anchor tdesc tdata) =
   el "table" ! attr "xml:id" (textValue (internalAnchorID anchor)) $
   el "head" (inlines tdesc) <>
   mapM_ (el "row" . mapM_ tableCell) tdata
+block (SimpleTable tdata) =
+  el "table" $
+  mapM_ (el "row" . mapM_ tableCell) tdata
 
 -- Convert a single 'TableCell' element to XML.
 tableCell :: TableCell -> Markup

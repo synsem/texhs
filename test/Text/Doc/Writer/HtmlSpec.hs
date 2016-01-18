@@ -229,6 +229,41 @@ testsBlocks = testGroup "blocks"
               , "<tr><td colspan=\"3\">three columns</td></tr>"
               , "<tr><td>1</td><td>2</td><td>3</td></tr>"
               , "</tbody></table>"]
+  , testCase "empty simpletable" $
+    blocks2html [SimpleTable []]
+    @?=
+    "<table><tbody></tbody></table>"
+  , testCase "simple simpletable" $
+    blocks2html [SimpleTable
+      [[SingleCell [Str "one"], SingleCell [Str "one"]]
+      ,[SingleCell [Str "two"], SingleCell [Str "two"]]]]
+    @?=
+    LT.concat [ "<table><tbody>"
+              , "<tr><td>one</td><td>one</td></tr>"
+              , "<tr><td>two</td><td>two</td></tr>"
+              , "</tbody></table>"]
+  , testCase "igt simpletable with translation line" $
+    blocks2html [SimpleTable
+      [ [SingleCell [Str "one"], SingleCell [Str "one"]]
+      , [SingleCell [Str "two"], SingleCell [Str "two"]]
+      , [MultiCell 2 [Str "translation", Space, Str "line"]]]]
+    @?=
+    LT.concat [ "<table><tbody>"
+              , "<tr><td>one</td><td>one</td></tr>"
+              , "<tr><td>two</td><td>two</td></tr>"
+              , "<tr><td colspan=\"2\">translation line</td></tr>"
+              , "</tbody></table>"]
+  , testCase "misaligned igt simpletable with translation line" $
+    blocks2html [SimpleTable
+      [ [SingleCell [Str "one"]]
+      , replicate 3 (SingleCell [Str "two"])
+      , [MultiCell 3 [Str "translation", Space, Str "line"]]]]
+    @?=
+    LT.concat [ "<table><tbody>"
+              , "<tr><td>one</td></tr>"
+              , "<tr><td>two</td><td>two</td><td>two</td></tr>"
+              , "<tr><td colspan=\"3\">translation line</td></tr>"
+              , "</tbody></table>"]
   ]
 
 testsInlines :: Test

@@ -359,6 +359,7 @@ data Block
   | QuotationBlock [Block]
   | Figure InternalAnchor Location [Inline]
   | Table InternalAnchor [Inline] [TableRow]
+  | SimpleTable [TableRow]
   deriving (Eq, Show)
 
 -- | Inline elements in a 'Doc' document.
