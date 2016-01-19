@@ -56,7 +56,7 @@ testsDoc = testGroup "documents"
       defaultMeta { metaTitle = [Str "No title"]
                   , metaAuthors = [[Str "Nobody"]]
                   , metaDate = [Str "2015-12-31"] }
-      [ Header 3 (SectionAnchor [0,0,1,0,0,0]) [Str "Section", Space, Str "one"]
+      [ Header 2 (SectionAnchor [0,1,0,0,0,0]) [Str "Chapter", Space, Str "one"]
       , Para [Str "hello", Space, Emph [Str "world"]]])
     @?=
     LT.concat [ "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
@@ -70,21 +70,21 @@ testsDoc = testGroup "documents"
               , "<text><front><titlePage>"
               , "<docTitle><titlePart type=\"main\">No title</titlePart></docTitle>"
               , "<byline><docAuthor>Nobody</docAuthor></byline></titlePage></front>"
-              , "<body><div xml:id=\"Pt0Ch0S1s0ss0p0\" type=\"section\">"
-              , "<head>Section one</head>"
+              , "<body><div xml:id=\"sec-1\" type=\"chapter\">"
+              , "<head>Chapter one</head>"
               , "<p>hello <emph>world</emph></p>"
               , "</div></body><back /></text></TEI>"]
   ]
 
 testsSections :: Test
 testsSections = testGroup "sections"
-  [ testCase "single paragraph in section with no subsections" $
-    sections2xml [Section 3 (SectionAnchor [0,0,1,0,0,0])
-      [ Str "Section", Space, Str "one"]
+  [ testCase "single paragraph in chapter" $
+    sections2xml [Section 2 (SectionAnchor [0,1,0,0,0,0])
+      [ Str "Chapter", Space, Str "one"]
       [ Para [Str "hello", Space, Emph [Str "world"]]] []]
     @?=
-    LT.concat [ "<div xml:id=\"Pt0Ch0S1s0ss0p0\" type=\"section\">"
-              , "<head>Section one</head>"
+    LT.concat [ "<div xml:id=\"sec-1\" type=\"chapter\">"
+              , "<head>Chapter one</head>"
               , "<p>hello <emph>world</emph></p>"
               , "</div>"]
   ]
@@ -166,18 +166,18 @@ testsBlocks = testGroup "blocks"
   , testCase "simple figure" $
     blocks2xml [Figure (FigureAnchor (2,1)) "image.png" [Str "description"]]
     @?=
-    LT.append "<figure xml:id=\"figure1chap2\"><graphic url=\"image.png\" />"
+    LT.append "<figure xml:id=\"figure-2-1\"><graphic url=\"image.png\" />"
               "<head>description</head></figure>"
   , testCase "empty table" $
     blocks2xml [Table (TableAnchor (2,1)) [Str "description"] []]
     @?=
-    "<table xml:id=\"table1chap2\"><head>description</head></table>"
+    "<table xml:id=\"table-2-1\"><head>description</head></table>"
   , testCase "simple table" $
     blocks2xml [Table (TableAnchor (2,1)) [Str "description"]
       [[SingleCell [Str "top-left"], SingleCell [Str "top-right"]]
       ,[SingleCell [Str "bottom-left"], SingleCell [Str "bottom-right"]]]]
     @?=
-    LT.concat [ "<table xml:id=\"table1chap2\">"
+    LT.concat [ "<table xml:id=\"table-2-1\">"
               , "<head>description</head>"
               , "<row><cell>top-left</cell><cell>top-right</cell></row>"
               , "<row><cell>bottom-left</cell><cell>bottom-right</cell></row>"
@@ -188,7 +188,7 @@ testsBlocks = testGroup "blocks"
       ,[MultiCell 3 [Str "three", Space, Str "columns"]]
       ,[SingleCell [Str "1"], SingleCell [Str "2"], SingleCell [Str "3"]]]]
     @?=
-    LT.concat [ "<table xml:id=\"table4chap3\">"
+    LT.concat [ "<table xml:id=\"table-3-4\">"
               , "<head>description</head>"
               , "<row><cell>single column</cell><cell cols=\"2\">two</cell></row>"
               , "<row><cell cols=\"3\">three columns</cell></row>"
@@ -250,20 +250,20 @@ testsInlines = testGroup "inlines"
     inlines2xml [Str "Figure", Space, Pointer "internallabel"
       (Just (InternalResource (FigureAnchor (2,1))))]
     @?=
-    "Figure <ref target=\"#figure1chap2\">2.1</ref>"
+    "Figure <ref target=\"#figure-2-1\">2.1</ref>"
   , testCase "empty footnote" $
     inlines2xml [Note (NoteAnchor (2,8)) []]
     @?=
-    LT.append "<note xml:id=\"fn8chap2\" type=\"footnote\" place=\"bottom\" n=\"2.8\">"
+    LT.append "<note xml:id=\"note-2-8\" type=\"footnote\" place=\"bottom\" n=\"2.8\">"
               "</note>"
   , testCase "simple footnote" $
     inlines2xml [Note (NoteAnchor (1,2)) [Para [Str "hello"]]]
     @?=
-    LT.append "<note xml:id=\"fn2chap1\" type=\"footnote\" place=\"bottom\" n=\"1.2\">"
+    LT.append "<note xml:id=\"note-1-2\" type=\"footnote\" place=\"bottom\" n=\"1.2\">"
               "<p>hello</p></note>"
   , testCase "multi-paragraph footnote" $
     inlines2xml [Note (NoteAnchor (1,2)) [Para [Str "one"], Para [Str "two"]]]
     @?=
-    LT.append "<note xml:id=\"fn2chap1\" type=\"footnote\" place=\"bottom\" n=\"1.2\">"
+    LT.append "<note xml:id=\"note-1-2\" type=\"footnote\" place=\"bottom\" n=\"1.2\">"
               "<p>one</p><p>two</p></note>"
   ]

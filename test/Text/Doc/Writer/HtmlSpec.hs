@@ -96,32 +96,32 @@ testsDoc = testGroup "documents"
               , "</head><body>"
               , "<h1>No title</h1><h2>Nobody</h2>"
                 -- body
-              , "<h2 id=\"Pt0Ch1S0s0ss0p0\">one</h2>"
+              , "<h2 id=\"sec-1\">one</h2>"
               , "<p>One"
-              , "<a id=\"fn1chap1ref\" class=\"note-ref\" href=\"#fn1chap1\"><sup>1.1</sup></a>"
+              , "<a id=\"note-1-1-ref\" class=\"note-ref\" href=\"#note-1-1\"><sup>1.1</sup></a>"
               , ".</p>"
-              , "<h2 id=\"Pt0Ch2S0s0ss0p0\">two</h2>"
+              , "<h2 id=\"sec-2\">two</h2>"
               , "<p>No footnotes in Chapter two.</p>"
-              , "<h2 id=\"Pt0Ch3S0s0ss0p0\">three</h2>"
+              , "<h2 id=\"sec-3\">three</h2>"
               , "<p>Hello"
-              , "<a id=\"fn1chap3ref\" class=\"note-ref\" href=\"#fn1chap3\"><sup>3.1</sup></a>"
+              , "<a id=\"note-3-1-ref\" class=\"note-ref\" href=\"#note-3-1\"><sup>3.1</sup></a>"
               , " world"
-              , "<a id=\"fn2chap3ref\" class=\"note-ref\" href=\"#fn2chap3\"><sup>3.2</sup></a>"
+              , "<a id=\"note-3-2-ref\" class=\"note-ref\" href=\"#note-3-2\"><sup>3.2</sup></a>"
               , ".</p><p>Hello"
-              , "<a id=\"fn3chap3ref\" class=\"note-ref\" href=\"#fn3chap3\"><sup>3.3</sup></a>"
+              , "<a id=\"note-3-3-ref\" class=\"note-ref\" href=\"#note-3-3\"><sup>3.3</sup></a>"
               , ".</p>"
                 -- footnotes
               , "<h1 id=\"footnotes\">Footnotes</h1>"
-              , "<h2 id=\"footnotesChap1\">Chapter 1</h2><ol>"
-              , "<li id=\"fn1chap1\"><p>Footnote one</p>"
-              , "<p><a class=\"note-backref\" href=\"#fn1chap1ref\">^</a></p></li>"
-              , "</ol><h2 id=\"footnotesChap3\">Chapter 3</h2><ol>"
-              , "<li id=\"fn1chap3\"><p>Footnote two</p>"
-              , "<p><a class=\"note-backref\" href=\"#fn1chap3ref\">^</a></p></li>"
-              , "<li id=\"fn2chap3\"><p>Footnote three</p>"
-              , "<p><a class=\"note-backref\" href=\"#fn2chap3ref\">^</a></p></li>"
-              , "<li id=\"fn3chap3\"><p>Footnote four</p>"
-              , "<p><a class=\"note-backref\" href=\"#fn3chap3ref\">^</a></p></li>"
+              , "<h2 id=\"footnotes-chap-1\">Chapter 1</h2><ol>"
+              , "<li id=\"note-1-1\"><p>Footnote one</p>"
+              , "<p><a class=\"note-backref\" href=\"#note-1-1-ref\">^</a></p></li>"
+              , "</ol><h2 id=\"footnotes-chap-3\">Chapter 3</h2><ol>"
+              , "<li id=\"note-3-1\"><p>Footnote two</p>"
+              , "<p><a class=\"note-backref\" href=\"#note-3-1-ref\">^</a></p></li>"
+              , "<li id=\"note-3-2\"><p>Footnote three</p>"
+              , "<p><a class=\"note-backref\" href=\"#note-3-2-ref\">^</a></p></li>"
+              , "<li id=\"note-3-3\"><p>Footnote four</p>"
+              , "<p><a class=\"note-backref\" href=\"#note-3-3-ref\">^</a></p></li>"
               , "</ol></body></html>"]
   ]
 
@@ -202,19 +202,19 @@ testsBlocks = testGroup "blocks"
   , testCase "simple figure" $
     blocks2html [Figure (FigureAnchor (2,1)) "image.png" [Str "description"]]
     @?=
-    LT.append "<figure id=\"figure1chap2\"><img src=\"image.png\">"
+    LT.append "<figure id=\"figure-2-1\"><img src=\"image.png\">"
               "<figcaption>description</figcaption></figure>"
   , testCase "empty table" $
     blocks2html [Table (TableAnchor (2,1)) [Str "description"] []]
     @?=
-    LT.append "<table id=\"table1chap2\"><caption>description</caption>"
+    LT.append "<table id=\"table-2-1\"><caption>description</caption>"
               "<tbody></tbody></table>"
   , testCase "simple table" $
     blocks2html [Table (TableAnchor (2,1)) [Str "description"]
       [[SingleCell [Str "top-left"], SingleCell [Str "top-right"]]
       ,[SingleCell [Str "bottom-left"], SingleCell [Str "bottom-right"]]]]
     @?=
-    LT.concat [ "<table id=\"table1chap2\">"
+    LT.concat [ "<table id=\"table-2-1\">"
               , "<caption>description</caption>"
               , "<tbody>"
               , "<tr><td>top-left</td><td>top-right</td></tr>"
@@ -226,7 +226,7 @@ testsBlocks = testGroup "blocks"
       ,[MultiCell 3 [Str "three", Space, Str "columns"]]
       ,[SingleCell [Str "1"], SingleCell [Str "2"], SingleCell [Str "3"]]]]
     @?=
-    LT.concat [ "<table id=\"table4chap3\">"
+    LT.concat [ "<table id=\"table-3-4\">"
               , "<caption>description</caption>"
               , "<tbody>"
               , "<tr><td>single column</td><td colspan=\"2\">two</td></tr>"
@@ -289,15 +289,15 @@ testsInlines = testGroup "inlines"
     inlines2html [Str "Figure", Space, Pointer "internallabel"
       (Just (InternalResource (FigureAnchor (2,1))))]
     @?=
-    "Figure <a href=\"#figure1chap2\">2.1</a>"
+    "Figure <a href=\"#figure-2-1\">2.1</a>"
   , testCase "empty footnote (only mark)" $
     inlines2html [Note (NoteAnchor (2,8)) []]
     @?=
-    "<a id=\"fn8chap2ref\" class=\"note-ref\" href=\"#fn8chap2\"><sup>2.8</sup></a>"
+    "<a id=\"note-2-8-ref\" class=\"note-ref\" href=\"#note-2-8\"><sup>2.8</sup></a>"
   , testCase "simple footnote (only mark)" $
     inlines2html [Note (NoteAnchor (1,2)) [Para [Str "hello"]]]
     @?=
-    "<a id=\"fn2chap1ref\" class=\"note-ref\" href=\"#fn2chap1\"><sup>1.2</sup></a>"
+    "<a id=\"note-1-2-ref\" class=\"note-ref\" href=\"#note-1-2\"><sup>1.2</sup></a>"
   ]
 
 

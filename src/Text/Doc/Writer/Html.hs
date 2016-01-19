@@ -83,7 +83,7 @@ footnotes (Doc meta _) =
 footnotesForChapter :: Map (Int, Int) [Block] -> Int -> Html
 footnotesForChapter notes chapnum =
   let chap = T.pack (show chapnum)
-      headerID = textValue (T.append "footnotesChap" chap)
+      headerID = textValue (T.append "footnotes-chap-" chap)
       headerTitle = toHtml (T.append "Chapter " chap)
       fndata = filter ((chapnum==) . fst . fst) (M.assocs notes)
   in (h2 ! A.id headerID $ headerTitle) <>

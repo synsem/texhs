@@ -160,29 +160,28 @@ data InternalAnchor
 -- This can be used for @xml:id@ attributes.
 internalAnchorID :: InternalAnchor -> Text
 internalAnchorID DocumentAnchor = ""
-internalAnchorID (SectionAnchor xs) = T.concat $ zipWith T.append
-  ["Pt", "Ch", "S", "s", "ss", "p"]
-  (map (T.pack . show) xs)
-internalAnchorID (FigureAnchor nums) = anchorIDFromPair "figure" nums
-internalAnchorID (TableAnchor nums) = anchorIDFromPair "table" nums
-internalAnchorID (NoteAnchor nums) = anchorIDFromPair "fn" nums
-internalAnchorID (ItemAnchor (chap, nums)) = T.append "item-"
-  (T.pack (hyphenSep (chap:reverse nums)))
+internalAnchorID (SectionAnchor []) =
+  error "internalAnchorID: invalid (empty) section numbers"
+internalAnchorID (SectionAnchor [_]) =
+  error "internalAnchorID: invalid (singleton) section numbers"
+internalAnchorID (SectionAnchor (_:ch:ns)) =
+  let trimsection = dropWhileEnd (==0)
+  in T.append "sec-" (hyphenSep (ch:trimsection ns))
+internalAnchorID (FigureAnchor (ch, n)) =
+  T.append "figure-" (hyphenSep [ch, n])
+internalAnchorID (TableAnchor (ch, n)) =
+  T.append "table-" (hyphenSep [ch, n])
+internalAnchorID (NoteAnchor (ch, n)) =
+  T.append "note-" (hyphenSep [ch, n])
+internalAnchorID (ItemAnchor (ch, ns)) =
+  T.append "item-" (hyphenSep (ch:reverse ns))
 
 -- | Generate identifying string for a reference to an anchor.
 --
 -- This is mainly used for footnote back-references: The footnote text
 -- (main anchor) contains a back-reference to the footnote mark.
 internalAnchorIDRef :: InternalAnchor -> Text
-internalAnchorIDRef anchor = T.append (internalAnchorID anchor) "ref"
-
--- Generate identifying string for basic element anchors.
---
--- Helper for 'internalAnchorID'.
-anchorIDFromPair :: Text -> (Int, Int) -> Text
-anchorIDFromPair anchortype (chap, num) =
-  T.concat $ zipWith T.append [anchortype, "chap"]
-    (map (T.pack . show) [num, chap])
+internalAnchorIDRef anchor = T.append (internalAnchorID anchor) "-ref"
 
 -- | Generate target location string for an anchor.
 --
@@ -247,8 +246,8 @@ dotSep = intercalate "." . map show
 
 -- Given a list of numbers, format them as an inline string
 -- with a separating hyphen between numbers (e.g. \"2-3-1\").
-hyphenSep :: [Int] -> String
-hyphenSep = intercalate "-" . map show
+hyphenSep :: [Int] -> Text
+hyphenSep = T.pack . intercalate "-" . map show
 
 -- | A label is a name of an internal anchor.
 --
