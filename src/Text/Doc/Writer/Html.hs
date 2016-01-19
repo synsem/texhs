@@ -103,7 +103,8 @@ footnote (anchor, fntext) =
 backreference :: InternalAnchor -> Html
 backreference anchor =
   let backrefText = "^"
-  in p $ a ! href (textValue (internalAnchorTargetRef anchor)) $
+  in p $ a ! A.class_ "note-backref"
+           ! href (textValue (internalAnchorTargetRef anchor)) $
      backrefText
 
 
@@ -184,7 +185,7 @@ inline (Pointer _ (Just anchor)) =
   inlines (anchorDescription anchor)
 inline (Note anchor _) =
   a ! A.id (textValue (internalAnchorIDRef anchor))
-    ! A.class_ "fnRef"
+    ! A.class_ "note-ref"
     ! href (textValue (internalAnchorTarget anchor)) $
   H.sup $ inlines (internalAnchorDescription anchor)
 

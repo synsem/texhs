@@ -98,26 +98,30 @@ testsDoc = testGroup "documents"
                 -- body
               , "<h2 id=\"Pt0Ch1S0s0ss0p0\">one</h2>"
               , "<p>One"
-              , "<a id=\"fn1chap1ref\" class=\"fnRef\" href=\"#fn1chap1\"><sup>1.1</sup></a>"
+              , "<a id=\"fn1chap1ref\" class=\"note-ref\" href=\"#fn1chap1\"><sup>1.1</sup></a>"
               , ".</p>"
               , "<h2 id=\"Pt0Ch2S0s0ss0p0\">two</h2>"
               , "<p>No footnotes in Chapter two.</p>"
               , "<h2 id=\"Pt0Ch3S0s0ss0p0\">three</h2>"
               , "<p>Hello"
-              , "<a id=\"fn1chap3ref\" class=\"fnRef\" href=\"#fn1chap3\"><sup>3.1</sup></a>"
+              , "<a id=\"fn1chap3ref\" class=\"note-ref\" href=\"#fn1chap3\"><sup>3.1</sup></a>"
               , " world"
-              , "<a id=\"fn2chap3ref\" class=\"fnRef\" href=\"#fn2chap3\"><sup>3.2</sup></a>"
+              , "<a id=\"fn2chap3ref\" class=\"note-ref\" href=\"#fn2chap3\"><sup>3.2</sup></a>"
               , ".</p><p>Hello"
-              , "<a id=\"fn3chap3ref\" class=\"fnRef\" href=\"#fn3chap3\"><sup>3.3</sup></a>"
+              , "<a id=\"fn3chap3ref\" class=\"note-ref\" href=\"#fn3chap3\"><sup>3.3</sup></a>"
               , ".</p>"
                 -- footnotes
               , "<h1 id=\"footnotes\">Footnotes</h1>"
               , "<h2 id=\"footnotesChap1\">Chapter 1</h2><ol>"
-              , "<li id=\"fn1chap1\"><p>Footnote one</p><p><a href=\"#fn1chap1ref\">^</a></p></li>"
+              , "<li id=\"fn1chap1\"><p>Footnote one</p>"
+              , "<p><a class=\"note-backref\" href=\"#fn1chap1ref\">^</a></p></li>"
               , "</ol><h2 id=\"footnotesChap3\">Chapter 3</h2><ol>"
-              , "<li id=\"fn1chap3\"><p>Footnote two</p><p><a href=\"#fn1chap3ref\">^</a></p></li>"
-              , "<li id=\"fn2chap3\"><p>Footnote three</p><p><a href=\"#fn2chap3ref\">^</a></p></li>"
-              , "<li id=\"fn3chap3\"><p>Footnote four</p><p><a href=\"#fn3chap3ref\">^</a></p></li>"
+              , "<li id=\"fn1chap3\"><p>Footnote two</p>"
+              , "<p><a class=\"note-backref\" href=\"#fn1chap3ref\">^</a></p></li>"
+              , "<li id=\"fn2chap3\"><p>Footnote three</p>"
+              , "<p><a class=\"note-backref\" href=\"#fn2chap3ref\">^</a></p></li>"
+              , "<li id=\"fn3chap3\"><p>Footnote four</p>"
+              , "<p><a class=\"note-backref\" href=\"#fn3chap3ref\">^</a></p></li>"
               , "</ol></body></html>"]
   ]
 
@@ -289,11 +293,11 @@ testsInlines = testGroup "inlines"
   , testCase "empty footnote (only mark)" $
     inlines2html [Note (NoteAnchor (2,8)) []]
     @?=
-    "<a id=\"fn8chap2ref\" class=\"fnRef\" href=\"#fn8chap2\"><sup>2.8</sup></a>"
+    "<a id=\"fn8chap2ref\" class=\"note-ref\" href=\"#fn8chap2\"><sup>2.8</sup></a>"
   , testCase "simple footnote (only mark)" $
     inlines2html [Note (NoteAnchor (1,2)) [Para [Str "hello"]]]
     @?=
-    "<a id=\"fn2chap1ref\" class=\"fnRef\" href=\"#fn2chap1\"><sup>1.2</sup></a>"
+    "<a id=\"fn2chap1ref\" class=\"note-ref\" href=\"#fn2chap1\"><sup>1.2</sup></a>"
   ]
 
 
