@@ -35,7 +35,14 @@ module Text.TeX.Parser.Types
     -- * Access arguments
   , getOptArg
   , getOblArg
+  , isStarred
+    -- * Argument specification
+  , ArgSpec
+  , ArgType(..)
+  , ArgSpecSimple
+  , toArgSpec
   ) where
+
 
 -------------------- TeX types
 
@@ -43,7 +50,10 @@ module Text.TeX.Parser.Types
 type TeX = [TeXAtom]
 
 -- | An obligatory or optional argument of a TeX command.
-data Arg = OblArg TeX | OptArg TeX
+data Arg
+  = OblArg TeX
+  | OptArg TeX
+  | StarArg
   deriving (Show, Eq)
 
 -- | Arguments of a TeX command.
@@ -58,7 +68,7 @@ data TeXAtom
   = Plain String
     -- ^ a character or a word
   | Command String Args
-    -- ^ a macro command with its name and arguments
+    -- ^ a command with its name and arguments
   | Group String Args TeX
     -- ^ a group with its name, arguments and body
   | MathGroup MathType TeX
@@ -144,14 +154,25 @@ isGrp _ _ = False
 -- | Test whether an 'Arg' is obligatory.
 isOblArg :: Arg -> Bool
 isOblArg OblArg{} = True
-isOblArg OptArg{} = False
+isOblArg _ = False
 
 -- | Test whether an 'Arg' is optional.
 isOptArg :: Arg -> Bool
-isOptArg = not . isOblArg
+isOptArg OptArg{} = True
+isOptArg _ = False
+
+-- | Test whether an 'Arg' is a star token.
+isStarArg :: Arg -> Bool
+isStarArg StarArg = True
+isStarArg _ = False
 
 
 -------------------- Access arguments
+
+-- | Test whether a 'Command' is starred
+-- by looking for a 'StarArg' in its 'Args'.
+isStarred :: Args -> Bool
+isStarred = any isStarArg
 
 -- | Retrieve the n-th optional argument (of a command or environment).
 getOptArg :: Int -> Args -> TeX
@@ -175,3 +196,34 @@ getArg p n args =
 unArg :: Arg -> TeX
 unArg (OblArg xs) = xs
 unArg (OptArg xs) = xs
+unArg StarArg = []
+
+-------------------- Argument Specification for (non-user) commands
+
+-- | A list of argument types that a command expects.
+type ArgSpec = [ArgType]
+
+-- Note: For user-defined macros, see "Text.TeX.Lexer.Macro" instead.
+-- | Possible argument types for (non-user) commands.
+data ArgType
+     -- | Mandatory argument (group or single token).
+  = Mandatory
+    -- | Optional argument in brackets. This shortcut is
+    --   equivalent to @OptionalGroup \'[\' \']\'@.
+  | Optional
+    -- | Optional argument between custom delimiters. The delimiting
+    --   characters will only be matched against character tokens
+    --   that have the category code Letter or Other.
+  | OptionalGroup Char Char
+    -- | Optional star token (for \"starred\" LaTeX commands).
+  | OptionalStar
+  deriving (Eq, Show)
+
+-- | A simplified representation of the 'ArgSpec' for a command
+-- as a pair consisting of the number of optional and the number
+-- of mandatory arguments that the command takes.
+type ArgSpecSimple = (Int, Int)
+
+-- | Convert from 'ArgSpecSimple' to a proper 'ArgSpec'.
+toArgSpec :: ArgSpecSimple -> ArgSpec
+toArgSpec (opt, obl) = replicate opt Optional ++ replicate obl Mandatory

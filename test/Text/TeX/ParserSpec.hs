@@ -19,14 +19,17 @@ import Test.HUnit ((@?=))
 
 import Text.TeX.Lexer.Token
 import Text.TeX.Parser (parseTeX)
+import Text.TeX.Parser.Basic
+import Text.TeX.Parser.Core (runTeXParser)
 import Text.TeX.Parser.Types (TeXAtom(..), Arg(..), MathType(..))
-
 
 -------------------- tests
 
 tests :: Test
 tests = testGroup "Text.TeX.ParserSpec"
   [ testsBasic
+  , testsArguments
+  , testsControlSequences
   , testsActiveChars
   , testsWhitespace
   , testsSyntactic
@@ -68,13 +71,13 @@ testsBasic = testGroup "basic"
       , OblArg [Plain "man2"]
       ], Plain "z"]
   , testCase "known command which takes no arguments ignores following group" $
-    parseTeX "" (mkCtrlSeq "rm" : mkGroup (mkString "no arg"))
+    parseTeX "" (mkCtrlSeq "rm" : mkGroup (mkDefault "no arg"))
     @?=
-    [Command "rm" [], Group "" [] [Plain "no arg"]]
+    [Command "rm" [], Group "" [] [Plain "no", White, Plain "arg"]]
   , testCase "known command which takes no arguments ignores following optgroup" $
-    parseTeX "" (mkCtrlSeq "rm" : mkOptArg (mkString "no arg"))
+    parseTeX "" (mkCtrlSeq "rm" : mkOptArg (mkDefault "no arg"))
     @?=
-    [Command "rm" [], Plain "[no arg]"]
+    [Command "rm" [], Plain "[no", White, Plain "arg]"]
   , testCase "subscripted single character" $
     parseTeX "" (subTok : mkString "abc")
     @?=
@@ -109,7 +112,7 @@ testsBasic = testGroup "basic"
         mkString "a" ++ [alignTok] ++ mkString "b" ++ [mkCtrlSeq "\\"] ++
         mkString "c" ++ [alignTok] ++ mkString "d" ++ [mkCtrlSeq "\\"]))
     @?=
-    [ Group "tabular" [OblArg [Plain "ll"]]
+    [ Group "tabular" [OptArg [], OblArg [Plain "ll"]]
       [ Plain "a", AlignMark, Plain "b", Newline
       , Plain "c", AlignMark, Plain "d", Newline]]
   , testCase "nested environments" $
@@ -137,6 +140,77 @@ testsBasic = testGroup "basic"
       [ Command "text"
         [ OblArg [Plain "t", MathGroup MathDisplay [Plain "a"]]]
       , Plain "b"]]
+  ]
+
+testsArguments :: Test
+testsArguments = testGroup "arguments"
+  [ testCase "optional argument" $
+    runTeXParser optarg "" (mkDefault "[hello]")
+    @?=
+    Right (OptArg [Plain "hello"])
+  , testCase "optional argument in parentheses" $
+    runTeXParser optargParens "" (mkDefault "(hello)")
+    @?=
+    Right (OptArg [Plain "hello"])
+  , testCase "parentheses argument with embedded parens" $
+    runTeXParser optargParens "" (mkDefault "(a(b)c)")
+    @?=
+    Right (OptArg [ Plain "a", Plain "(", Plain "b"
+                  , Plain ")", Plain "c"])
+  , testCase "parentheses argument with embedded group" $
+    runTeXParser optargParens "" (mkDefault "(a{)}b)")
+    @?=
+    Right (OptArg [Plain "a", Group "" [] [Plain ")"], Plain "b"])
+  , testCase "unknown control sequence may take single star argument" $
+    parseTeX "" (mkCtrlSeq "unknown" : mkOther '*' : mkString "trailer")
+    @?=
+    [Command "unknown" [StarArg], Plain "trailer"]
+  , testCase "unknown control sequence cannot take more than one star argument" $
+    parseTeX "" (mkCtrlSeq "unknown" : mkOther '*' : mkOther '*' : mkString "trailer")
+    @?=
+    [Command "unknown" [StarArg], Plain "*trailer"]
+  , testCase "default star argument cannot follow optional argument" $
+    parseTeX "" (mkCtrlSeq "unknown" : mkOptArg (mkString "opt") ++
+      [mkOther '*'] ++ mkString "trailer")
+    @?=
+    [Command "unknown" [OptArg [Plain "opt"]], Plain "*trailer"]
+  , testCase "unknown control sequence may take multiple optional args" $
+    parseTeX "" (mkCtrlSeq "unknown" : mkOther '*' :
+      mkOptArg (mkDefault "opt1") ++
+      mkOptArg (mkDefault "opt2") ++ mkString "trailer")
+    @?=
+    [ Command "unknown" [StarArg, OptArg [Plain "opt1"], OptArg [Plain "opt2"]]
+    , Plain "trailer"]
+  ]
+
+testsControlSequences :: Test
+testsControlSequences = testGroup "control sequences"
+  [ testCase "unknown control sequence with no args" $
+    runTeXParser command "" [mkCtrlSeq "unknown"]
+    @?=
+    Right (Command "unknown" [])
+  , testCase "starred 'chapter' with optional arg" $
+    runTeXParser command "" (mkCtrlSeq "chapter" : mkOther '*' :
+      mkOptArg (mkString "short") ++ mkGroup (mkString "title"))
+    @?=
+    Right (Command "chapter"
+      [StarArg, OptArg [Plain "short"], OblArg [Plain "title"]])
+  , testCase "unstarred 'chapter' without optional arg" $
+    runTeXParser command "" (mkCtrlSeq "chapter" : mkGroup (mkString "title"))
+    @?=
+    Right (Command "chapter" [OptArg [], OblArg [Plain "title"]])
+  , testCase "'section' cannot take two mandatory args" $
+    parseTeX "" (mkCtrlSeq "section" : mkOther '*' :
+      mkGroup (mkString "title") ++ mkGroup (mkString "trailer"))
+    @?=
+    [ Command "section" [StarArg, OptArg [], OblArg [Plain "title"]]
+    , Group "" [] [Plain "trailer"]]
+  , testCase "'section' needs mandatory argument" $
+    parseTeX "" (mkCtrlSeq "section" : mkOther '*' :
+      mkOptArg (mkString "opt") ++ mkString "abc")
+    @?=
+    [ Command "section" [StarArg, OptArg [Plain "opt"], OblArg [Plain "a"]]
+    , Plain "bc"]
   ]
 
 testsActiveChars :: Test

@@ -89,7 +89,7 @@ testsBasic = testGroup "basic"
   , testCase "simple 2x2 tabular" $
     readTeX "" "\\begin{tabular}{ll}a&b\\\\c&d\\\\\\end{tabular}"
     @?=
-    [Group "tabular" [OblArg [Plain "ll"]]
+    [Group "tabular" [OptArg [], OblArg [Plain "ll"]]
       [Plain "a", AlignMark, Plain "b", Newline,
        Plain "c", AlignMark, Plain "d", Newline]]
   , testCase "nested environments" $

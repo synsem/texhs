@@ -16,6 +16,23 @@
 module Text.TeX.Parser.Basic
  ( -- * Main document parser
    texParser
+   -- * Basic TeXAtom parsers
+ , atoms
+ , atom
+ , plain
+ , command
+ , group
+ , env
+ , mathgroup
+ , subscript
+ , supscript
+ , white
+   -- * Argument parsers
+ , parseArgSpec
+ , arg
+ , oblarg
+ , optarg
+ , optargParens
  ) where
 
 
@@ -27,9 +44,9 @@ import Control.Applicative ((<*), (<*>), (*>), (<$), (<$>))
 import Control.Monad (void)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
-import Data.Maybe (catMaybes)
+import Data.Maybe (fromMaybe, catMaybes)
 import Text.Parsec
-  ((<|>), choice, optional, optionMaybe, many, many1, manyTill,
+  ((<|>), choice, optional, optionMaybe, many, many1,
    count, between, (<?>), parserFail, eof)
 
 import Text.TeX.Filter (argspecsSyntactic)
@@ -48,8 +65,19 @@ atoms = many atom
 
 -- | Parse a single TeXAtom.
 atom :: TeXParser TeXAtom
-atom = choice [plain, group, command, white, alignMark,
-               mathgroup, subscript, supscript]
+atom = atomExcept []
+
+-- | Parse a single TeXAtom,
+-- unless we hit a character from the specified blacklist.
+atomExcept :: [Char] -> TeXParser TeXAtom
+atomExcept blacklist =
+  choice [ plainExcept blacklist
+         , group, command, white, alignMark
+         , mathgroup, subscript, supscript]
+
+-- | Parse the exact token.
+token :: Token -> TeXParser Token
+token = satisfy . (==)
 
 -- | Parse subscripted content.
 subscript :: TeXParser TeXAtom
@@ -79,19 +107,24 @@ char c = Plain [c] <$ satisfy (isCharSat (== c))
 charCC :: Catcode -> TeXParser Token
 charCC = satisfy . hasCC
 
+-- | Parse a character if it has category code 'Letter' or 'Other'.
+plainChar :: Char -> TeXParser TeXAtom
+plainChar c = Plain [c] <$ satisfy (\t ->
+  isCharSat (== c) t && (hasCC Letter t || hasCC Other t))
+
 -- | Parse a single letter or other.
-plainChar :: TeXParser TeXAtom
-plainChar = (Plain . map getRawChar) <$> count 1 (charCC Letter <|> charCC Other)
+anyPlainChar :: TeXParser TeXAtom
+anyPlainChar = (Plain . map getRawChar) <$> count 1 (charCC Letter <|> charCC Other)
 
 -- | Parse letters and others.
 plain :: TeXParser TeXAtom
 plain = (Plain . map getRawChar) <$> many1 (charCC Letter <|> charCC Other)
 
--- Parse letters and others except for the specified characters.
+-- Parse letters and others except for the specified characters (blacklist).
 plainExcept :: [Char] -> TeXParser TeXAtom
-plainExcept xs = (Plain . map getRawChar) <$> many1 (satisfy (\t ->
+plainExcept blacklist = (Plain . map getRawChar) <$> many1 (satisfy (\t ->
   (hasCC Letter t || hasCC Other t) &&
-  not (isCharSat (`elem` xs) t)))
+  not (isCharSat (`elem` blacklist) t)))
 
 -- | Parse intra-paragraph whitespace.
 white :: TeXParser TeXAtom
@@ -117,10 +150,12 @@ groupbody = between bgroup egroup atoms
 mathgroup :: TeXParser TeXAtom
 mathgroup = charCC Mathshift *> (displaymath <|> inlinemath)
 
+-- Parse an inline math group.
 inlinemath :: TeXParser TeXAtom
 inlinemath = MathGroup MathInline <$> mathInner
              <* charCC Mathshift <?> "end of inline math"
 
+-- Parse a display math group.
 displaymath :: TeXParser TeXAtom
 displaymath = MathGroup MathDisplay <$> (charCC Mathshift *> mathInner)
               <* count 2 (charCC Mathshift) <?> "end of display math"
@@ -140,7 +175,7 @@ arg = OblArg <$> argbody
 -- | Parse the content of an obligatory argument:
 -- the content of a group or a single atom.
 argbody :: TeXParser TeX
-argbody = groupbody <|> count 1 plainChar
+argbody = groupbody <|> count 1 anyPlainChar
 
 -- Use this parser as a heuristic to eat up possible obligatory
 -- arguments of unknown control sequences.
@@ -150,13 +185,19 @@ oblarg = OblArg <$> groupbody
 
 -- | Parse a traditional-style optional argument in square brackets.
 optarg :: TeXParser Arg
-optarg = OptArg <$> (char '[' *> manyTill optargInner (char ']'))
+optarg = optargBetween '[' ']'
 
--- Like 'atom' but stops on square brackets.
--- (Stub. Use 'balanced' parsers.)
-optargInner :: TeXParser TeXAtom
-optargInner = choice [plainExcept "[]", group, command, white, alignMark,
-                      mathgroup, subscript, supscript]
+-- | Parse an optional argument between parentheses.
+optargParens :: TeXParser Arg
+optargParens = optargBetween '(' ')'
+
+-- | Parse an optional argument between custom delimiter characters.
+optargBetween :: Char -> Char -> TeXParser Arg
+optargBetween open close = OptArg <$> balanced open close
+
+-- | Try to parse a 'StarArg'.
+maybeStar :: TeXParser (Maybe Arg)
+maybeStar = optionMaybe (StarArg <$ token (mkOther '*'))
 
 -- | Parse a control sequence or an active character.
 command :: TeXParser TeXAtom
@@ -188,12 +229,11 @@ processCtrlseq name = case name of
     args <- maybe parseUnknownArgSpec parseArgSpec (M.lookup name commandDB)
     return (Command name args)
 
--- Lookup table for the ArgSpec of known commands.
---
--- We use a pair @(nrOptArgs, nrOblArgs)@ as a simplified
--- ArgSpec representation here.
-commandDB :: Map String (Int, Int)
-commandDB = M.union argspecsSyntactic argspecsSemantic
+-- Lookup table for the 'ArgSpec' of known commands.
+commandDB :: Map String ArgSpec
+commandDB = M.unions [ M.map toArgSpec argspecsSyntactic
+                     , M.map toArgSpec argspecsSemantic
+                     , argspecsSectioning]
   where
     argspecsSemantic = M.fromList
       [ -- Plain TeX
@@ -213,13 +253,19 @@ commandDB = M.union argspecsSyntactic argspecsSemantic
         -- graphicx
       , ("includegraphics", (1,1))
       ]
+    argspecsSectioning = M.fromList $ zip
+      [ "part"
+      , "chapter"
+      , "section"
+      , "subsection"
+      , "subsubsection"
+      , "paragraph"
+      , "subparagraph"
+      ] (repeat [OptionalStar, Optional, Mandatory])
 
--- Lookup table for the ArgSpec of known environments.
---
--- We use a pair @(nrOptArgs, nrOblArgs)@ as a simplified
--- ArgSpec representation here.
-envDB :: [(String, (Int, Int))]
-envDB =
+-- Lookup table for the 'ArgSpec' of known environments.
+envDB :: Map String ArgSpec
+envDB = M.map toArgSpec $ M.fromList
   [ -- LaTeX
     ("document", (0,0))
   , ("quotation", (0,0))
@@ -229,21 +275,51 @@ envDB =
   , ("tabular", (1,1))
   ]
 
--- Parse a given ArgSpec.
-parseArgSpec :: (Int, Int) -> TeXParser Args
-parseArgSpec (nrOpt, nrObl) = do
-  opt <- catMaybes <$> count nrOpt (optionMaybe optarg)
-  obl <- count nrObl arg
-  return (opt ++ obl)
+-- | Parse a given 'ArgSpec'.
+parseArgSpec :: ArgSpec -> TeXParser Args
+parseArgSpec = fmap catMaybes . mapM parseArgType
+
+-- Parse a given 'ArgType'.
+parseArgType :: ArgType -> TeXParser (Maybe Arg)
+parseArgType Mandatory = Just <$> arg
+parseArgType Optional =
+  parseArgType (OptionalGroup '[' ']')
+parseArgType (OptionalGroup open close) =
+  (Just . fromMaybe (OptArg [])) <$>
+  optionMaybe (optargBetween open close)
+parseArgType OptionalStar = maybeStar
+
+-- | Parse a balanced group of tokens between the
+-- provided opening and closing characters.
+-- The (outermost) delimiters are not included in the result.
+balanced :: Char -> Char -> TeXParser TeX
+balanced open close = plainChar open *> balancedEnd
+  where
+    -- Keeps delimiters.
+    balancedInner :: TeXParser TeX
+    balancedInner = (:) <$> plainChar open <*> balancedInnerEnd
+    -- Skips delimiters.
+    balancedEnd :: TeXParser TeX
+    balancedEnd = ([] <$ plainChar close) <|>
+                  ((++) <$> (balancedInner <|>
+                             count 1 (atomExcept [open,close]))
+                        <*> balancedEnd)
+    -- Keeps delimiters.
+    balancedInnerEnd :: TeXParser TeX
+    balancedInnerEnd = count 1 (plainChar close) <|>
+                       ((++) <$> (balancedInner <|>
+                                  count 1 (atomExcept [open,close]))
+                             <*> balancedInnerEnd)
 
 -- Heuristic for arguments of unknown control sequences: consume any
 -- number of subsequent tokens that look like optional or obligatory
--- arguments, think: ([...])*({...})*.
+-- arguments, optionally prefixed by a star, think: @\\*([...])*({...})*@.
 parseUnknownArgSpec :: TeXParser Args
 parseUnknownArgSpec = do
+  star <- maybeStar
   opt <- many optarg
   obl <- many oblarg
-  return (opt ++ obl)
+  return $ maybe id (:) star (opt ++ obl)
 
 -- | Parse the name of an environment.
 envName :: TeXParser String
@@ -254,7 +330,7 @@ envName = map getRawChar <$> between bgroup egroup
 env :: TeXParser TeXAtom
 env = do
   name <- envName
-  args <- maybe parseUnknownArgSpec parseArgSpec (lookup name envDB)
+  args <- maybe parseUnknownArgSpec parseArgSpec (M.lookup name envDB)
   body <- envInner name
   return (Group name args body)
 

@@ -59,7 +59,7 @@ import Text.TeX.Parser.Types
 
 -- | Data map from TeX command names
 -- to (argspec, expansion function) pairs.
-type CmdMap = Map String ((Int, Int), Args -> TeX)
+type CmdMap = Map String (ArgSpecSimple, Args -> TeX)
 
 -- | Data map from TeX command names to Unicode symbols.
 type SymbolMap = Map String String
@@ -109,7 +109,7 @@ dbldiacritics = M.unions
 --
 -- This table may be used by the TeX parser in "Text.TeX.Parser"
 -- to determine the number of arguments a given command takes.
-argspecsSyntactic :: Map String (Int, Int)
+argspecsSyntactic :: Map String ArgSpecSimple
 argspecsSyntactic = M.unions
   [ M.map (const (0,0)) symbols
   , M.map (const (0,1)) diacritics
@@ -245,3 +245,4 @@ fmapArgs f = map (fmapArg f)
 fmapArg :: (TeX -> TeX) -> Arg -> Arg
 fmapArg f (OblArg xs) = OblArg (f xs)
 fmapArg f (OptArg xs) = OptArg (f xs)
+fmapArg _ StarArg = StarArg
