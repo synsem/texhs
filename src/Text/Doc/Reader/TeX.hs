@@ -172,38 +172,13 @@ header = do
     , (,) 3 <$> inlineCmd "section"
     , (,) 4 <$> inlineCmd "subsection"
     , (,) 5 <$> inlineCmd "subsubsection"
+    , (,) 6 <$> inlineCmd "paragraph"
+    , (,) 7 <$> inlineCmd "subparagraph"
     ]
-  anchor' <- registerHeader level'
+  modifyMeta (registerHeader level')
+  anchor' <- metaAnchorCurrent <$> getMeta
   void $ many (choice [skipWhite, skipInterlevel])
   return (Header level' anchor' title')
-
--- Register header as the current anchor
--- (e.g. for subsequent @label@ assignments).
-registerHeader :: Level -> Parser InternalAnchor
-registerHeader level = do
-  meta <- getMeta
-  let sectionCurrent = incSection level (metaSectionCurrent meta)
-  -- at beginning of chapters reset counters for figures, tables, notes and items
-  let figureCurrent = if level == 2
-                      then (getChapter sectionCurrent, 0)
-                      else metaFigureCurrent meta
-  let tableCurrent  = if level == 2
-                      then (getChapter sectionCurrent, 0)
-                      else metaTableCurrent meta
-  let noteCurrent   = if level == 2
-                      then (getChapter sectionCurrent, 0)
-                      else metaNoteCurrent meta
-  let itemCurrent   = if level == 2
-                      then (getChapter sectionCurrent, [0])
-                      else metaItemCurrent meta
-  putMeta (meta { metaSectionCurrent = sectionCurrent
-                , metaAnchorCurrent = SectionAnchor sectionCurrent
-                , metaFigureCurrent = figureCurrent
-                , metaTableCurrent = tableCurrent
-                , metaNoteCurrent = noteCurrent
-                , metaItemCurrent = itemCurrent
-                })
-  return (SectionAnchor sectionCurrent)
 
 -- | Parse an @itemize@ group.
 itemize :: Parser Block

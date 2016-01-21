@@ -16,14 +16,25 @@
 module Text.Doc.Types
   ( -- * Doc type
     Doc(..)
-    -- ** Meta
+  , docTitle
+  , docAuthors
+  , docDate
+    -- * Meta
   , Meta(..)
   , defaultMeta
   , HasMeta(..)
+    -- ** Sections
+  , SectionInfo(..)
+  , BookRegion(..)
+  , SectionPosition(..)
+  , SectionNumber
+  , registerHeader
+    -- ** Citations
   , CiteKey
   , CiteDB
   , CiteEntry(..)
   , registerCiteKeys
+    -- ** Anchors
   , Label
   , Location
   , Anchor(..)
@@ -38,36 +49,32 @@ module Text.Doc.Types
   , internalAnchorDescriptionAsText
   , internalAnchorLocalNum
   , registerAnchorLabel
-  , incSection
-  , getChapter
+    -- * Content types
     -- ** Blocks
   , Content
+  , Block(..)
   , Level
   , ListType(..)
   , ListItem(..)
   , TableRow
   , TableCell(..)
-  , Block(..)
     -- ** Inlines
   , Inline(..)
   , MultiCite(..)
   , SingleCite(..)
   , CiteMode(..)
-    -- * Block predicates
+    -- * Content functions
+    -- ** Blocks
   , isPara
   , isHeader
   , isList
-    -- * Inline predicates
+    -- ** Inlines
+  , plain
   , isStr
   , isNormal
   , isEmph
   , isSpace
-    -- * Accessor functions
-  , docTitle
-  , docAuthors
-  , docDate
-  , plain
-    -- * Normalization
+    -- ** Normalization
   , normalizeInlines
   , stripInlines
   ) where
@@ -99,7 +106,9 @@ data Meta = Meta
   , metaAnchorCurrent :: InternalAnchor
   , metaAnchorMap :: Map Label InternalAnchor
   , metaNoteMap :: Map (Int, Int) [Block]
-  , metaSectionCurrent :: [Int]
+  , metaPhantomSectionCount :: Int
+  , metaBookRegion :: BookRegion
+  , metaSectionCurrent :: SectionNumber
   , metaFigureCurrent :: (Int, Int)
   , metaTableCurrent :: (Int, Int)
   , metaNoteCurrent :: (Int, Int)
@@ -118,7 +127,9 @@ defaultMeta = Meta
   , metaAnchorCurrent = DocumentAnchor
   , metaAnchorMap = M.empty
   , metaNoteMap = M.empty
-  , metaSectionCurrent = replicate 6 0
+  , metaPhantomSectionCount = 0
+  , metaBookRegion = Frontmatter
+  , metaSectionCurrent = sectionNumberReset
   , metaFigureCurrent = (0, 0)
   , metaTableCurrent = (0, 0)
   , metaNoteCurrent = (0, 0)
@@ -146,13 +157,13 @@ data Anchor
 --
 -- Internal anchors and pointers are used to model cross-references.
 data InternalAnchor
-  = DocumentAnchor          -- initial anchor in a document
-  | SectionAnchor [Int]     -- section numbers: [part, chap, sect, ...]
-  | FigureAnchor (Int, Int) -- chapter number and chapter-relative figure count
-  | TableAnchor (Int, Int)  -- chapter number and chapter-relative table count
-  | NoteAnchor (Int, Int)   -- chapter number and chapter-relative note count
-  | ItemAnchor (Int, [Int]) -- chapter number and chapter-relative item numbers
-                            --   in reverse order, e.g. [1,3,2] --> \"2.3.1\"
+  = DocumentAnchor             -- initial anchor in a document
+  | SectionAnchor SectionInfo  -- includes book region and section number
+  | FigureAnchor (Int, Int)    -- chapter number and chapter-relative figure count
+  | TableAnchor (Int, Int)     -- chapter number and chapter-relative table count
+  | NoteAnchor (Int, Int)      -- chapter number and chapter-relative note count
+  | ItemAnchor (Int, [Int])    -- chapter number and chapter-relative item numbers
+                               --   in reverse order, e.g. [1,3,2] --> \"2.3.1\"
   deriving (Eq, Show)
 
 -- | Generate identifying string for an internal anchor.
@@ -160,13 +171,9 @@ data InternalAnchor
 -- This can be used for @xml:id@ attributes.
 internalAnchorID :: InternalAnchor -> Text
 internalAnchorID DocumentAnchor = ""
-internalAnchorID (SectionAnchor []) =
-  error "internalAnchorID: invalid (empty) section numbers"
-internalAnchorID (SectionAnchor [_]) =
-  error "internalAnchorID: invalid (singleton) section numbers"
-internalAnchorID (SectionAnchor (_:ch:ns)) =
-  let trimsection = dropWhileEnd (==0)
-  in T.append "sec-" (hyphenSep (ch:trimsection ns))
+internalAnchorID (SectionAnchor secinfo) =
+  let (reg, nums) = sectionInfoID secinfo
+  in T.concat ["sec-", reg, hyphenSep nums]
 internalAnchorID (FigureAnchor (ch, n)) =
   T.append "figure-" (hyphenSep [ch, n])
 internalAnchorID (TableAnchor (ch, n)) =
@@ -219,7 +226,8 @@ internalAnchorDescription = (:[]) . Str . internalAnchorDescriptionAsText
 -- Intended to be used in XML attribute values.
 internalAnchorDescriptionAsText :: InternalAnchor -> String
 internalAnchorDescriptionAsText DocumentAnchor = "start"
-internalAnchorDescriptionAsText (SectionAnchor xs) = dotSep xs
+internalAnchorDescriptionAsText (SectionAnchor secinfo) =
+  (dotSep . snd . sectionInfoID) secinfo
 internalAnchorDescriptionAsText (FigureAnchor (ch, n)) = dotSep [ch, n]
 internalAnchorDescriptionAsText (TableAnchor (ch, n)) = dotSep [ch, n]
 internalAnchorDescriptionAsText (NoteAnchor (ch, n)) = dotSep [ch, n]
@@ -231,8 +239,7 @@ internalAnchorDescriptionAsText (ItemAnchor (ch, ns)) = dotSep (ch:reverse ns)
 -- | Extract value at the innermost level of an internal anchor.
 internalAnchorLocalNum :: InternalAnchor -> Int
 internalAnchorLocalNum DocumentAnchor = 0 -- fallback
-internalAnchorLocalNum (SectionAnchor xs@(_:_)) = last xs
-internalAnchorLocalNum (SectionAnchor []) = 0 -- fallback
+internalAnchorLocalNum (SectionAnchor si) = (last . snd . sectionInfoID) si
 internalAnchorLocalNum (FigureAnchor (_, n)) = n
 internalAnchorLocalNum (TableAnchor (_, n)) = n
 internalAnchorLocalNum (NoteAnchor (_, n)) = n
@@ -301,18 +308,130 @@ registerCiteKeys keys meta =
 
 ---------- Sections
 
--- | Increment the current section at the given level.
-incSection :: Level -> [Int] -> [Int]
-incSection n c = uncurry (++) $ fmap incLevels $ splitAt (n-1) c
+-- | Identifying information about a section.
+data SectionInfo = SectionInfo BookRegion SectionPosition
+  deriving (Eq, Show)
+
+-- Return pieces for easily constructing an identifying string for a
+-- SectionInfo. In particular, return a prefix string (for the book
+-- region and to indicate phantom sections) and a trimmed section
+-- hierarchy list, e.g. @[1,2]@ for @Chapter 1, Section 2@.
+--
+-- The returned list always contains at least one element (chapter).
+-- However, the returned prefix string may be empty (in particular,
+-- it is empty for all numbered mainmatter sections).
+sectionInfoID :: SectionInfo -> (Text, [Int])
+sectionInfoID (SectionInfo reg pos) =
+  let regionPrefix = bookRegionID reg
+      (phantomPrefix, nums) = sectionPositionID pos
+  in (T.append regionPrefix phantomPrefix, nums)
+
+-- | The broad region in which a section is located.
+--
+-- This structuring level is above @part@ and @chapter@.
+-- It may be used to control chapter numbering style, for example.
+data BookRegion
+  = Frontmatter
+  | Mainmatter
+  | Backmatter
+  deriving (Eq, Show)
+
+-- Help generate an identifying string for 'sectionInfoID'.
+bookRegionID :: BookRegion -> Text
+bookRegionID r = case r of
+  Frontmatter -> "front-"
+  Mainmatter -> ""
+  Backmatter -> "back-"
+
+-- | Identifying information about the position of a section
+-- (within a 'BookRegion').
+data SectionPosition
+    -- | Regular numbered section.
+  = SectionRegular SectionNumber
+    -- | Unnumbered section.
+    -- An \"unnumbered\" section is still associated
+    -- with an identifying count.
+  | SectionPhantom Int
+  deriving (Eq, Show)
+
+-- | Representation of a numbered section (within a 'BookRegion')
+-- as a tuple: @(part, chapter, section, subsection,
+-- subsubsection, paragraph, subparagraph)@.
+type SectionNumber = (Int,Int,Int,Int,Int,Int,Int)
+
+-- Return trimmed section hierarchy list
+-- (no part number and no trailing zeros),
+-- e.g. @[1,2]@ for @Chapter 1, Section 2@,
+-- together with a prefix string for phantom sections.
+-- The returned list always contains at least one element (chapter).
+sectionPositionID :: SectionPosition -> (Text, [Int])
+sectionPositionID (SectionRegular sn) =
+  let (chap:xs) = tail (sectionNumberToList sn)
+  in ("", chap : dropWhileEnd (==0) xs)
+sectionPositionID (SectionPhantom i) =
+  ("unnumbered-", [i])
+
+-- Convert section number to a list representation.
+sectionNumberToList :: SectionNumber -> [Int]
+sectionNumberToList (pt,ch,se,sb,ss,pa,sp) = [pt,ch,se,sb,ss,pa,sp]
+
+-- Convert a list of integers to a section number.
+--
+-- Throws an error if the input list has an incorrect length.
+sectionNumberFromList :: [Int] -> SectionNumber
+sectionNumberFromList [pt,ch,se,sb,ss,pa,sp] = (pt,ch,se,sb,ss,pa,sp)
+sectionNumberFromList _ = error "sectionNumberFromList: invalid section number list"
+
+-- | Initial section number.
+sectionNumberReset :: SectionNumber
+sectionNumberReset = (0,0,0,0,0,0,0)
+
+-- | Increment a section number at a given level.
+sectionNumberIncrement :: Level -> SectionNumber -> SectionNumber
+sectionNumberIncrement n c@(pt,ch,se,sb,ss,pa,sp)
+  | n == 1 = (pt+1,ch,se,sb,ss,pa,sp) -- incrementing Part does not affect lower levels
+  | otherwise = sectionNumberFromList $
+      uncurry (++) $ incLevels `fmap` splitAt (n-1) (sectionNumberToList c)
   where
     incLevels [] = []
     incLevels (x:xs) = x+1 : replicate (length xs) 0
 
--- | Extract chapter number from section cursor.
-getChapter :: [Int] -> Int
-getChapter sec
-  | length sec >= 2 = sec !! 1
-  | otherwise = 0
+-- | Extract chapter number.
+getChapter :: SectionNumber -> Int
+getChapter (_,ch,_,_,_,_,_) = ch
+
+-- | Register a new section header
+-- in the document meta information.
+--
+-- This will set the header as the current anchor
+-- (e.g. for subsequent @label@ assignments).
+-- If the header starts a new chapter, all chapter-dependent
+-- counters are also reset (e.g. figures, tables, notes, items).
+registerHeader :: Level -> Meta -> Meta
+registerHeader level meta =
+  let sectionCurrent = sectionNumberIncrement level (metaSectionCurrent meta)
+      bookRegion = metaBookRegion meta
+      anchorCurrent = SectionAnchor
+        (SectionInfo bookRegion (SectionRegular sectionCurrent))
+      figureCurrent = if level == 2
+                      then (getChapter sectionCurrent, 0)
+                      else metaFigureCurrent meta
+      tableCurrent  = if level == 2
+                      then (getChapter sectionCurrent, 0)
+                      else metaTableCurrent meta
+      noteCurrent   = if level == 2
+                      then (getChapter sectionCurrent, 0)
+                      else metaNoteCurrent meta
+      itemCurrent   = if level == 2
+                      then (getChapter sectionCurrent, [0])
+                      else metaItemCurrent meta
+  in meta { metaSectionCurrent = sectionCurrent
+          , metaAnchorCurrent = anchorCurrent
+          , metaFigureCurrent = figureCurrent
+          , metaTableCurrent = tableCurrent
+          , metaNoteCurrent = noteCurrent
+          , metaItemCurrent = itemCurrent
+          }
 
 -------------------- Content type
 

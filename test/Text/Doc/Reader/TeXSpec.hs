@@ -96,7 +96,10 @@ testsBlocks = testGroup "block elements"
     runParser block
       [Command "section" [OblArg [Plain "one"]]]
     @?=
-    Right (Header 3 (SectionAnchor [0,0,1,0,0,0]) [Str "one"])
+    Right (Header 3
+      (SectionAnchor (SectionInfo Frontmatter
+        (SectionRegular (0,0,1,0,0,0,0))))
+      [Str "one"])
   , testCase "single paragraph" $
     runParser block [Plain "hello"]
     @?=
@@ -782,7 +785,10 @@ testsCrossrefs = testGroup "cross-references"
       ]
     @?=
     Right
-      [ Header 3 (SectionAnchor [0,0,1,0,0,0]) [Str "one"]
+      [ Header 3
+          (SectionAnchor (SectionInfo Frontmatter
+            (SectionRegular (0,0,1,0,0,0,0))))
+          [Str "one"]
       , Para [Pointer "mylabel" Nothing]]
   , testCase "retrieve section number" $
     either (error . show) (M.lookup "mylabel" . metaAnchorMap . snd)
@@ -796,7 +802,8 @@ testsCrossrefs = testGroup "cross-references"
         , Command "ref" [OblArg [Plain "mylabel"]]
         ])
     @?=
-    Just (SectionAnchor [0,0,2,1,0,0])
+    Just (SectionAnchor (SectionInfo Frontmatter
+      (SectionRegular (0,0,2,1,0,0,0))))
   ]
 
 testsHyperref :: Test

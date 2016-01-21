@@ -72,14 +72,23 @@ testsDoc = testGroup "documents"
                     ,((3,1), [Para [Str "Footnote", Space, Str "two"]])
                     ,((3,2), [Para [Str "Footnote", Space, Str "three"]])
                     ,((3,3), [Para [Str "Footnote", Space, Str "four"]])]}
-      [ Header 2 (SectionAnchor [0,1,0,0,0,0]) [Str "one"]
+      [ Header 2
+          (SectionAnchor (SectionInfo Mainmatter
+            (SectionRegular (0,1,0,0,0,0,0))))
+          [Str "one"]
       , Para [ Str "One"
              , Note (NoteAnchor (1,1)) [Para [Str "Footnote", Space, Str "one"]]
              , Str "."]
-      , Header 2 (SectionAnchor [0,2,0,0,0,0]) [Str "two"]
+      , Header 2
+          (SectionAnchor (SectionInfo Mainmatter
+            (SectionRegular (0,2,0,0,0,0,0))))
+          [Str "two"]
       , Para [ Str "No", Space, Str "footnotes", Space, Str "in", Space
              , Str "Chapter", Space, Str "two."]
-      , Header 2 (SectionAnchor [0,3,0,0,0,0]) [Str "three"]
+      , Header 2
+          (SectionAnchor (SectionInfo Mainmatter
+            (SectionRegular (0,3,0,0,0,0,0))))
+          [Str "three"]
       , Para [ Str "Hello"
              , Note (NoteAnchor (3,1)) [Para [Str "Footnote", Space, Str "two"]]
              , Space, Str "world"

@@ -56,7 +56,9 @@ testsDoc = testGroup "documents"
       defaultMeta { metaTitle = [Str "No title"]
                   , metaAuthors = [[Str "Nobody"]]
                   , metaDate = [Str "2015-12-31"] }
-      [ Header 2 (SectionAnchor [0,1,0,0,0,0]) [Str "Chapter", Space, Str "one"]
+      [ Header 2 (SectionAnchor (SectionInfo Mainmatter
+          (SectionRegular (0,1,0,0,0,0,0))))
+        [ Str "Chapter", Space, Str "one"]
       , Para [Str "hello", Space, Emph [Str "world"]]])
     @?=
     LT.concat [ "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
@@ -79,7 +81,9 @@ testsDoc = testGroup "documents"
 testsSections :: Test
 testsSections = testGroup "sections"
   [ testCase "single paragraph in chapter" $
-    sections2xml [Section 2 (SectionAnchor [0,1,0,0,0,0])
+    sections2xml [Section 2
+      (SectionAnchor (SectionInfo Mainmatter
+        (SectionRegular (0,1,0,0,0,0,0))))
       [ Str "Chapter", Space, Str "one"]
       [ Para [Str "hello", Space, Emph [Str "world"]]] []]
     @?=
