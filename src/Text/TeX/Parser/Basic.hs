@@ -247,6 +247,10 @@ commandDB = M.unions [ M.map toArgSpec argspecsSyntactic
       , ("cite", (1,1))
       , ("centering", (0,0))
       , ("multicolumn", (0,3))
+      , ("frontmatter", (0,0))
+      , ("mainmatter", (0,0))
+      , ("appendix", (0,0))
+      , ("backmatter", (0,0))
         -- hyperref
       , ("href", (0,2))
       , ("url", (0,1))

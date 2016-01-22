@@ -39,6 +39,7 @@ tests = testGroup "Text.Doc.Reader.TeXSpec"
   [ testsBasic
   , testsBlocks
   , testsInlines
+  , testsSections
   , testsLists
   , testsListItems
   , testsInterlinear
@@ -146,6 +147,32 @@ testsInlines = testGroup "inline elements"
     runParser inlines example8
     @?=
     Right [Emph [Str "one",Normal [Str "two",Emph [Str "three"]]]]
+  ]
+
+testsSections :: Test
+testsSections = testGroup "sections"
+  [ testCase "one chapter in every book part" $
+    runParser (skipInterlevel *> blocks <* eof)
+      [ Command "frontmatter" []
+      , Command "chapter" [OblArg [Plain "front-one"]]
+      , Command "mainmatter" []
+      , Command "chapter" [OblArg [Plain "main-one"]]
+      , Command "appendix" []
+      , Command "chapter" [OblArg [Plain "back-one"]]
+      , Command "backmatter" []
+      , Command "chapter" [OblArg [Plain "back-two"]]
+      ]
+    @?=
+    Right
+      [ Header 2 (SectionAnchor (SectionInfo Frontmatter
+          (SectionRegular (0,1,0,0,0,0,0)))) [Str "front-one"]
+      , Header 2 (SectionAnchor (SectionInfo Mainmatter
+          (SectionRegular (0,1,0,0,0,0,0)))) [Str "main-one"]
+      , Header 2 (SectionAnchor (SectionInfo Backmatter
+          (SectionRegular (0,1,0,0,0,0,0)))) [Str "back-one"]
+      , Header 2 (SectionAnchor (SectionInfo Backmatter
+          (SectionRegular (0,2,0,0,0,0,0)))) [Str "back-two"]
+      ]
   ]
 
 testsLists :: Test

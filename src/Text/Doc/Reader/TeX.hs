@@ -38,6 +38,10 @@ module Text.Doc.Reader.TeX
  , emph
  , em
  , rm
+   -- * Unit parsers
+ , skipSpace
+ , skipWhite
+ , skipInterlevel
  ) where
 
 
@@ -95,7 +99,7 @@ docbody = grpDown "document" *> dropParents *> content
 
 -- Parse document content.
 content :: Parser Content
-content = many skipWhite *> blocks <* eof
+content = many (choice [skipWhite, skipInterlevel]) *> blocks <* eof
 
 
 ---------- Preamble parsers
@@ -450,13 +454,25 @@ number = parseDigits <$> plainValue
 
 -- | Skip a single inter-level element.
 skipInterlevel :: Parser ()
-skipInterlevel = label
+skipInterlevel = choice [label, bookregion]
 
 -- | Parse @label@ command.
 label :: Parser ()
 label = do
   label' <- textLabel "label"
   modifyMeta (registerAnchorLabel label')
+
+-- | Parse a command that affects the current bookregion:
+-- @frontmatter@, @mainmatter@, @appendix@ or @backmatter@.
+bookregion :: Parser ()
+bookregion = choice (map parseRegion regionMap)
+  where
+    parseRegion (regionCmdName, regionType) =
+      cmd regionCmdName *> modifyMeta (registerRegion regionType)
+    regionMap = [ ("frontmatter", Frontmatter)
+                , ("mainmatter", Mainmatter)
+                , ("appendix", Backmatter)
+                , ("backmatter", Backmatter)]
 
 
 ---------- Unit parsers: whitespace

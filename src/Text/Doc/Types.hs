@@ -29,6 +29,7 @@ module Text.Doc.Types
   , SectionPosition(..)
   , SectionNumber
   , registerHeader
+  , registerRegion
     -- ** Citations
   , CiteKey
   , CiteDB
@@ -432,6 +433,25 @@ registerHeader level meta =
           , metaNoteCurrent = noteCurrent
           , metaItemCurrent = itemCurrent
           }
+
+-- | Register the beginning of a new book region
+-- in the document meta information.
+--
+-- This will reset the chapter counter.
+registerRegion :: BookRegion -> Meta -> Meta
+registerRegion newRegion meta =
+  -- If we already are in the specified region,
+  -- do not reset the section (chapter) counter.
+  -- (In particular, since we map @\\appendix@ and @\\backmatter@
+  -- both to 'Backmatter', the latter will have no effect.)
+  let regionCurrent = metaBookRegion meta
+      sectionCurrent = if newRegion == regionCurrent
+                       then metaSectionCurrent meta
+                       else sectionNumberReset
+  in meta { metaBookRegion = newRegion
+          , metaSectionCurrent = sectionCurrent
+          }
+
 
 -------------------- Content type
 
