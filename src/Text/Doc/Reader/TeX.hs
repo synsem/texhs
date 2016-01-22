@@ -170,7 +170,7 @@ para = Para <$> ((:) <$> inline <*> inlines <* optional skipPar)
 -- | Parse a chapter or section heading.
 header :: Parser Block
 header = do
-  (level', (starred', title')) <- choice (map parseHeader headerMap)
+  (level', (starred', title')) <- choice headerParsers
   anchor' <- if starred'
              then modifyMeta registerHeaderPhantom *>
                   (getPhantomAnchor <$> getMeta)
@@ -179,11 +179,20 @@ header = do
   void $ many (choice [skipWhite, skipInterlevel])
   return (Header level' anchor' title')
   where
+    headerParsers = map parseHeader headerMap ++
+                    map parseKomaHeader komaHeaderMap
+    -- (1) parse standard sectioning commands from LaTeX book class
     parseHeader (headerLevel, headerCmdName) =
       (,) headerLevel <$> inlineCmdCheckStar headerCmdName
     headerMap = zip [1..]
       [ "part", "chapter", "section", "subsection"
       , "subsubsection", "paragraph", "subparagraph"]
+    -- (2) parse sectioning commands from KOMA-script classes:
+    --     they all introduce unnumbered sections,
+    --     so we are faking a 'StarArg' for them.
+    parseKomaHeader (headerLevel, headerCmdName) =
+      ((,) headerLevel . (,) True) <$> inlineCmd headerCmdName
+    komaHeaderMap = zip [1..] ["addpart", "addchap", "addsec"]
 
 -- | Parse an @itemize@ group.
 itemize :: Parser Block

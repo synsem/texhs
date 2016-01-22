@@ -258,13 +258,18 @@ commandDB = M.unions [ M.map toArgSpec argspecsSyntactic
       , ("includegraphics", (1,1))
       ]
     argspecsSectioning = M.fromList $ zip
-      [ "part"
+      [  -- LaTeX
+        "part"
       , "chapter"
       , "section"
       , "subsection"
       , "subsubsection"
       , "paragraph"
       , "subparagraph"
+        -- KOMA-script
+      , "addpart"
+      , "addchap"
+      , "addsec"
       ] (repeat [OptionalStar, Optional, Mandatory])
 
 -- Lookup table for the 'ArgSpec' of known environments.

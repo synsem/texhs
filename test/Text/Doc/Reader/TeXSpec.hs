@@ -198,6 +198,36 @@ testsSections = testGroup "sections"
     Right
       ( Header 2 (SectionAnchor (SectionInfo Mainmatter
           (SectionPhantom 2))) [Str "two"])
+  , testCase "starred 'addchap' (KOMA-script) introduces phantom chapter" $
+    runParser (block *> block <* eof)
+      [ Command "chapter" [StarArg, OblArg [Plain "one"]]
+      , Command "mainmatter" []
+      , Command "addchap" [StarArg, OblArg [Plain "two"]]
+      ]
+    @?=
+    Right
+      ( Header 2 (SectionAnchor (SectionInfo Mainmatter
+          (SectionPhantom 2))) [Str "two"])
+  , testCase "unstarred 'addchap' (KOMA-script) introduces phantom chapter" $
+    runParser (block *> block <* eof)
+      [ Command "chapter" [StarArg, OblArg [Plain "one"]]
+      , Command "mainmatter" []
+      , Command "addchap" [OblArg [Plain "two"]]
+      ]
+    @?=
+    Right
+      ( Header 2 (SectionAnchor (SectionInfo Mainmatter
+          (SectionPhantom 2))) [Str "two"])
+  , testCase "unstarred 'addpart' (KOMA-script) introduces phantom part" $
+    runParser (block *> block <* eof)
+      [ Command "chapter" [StarArg, OblArg [Plain "one"]]
+      , Command "mainmatter" []
+      , Command "addpart" [OblArg [Plain "two"]]
+      ]
+    @?=
+    Right
+      ( Header 1 (SectionAnchor (SectionInfo Mainmatter
+          (SectionPhantom 2))) [Str "two"])
   ]
 
 testsLists :: Test
