@@ -31,6 +31,7 @@ module Text.TeX.Parser.Types
   , isNewline
   , isPar
   , isCmd
+  , isCmdWithStar
   , isGrp
     -- * Access arguments
   , getOptArg
@@ -144,6 +145,11 @@ isPar _ = False
 isCmd :: String -> TeXAtom -> Bool
 isCmd n (Command name _) = n == name
 isCmd _ _ = False
+
+-- | Test whether a 'TeXAtom' is a specific starred command.
+isCmdWithStar :: String -> TeXAtom -> Bool
+isCmdWithStar n (Command name args) = n == name && isStarred args
+isCmdWithStar _ _ = False
 
 -- | Test whether a 'TeXAtom' is a specific group.
 isGrp :: String -> TeXAtom -> Bool

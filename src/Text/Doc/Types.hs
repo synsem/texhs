@@ -28,8 +28,10 @@ module Text.Doc.Types
   , BookRegion(..)
   , SectionPosition(..)
   , SectionNumber
-  , registerHeader
   , registerRegion
+  , registerHeader
+  , registerHeaderPhantom
+  , getPhantomAnchor
     -- ** Citations
   , CiteKey
   , CiteDB
@@ -400,6 +402,19 @@ sectionNumberIncrement n c@(pt,ch,se,sb,ss,pa,sp)
 -- | Extract chapter number.
 getChapter :: SectionNumber -> Int
 getChapter (_,ch,_,_,_,_,_) = ch
+
+-- | Register a new phantom section header
+-- in the document meta information.
+registerHeaderPhantom :: Meta -> Meta
+registerHeaderPhantom meta = meta
+  { metaPhantomSectionCount = 1 + metaPhantomSectionCount meta }
+
+-- | Construct an internal anchor for the current phantom section.
+getPhantomAnchor :: Meta -> InternalAnchor
+getPhantomAnchor meta =
+  let reg = metaBookRegion meta
+      count = metaPhantomSectionCount meta
+  in SectionAnchor (SectionInfo reg (SectionPhantom count))
 
 -- | Register a new section header
 -- in the document meta information.

@@ -173,6 +173,31 @@ testsSections = testGroup "sections"
       , Header 2 (SectionAnchor (SectionInfo Backmatter
           (SectionRegular (0,2,0,0,0,0,0)))) [Str "back-two"]
       ]
+  , testCase "phantom chapter between regular chapters" $
+    runParser (blocks <* eof)
+      [ Command "chapter" [OblArg [Plain "one"]]
+      , Command "chapter" [StarArg, OblArg [Plain "interlude"]]
+      , Command "chapter" [OblArg [Plain "two"]]
+      ]
+    @?=
+    Right
+      [ Header 2 (SectionAnchor (SectionInfo Frontmatter
+          (SectionRegular (0,1,0,0,0,0,0)))) [Str "one"]
+      , Header 2 (SectionAnchor (SectionInfo Frontmatter
+          (SectionPhantom 1))) [Str "interlude"]
+      , Header 2 (SectionAnchor (SectionInfo Frontmatter
+          (SectionRegular (0,2,0,0,0,0,0)))) [Str "two"]
+      ]
+  , testCase "phantom chapters use a global counter" $
+    runParser (block *> block <* eof)
+      [ Command "chapter" [StarArg, OblArg [Plain "one"]]
+      , Command "mainmatter" []
+      , Command "chapter" [StarArg, OblArg [Plain "two"]]
+      ]
+    @?=
+    Right
+      ( Header 2 (SectionAnchor (SectionInfo Mainmatter
+          (SectionPhantom 2))) [Str "two"])
   ]
 
 testsLists :: Test

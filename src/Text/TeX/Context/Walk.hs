@@ -35,6 +35,7 @@ module Text.TeX.Context.Walk
     -- ** Specific command
   , cmd
   , inCmd
+  , inCmdCheckStar
   , cmdDown
   , cmdTwoOblArgs
   , cmdThreeOblArgs
@@ -205,10 +206,23 @@ cmd = satisfy . isCmd
 inCmd :: String -> Parser a -> Parser a
 inCmd n p = cmdDown n *> p <* safeUp
 
+-- | Apply parser to the first mandatory argument of a specific command
+-- (all other arguments are dropped). Return a boolean flag that indicates
+-- whether the command had a 'StarArg', i.e. whether it was starred.
+inCmdCheckStar :: String -> Parser a -> Parser (Bool, a)
+inCmdCheckStar n p =
+  (,) True <$> (cmdDownWithStar n *> p <* safeUp) <|>
+  (,) False <$> (cmdDown n *> p <* safeUp)
+
 -- | Descend into the first mandatory argument of a specific command
 -- (all other arguments are dropped).
 cmdDown :: String -> Parser ()
 cmdDown n = peek (isCmd n) *> step intoCmdArg
+
+-- | Descend into the first mandatory argument of a specific command
+-- (all other arguments are dropped), but only if it is starred.
+cmdDownWithStar :: String -> Parser ()
+cmdDownWithStar n = peek (isCmdWithStar n) *> step intoCmdArg
 
 -- Note: We are not creating an isolated context for the argument.
 -- Parsers are expected to operate on the focus value only (no 'up').

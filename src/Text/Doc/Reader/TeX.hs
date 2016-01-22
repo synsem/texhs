@@ -170,19 +170,20 @@ para = Para <$> ((:) <$> inline <*> inlines <* optional skipPar)
 -- | Parse a chapter or section heading.
 header :: Parser Block
 header = do
-  (level', title') <- choice
-    [ (,) 1 <$> inlineCmd "part"
-    , (,) 2 <$> inlineCmd "chapter"
-    , (,) 3 <$> inlineCmd "section"
-    , (,) 4 <$> inlineCmd "subsection"
-    , (,) 5 <$> inlineCmd "subsubsection"
-    , (,) 6 <$> inlineCmd "paragraph"
-    , (,) 7 <$> inlineCmd "subparagraph"
-    ]
-  modifyMeta (registerHeader level')
-  anchor' <- metaAnchorCurrent <$> getMeta
+  (level', (starred', title')) <- choice (map parseHeader headerMap)
+  anchor' <- if starred'
+             then modifyMeta registerHeaderPhantom *>
+                  (getPhantomAnchor <$> getMeta)
+             else modifyMeta (registerHeader level') *>
+                  (metaAnchorCurrent <$> getMeta)
   void $ many (choice [skipWhite, skipInterlevel])
   return (Header level' anchor' title')
+  where
+    parseHeader (headerLevel, headerCmdName) =
+      (,) headerLevel <$> inlineCmdCheckStar headerCmdName
+    headerMap = zip [1..]
+      [ "part", "chapter", "section", "subsection"
+      , "subsubsection", "paragraph", "subparagraph"]
 
 -- | Parse an @itemize@ group.
 itemize :: Parser Block
@@ -366,6 +367,11 @@ inlineWord = choice
 -- Parse inline elements in the first mandatory argument of a command.
 inlineCmd :: String -> Parser [Inline]
 inlineCmd name = inCmd name inlines
+
+-- Parse inline elements in the first mandatory argument of a command
+-- and also return a flag that indicates whether the command was starred.
+inlineCmdCheckStar :: String -> Parser (Bool, [Inline])
+inlineCmdCheckStar name = inCmdCheckStar name inlines
 
 -- Parse raw textual label in the first mandatory argument of a command.
 textLabel :: String -> Parser Label

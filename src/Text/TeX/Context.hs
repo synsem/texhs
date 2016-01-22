@@ -39,6 +39,7 @@ module Text.TeX.Context
     -- ** Commands
   , cmd
   , inCmd
+  , inCmdCheckStar
   , cmdTwoOblArgs
   , cmdThreeOblArgs
     -- ** Groups
