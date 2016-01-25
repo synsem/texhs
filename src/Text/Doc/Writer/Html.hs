@@ -30,9 +30,9 @@ import Data.Text.Lazy (Text)
 import qualified Data.Text as T
 import Text.Blaze.Html5
   ( (!), Html, toHtml, textValue, docTypeHtml, title
-  , h1, h2, ul, ol, li, p, em, a)
+  , h1, h2, ul, ol, li, p, a)
 import Text.Blaze.Html5.Attributes
-  (name, charset, content, style, href)
+  (name, charset, content, href)
 import Text.Blaze.Html.Renderer.Text (renderHtml)
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
@@ -168,10 +168,10 @@ listitem (ListItem anchor xs) =
 -- Convert a single 'Inline' element to HTML.
 inline :: Inline -> Html
 inline (Str xs) = toHtml xs
-inline (Normal xs) =
-  H.span ! style "font-style: normal;" $
+inline (FontStyle s xs) = style s $ inlines xs
+inline (Math _ xs) =
+  H.span ! A.class_ "math" $
   inlines xs
-inline (Emph xs) = em $ inlines xs
 inline Space = toHtml ' '
 inline (Citation _ Nothing) =
   error "HTML Writer does not support unprocessed citations."
@@ -198,3 +198,10 @@ heading n
   | n == 4 = H.h4
   | n == 5 = H.h5
   | otherwise = H.h6
+
+-- Apply a font style.
+style :: Style -> Html -> Html
+style Normal = H.span ! A.style "font-style: normal;"
+style Emph = H.em
+style Sub = H.sub
+style Sup = H.sup

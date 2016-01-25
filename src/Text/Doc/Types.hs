@@ -63,6 +63,8 @@ module Text.Doc.Types
   , TableCell(..)
     -- ** Inlines
   , Inline(..)
+  , Style(..)
+  , MathType(..)
   , MultiCite(..)
   , SingleCite(..)
   , CiteMode(..)
@@ -74,8 +76,6 @@ module Text.Doc.Types
     -- ** Inlines
   , plain
   , isStr
-  , isNormal
-  , isEmph
   , isSpace
     -- ** Normalization
   , normalizeInlines
@@ -87,6 +87,8 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import Data.Text (Text)
 import qualified Data.Text as T
+
+import Text.TeX.Parser.Types (MathType(..))
 
 
 -------------------- Doc type
@@ -518,12 +520,20 @@ data Block
 -- | Inline elements in a 'Doc' document.
 data Inline
   = Str String
-  | Normal [Inline]
-  | Emph [Inline]
+  | FontStyle Style [Inline]
+  | Math MathType [Inline]
   | Space
   | Citation MultiCite (Maybe [Inline])
   | Pointer Label (Maybe Anchor)
   | Note InternalAnchor [Block]
+  deriving (Eq, Show)
+
+-- | Font styles for textual elements.
+data Style
+  = Normal
+  | Emph
+  | Sub
+  | Sup
   deriving (Eq, Show)
 
 -- | A list of 'SingleCite' citations
@@ -585,16 +595,6 @@ isStr :: Inline -> Bool
 isStr Str{} = True
 isStr _ = False
 
--- | Test whether an 'Inline' is a 'Normal'.
-isNormal :: Inline -> Bool
-isNormal Normal{} = True
-isNormal _ = False
-
--- | Test whether an 'Inline' is an 'Emph'.
-isEmph :: Inline -> Bool
-isEmph Emph{} = True
-isEmph _ = False
-
 -- | Test whether an 'Inline' is a 'Space'.
 isSpace :: Inline -> Bool
 isSpace Space = True
@@ -622,8 +622,8 @@ docDate = metaDate . docMeta
 -- | Extract plain character data from an 'Inline' element.
 plain :: Inline -> String
 plain (Str xs) = xs
-plain (Normal is) = concatMap plain is
-plain (Emph is) = concatMap plain is
+plain (FontStyle _ is) = concatMap plain is
+plain (Math _ is) = concatMap plain is
 plain Space = " "
 plain (Citation (MultiCite _ _ _ xs) _) = T.unpack (plainCites xs)
 plain (Pointer label _) = T.unpack (T.concat ["<", label, ">"])

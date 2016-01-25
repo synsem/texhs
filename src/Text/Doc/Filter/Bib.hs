@@ -109,10 +109,10 @@ distributeMetaToTableCell (MultiCell i xs) =
 distributeMetaToInline :: Inline -> Reader Meta Inline
 distributeMetaToInline (Str xs) =
   return $ Str xs
-distributeMetaToInline (Normal xs) =
-  Normal <$> mapM distributeMetaToInline xs
-distributeMetaToInline (Emph xs) =
-  Emph <$> mapM distributeMetaToInline xs
+distributeMetaToInline (FontStyle s xs) =
+  FontStyle s <$> mapM distributeMetaToInline xs
+distributeMetaToInline (Math t xs) =
+  Math t <$> mapM distributeMetaToInline xs
 distributeMetaToInline Space =
   return Space
 distributeMetaToInline (Citation cit _) =

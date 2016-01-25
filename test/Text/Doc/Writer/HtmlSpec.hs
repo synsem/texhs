@@ -52,7 +52,7 @@ testsDoc = testGroup "documents"
       defaultMeta { metaTitle = [Str "No", Space, Str "title"]
                   , metaAuthors = [[Str "Nobody"]]
                   , metaDate = [Str "2015-12-31"] }
-      [Para [Str "hello", Space, Emph [Str "world"]]])
+      [Para [Str "hello", Space, FontStyle Emph [Str "world"]]])
     @?=
     LT.concat [ "<!DOCTYPE HTML>\n<html><head>"
               , metaCharset
@@ -137,7 +137,7 @@ testsDoc = testGroup "documents"
 testsBlocks :: Test
 testsBlocks = testGroup "blocks"
   [ testCase "single paragraph" $
-    blocks2html [Para [Str "hello", Space, Emph [Str "world"]]]
+    blocks2html [Para [Str "hello", Space, FontStyle Emph [Str "world"]]]
     @?=
     "<p>hello <em>world</em></p>"
   , testCase "simple unordered list" $
@@ -286,9 +286,14 @@ testsInlines = testGroup "inlines"
     @?=
     "hello world"
   , testCase "emphasis" $
-    inlines2html [Str "hello", Space, Emph [Str "world"]]
+    inlines2html [Str "hello", Space, FontStyle Emph [Str "world"]]
     @?=
     "hello <em>world</em>"
+  , testCase "simple math with subscript and superscript" $
+    inlines2html [Math MathDisplay [Str "c",
+      FontStyle Sub [Str "1"], FontStyle Sup [Str "2"]]]
+    @?=
+    "<span class=\"math\">c<sub>1</sub><sup>2</sup></span>"
   , testCase "link to external resource" $
     inlines2html [Pointer "external" (Just (ExternalResource
       [Str "some", Space, Str "description"] "http://example.com/"))]

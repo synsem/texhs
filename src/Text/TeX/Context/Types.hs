@@ -28,6 +28,7 @@ module Text.TeX.Context.Types
   , failStep
     -- ** Vertical movement
   , down
+  , downMath
   , up
   , unwrap
   , intoCmdArg
@@ -93,10 +94,21 @@ failStep :: TeXStep
 failStep (Context (x:_) _) = Left (Unexpected x)
 failStep (Context [] _) = Left EndOfGroup
 
--- | Descend into a group.
+-- | Descend into a group,
+-- including subscript and superscript arguments.
+-- Fail on math groups and other TeXAtoms.
 down :: TeXStep
 down (Context (Group _ _ body:xs) nxt) = return (Context body (xs:nxt))
+down (Context (SubScript body:xs) nxt) = return (Context body (xs:nxt))
+down (Context (SupScript body:xs) nxt) = return (Context body (xs:nxt))
 down ctx = failStep ctx
+
+-- | Descend into a math group and return its type.
+downMath :: TeXStepRes MathType
+downMath (Context (MathGroup mtype body:xs) nxt) =
+  return (mtype, Context body (xs:nxt))
+downMath (Context (x:_) _) = Left (Unexpected x)
+downMath (Context [] _) = Left EndOfGroup
 
 -- | Drop focus and climb up one level.
 up :: TeXStep

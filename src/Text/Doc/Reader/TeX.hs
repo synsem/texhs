@@ -363,6 +363,17 @@ inlines = concat <$> many (choice
   , inGrp "" inlines
   , [] <$ skipInterlevel ])
 
+-- Parse content of a math group.
+inlinesMath :: Parser [Inline]
+inlinesMath = concat <$> many (choice
+  [ count 1 inlineMath
+  , inGrp "" inlines
+  , [] <$ skipInterlevel ])
+
+-- | Parse a single inline element in a math group.
+inlineMath :: Parser Inline
+inlineMath = sup <|> sub <|> inline
+
 -- | Parse a single inline element.
 inline :: Parser Inline
 inline = space <|> inlineWord
@@ -371,7 +382,8 @@ inline = space <|> inlineWord
 inlineWord :: Parser Inline
 inlineWord = choice
   [ str, emph, em, rm
-  , cite, note, ref, href, url]
+  , cite, note, ref, href, url
+  , math ]
 
 -- Parse inline elements in the first mandatory argument of a command.
 inlineCmd :: String -> Parser [Inline]
@@ -390,21 +402,33 @@ textLabel name = inCmd name (T.pack <$> plainValue)
 space :: Parser Inline
 space = Space <$ lexeme (satisfy isWhite)
 
+-- Parse math group (to unicode representation).
+math :: Parser Inline
+math = uncurry Math <$> inMathGrp inlinesMath
+
+-- Parse superscript.
+sup :: Parser Inline
+sup = FontStyle Sup <$> inSupScript inlinesMath
+
+-- Parse subscript.
+sub :: Parser Inline
+sub = FontStyle Sub <$> inSubScript inlinesMath
+
 -- | Parse character data.
 str :: Parser Inline
 str = Str <$> plainValue
 
 -- | Parse @emph@ command.
 emph :: Parser Inline
-emph = Emph <$> inlineCmd "emph"
+emph = FontStyle Emph <$> inlineCmd "emph"
 
 -- | Parse @em@ command.
 em :: Parser Inline
-em = Emph <$> (cmd "em" *> inlines)
+em = FontStyle Emph <$> (cmd "em" *> inlines)
 
 -- | Parse @rm@ command.
 rm :: Parser Inline
-rm = Normal <$> (cmd "rm" *> inlines)
+rm = FontStyle Normal <$> (cmd "rm" *> inlines)
 
 -- | Parse @cite@ command.
 cite :: Parser Inline

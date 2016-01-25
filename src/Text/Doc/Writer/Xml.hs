@@ -194,10 +194,9 @@ listitem (ListItem anchor xs) =
 -- Convert a single 'Inline' element to XML.
 inline :: Inline -> Markup
 inline (Str xs) = textP xs
-inline (Normal xs) =
-  el "hi" ! attr "style" "font-style: normal;" $
-  inlines xs
-inline (Emph xs) = el "emph" $ inlines xs
+inline (FontStyle s xs) = style s $ inlines xs
+inline (Math _ xs) =
+  el "formula" $ inlines xs
 inline Space = textP " "
 inline (Citation _ Nothing) =
   error "XML Writer does not support unprocessed citations."
@@ -216,6 +215,13 @@ inline (Note anchor notetext) =
     attr "place" "bottom" !
     attr "n" (stringValue (internalAnchorDescriptionAsText anchor)) $
   blocks notetext
+
+-- Apply a font style.
+style :: Style -> Markup -> Markup
+style Normal = el "hi" ! attr "style" "font-style: normal;"
+style Emph = el "emph"
+style Sub = el "hi" ! attr "style" "vertical-align: sub; font-size: smaller;"
+style Sup = el "hi" ! attr "style" "vertical-align: super; font-size: smaller;"
 
 
 ---------- String to text helper functions

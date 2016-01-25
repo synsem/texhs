@@ -59,7 +59,7 @@ testsDoc = testGroup "documents"
       [ Header 2 (SectionAnchor (SectionInfo Mainmatter
           (SectionRegular (0,1,0,0,0,0,0))))
         [ Str "Chapter", Space, Str "one"]
-      , Para [Str "hello", Space, Emph [Str "world"]]])
+      , Para [Str "hello", Space, FontStyle Emph [Str "world"]]])
     @?=
     LT.concat [ "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
               , "<TEI xmlns=\"http://www.tei-c.org/ns/1.0\">"
@@ -85,7 +85,7 @@ testsSections = testGroup "sections"
       (SectionAnchor (SectionInfo Mainmatter
         (SectionRegular (0,1,0,0,0,0,0))))
       [ Str "Chapter", Space, Str "one"]
-      [ Para [Str "hello", Space, Emph [Str "world"]]] []]
+      [ Para [Str "hello", Space, FontStyle Emph [Str "world"]]] []]
     @?=
     LT.concat [ "<div xml:id=\"sec-1\" type=\"chapter\">"
               , "<head>Chapter one</head>"
@@ -96,7 +96,7 @@ testsSections = testGroup "sections"
 testsBlocks :: Test
 testsBlocks = testGroup "blocks"
   [ testCase "single paragraph" $
-    blocks2xml [Para [Str "hello", Space, Emph [Str "world"]]]
+    blocks2xml [Para [Str "hello", Space, FontStyle Emph [Str "world"]]]
     @?=
     "<p>hello <emph>world</emph></p>"
   , testCase "simple unordered list" $
@@ -242,9 +242,15 @@ testsInlines = testGroup "inlines"
     @?=
     "hello world"
   , testCase "emphasis" $
-    inlines2xml [Str "hello", Space, Emph [Str "world"]]
+    inlines2xml [Str "hello", Space, FontStyle Emph [Str "world"]]
     @?=
     "hello <emph>world</emph>"
+  , testCase "simple math with subscript and superscript" $
+    inlines2xml [Math MathDisplay [Str "c",
+      FontStyle Sub [Str "1"], FontStyle Sup [Str "2"]]]
+    @?=
+    LT.append "<formula>c<hi style=\"vertical-align: sub; font-size: smaller;\">1</hi>"
+              "<hi style=\"vertical-align: super; font-size: smaller;\">2</hi></formula>"
   , testCase "link to external resource" $
     inlines2xml [Pointer "external" (Just (ExternalResource
       [Str "some", Space, Str "description"] "http://example.com/"))]

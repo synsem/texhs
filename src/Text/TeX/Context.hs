@@ -46,6 +46,9 @@ module Text.TeX.Context
   , grp
   , inGrp
   , inGrpChoice
+  , inMathGrp
+  , inSubScript
+  , inSupScript
   , grpDown
   , grpUnwrap
   , optNested

@@ -39,6 +39,7 @@ tests = testGroup "Text.Doc.Reader.TeXSpec"
   [ testsBasic
   , testsBlocks
   , testsInlines
+  , testsMath
   , testsSections
   , testsLists
   , testsListItems
@@ -88,7 +89,7 @@ testsBasic = testGroup "basic traversals"
   , testCase "flatten groups" $
     runParser inlines example3
     @?=
-    Right [Emph [Str "hello"], Space, Str "world", Str "!"]
+    Right [FontStyle Emph [Str "hello"], Space, Str "world", Str "!"]
   ]
 
 testsBlocks :: Test
@@ -117,11 +118,11 @@ testsInlines = testGroup "inline elements"
   [ testCase "simple emph" $
     runParser emph example4
     @?=
-    Right (Emph [Str "hello"])
+    Right (FontStyle Emph [Str "hello"])
   , testCase "emph with inner space" $
     runParser emph example5
     @?=
-    Right (Emph [Str "one",Space,Str "two"])
+    Right (FontStyle Emph [Str "one",Space,Str "two"])
   , testCase "return to parent after emph" $
     runParser (emph *> space *> item) example4
     @?=
@@ -129,7 +130,7 @@ testsInlines = testGroup "inline elements"
   , testCase "em with inner space" $
     runParser em example6
     @?=
-    Right (Emph [Str "one",Space,Str "two"])
+    Right (FontStyle Emph [Str "one",Space,Str "two"])
   , testCase "failing em" $
     runParser em example7
     @?=
@@ -138,15 +139,40 @@ testsInlines = testGroup "inline elements"
   , testCase "nested em" $
     runParser (optNested em) example7
     @?=
-    Right (Emph [Str "one",Space,Str "two"])
+    Right (FontStyle Emph [Str "one",Space,Str "two"])
   , testCase "combining nested em with parent inlines" $
     runParser ((:) <$> optNested em <*> inlines) example7
     @?=
-    Right [Emph [Str "one",Space,Str "two"],Space,Str "three"]
+    Right [FontStyle Emph [Str "one",Space,Str "two"],Space,Str "three"]
   , testCase "rm between em font switches" $
     runParser inlines example8
     @?=
-    Right [Emph [Str "one",Normal [Str "two",Emph [Str "three"]]]]
+    Right [FontStyle Emph [Str "one", FontStyle Normal
+      [Str "two", FontStyle Emph [Str "three"]]]]
+  ]
+
+testsMath :: Test
+testsMath = testGroup "math"
+  [ testCase "simple math" $
+    runParser (inlines <* eof)
+      [MathGroup MathInline [Plain "a+b"]]
+    @?=
+    Right [Math MathInline [Str "a+b"]]
+  , testCase "math with superscript" $
+    runParser (inlines <* eof)
+      [MathGroup MathDisplay [Plain "c",SupScript [Plain "2"]]]
+    @?=
+    Right [Math MathDisplay [Str "c", FontStyle Sup [Str "2"]]]
+  , testCase "math with subscript" $
+    runParser (inlines <* eof)
+      [MathGroup MathDisplay [Plain "M",SubScript [Plain "i,j"]]]
+    @?=
+    Right [Math MathDisplay [Str "M", FontStyle Sub [Str "i,j"]]]
+  , testCase "math with special symbols" $
+    runParser (inlines <* eof)
+      [MathGroup MathInline [Plain "p\x2228\x00AC\&q"]]
+    @?=
+    Right [Math MathInline [Str "p\x2228\x00AC\&q"]]
   ]
 
 testsSections :: Test
@@ -572,9 +598,9 @@ testsTables = testGroup "tables"
         [ Plain "top-left", AlignMark, Plain "top-right", Newline
         , Plain "bottom-left", AlignMark, Plain "bottom-right", Newline]]
     @?=
-    Right (
+    Right
       [[SingleCell [Str "top-left"], SingleCell [Str "top-right"]]
-      ,[SingleCell [Str "bottom-left"], SingleCell [Str "bottom-right"]]])
+      ,[SingleCell [Str "bottom-left"], SingleCell [Str "bottom-right"]]]
   , testCase "simple 2x2 table: no whitespace, no label" $
     runParser table [Group "table" []
       [ Group "tabular" []

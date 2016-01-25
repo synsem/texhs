@@ -44,6 +44,9 @@ module Text.TeX.Context.Walk
   , grp
   , inGrp
   , inGrpChoice
+  , inMathGrp
+  , inSubScript
+  , inSupScript
   , grpDown
   , grpUnwrap
     -- ** Any group
@@ -271,6 +274,19 @@ grpDown n = peek (isGrp n) *> goDown
 -- Warning: This may extend the scope of contained commands.
 grpUnwrap :: String -> Parser ()
 grpUnwrap n = peek (isGrp n) *> step unwrap
+
+-- | Apply parser inside a math group,
+-- and also return its 'MathType'.
+inMathGrp :: Parser a -> Parser (MathType, a)
+inMathGrp p = (,) <$> stepRes downMath <*> p <* safeUp
+
+-- | Apply parser to a subscript group.
+inSubScript :: Parser a -> Parser a
+inSubScript p = peek isSubScript *> inAnyGroup p
+
+-- | Apply parser to a superscript group.
+inSupScript :: Parser a -> Parser a
+inSupScript p = peek isSupScript *> inAnyGroup p
 
 -- Apply parser inside a group (any group).
 -- The parser must exhaust the group content.
