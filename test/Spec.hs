@@ -12,6 +12,7 @@ module Main where
 import Test.Framework (Test, defaultMain)
 
 import qualified Text.BibSpec
+import qualified Text.Bib.WriterSpec
 import qualified Text.Doc.Reader.TeXSpec
 import qualified Text.Doc.Writer.HtmlSpec
 import qualified Text.Doc.Writer.XmlSpec
@@ -26,6 +27,7 @@ main = defaultMain tests
 tests :: [Test]
 tests =
   [ Text.BibSpec.tests
+  , Text.Bib.WriterSpec.tests
   , Text.Doc.Reader.TeXSpec.tests
   , Text.Doc.Writer.HtmlSpec.tests
   , Text.Doc.Writer.XmlSpec.tests

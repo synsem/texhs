@@ -52,8 +52,7 @@ docBibFilter db (Doc meta content) =
 -- bibliographic entries (typically extracted from a bibfile).
 populateCiteDB :: BibDB -> Meta -> Meta
 populateCiteDB db meta =
-  let keys = M.keys (metaCiteMap meta)
-      citeDB = resolveCitations db keys
+  let citeDB = resolveCitations db (metaCiteMap meta)
   in meta { metaCiteDB = citeDB }
 
 

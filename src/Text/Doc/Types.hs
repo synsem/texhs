@@ -34,8 +34,10 @@ module Text.Doc.Types
   , getPhantomAnchor
     -- ** Citations
   , CiteKey
+  , CiteMap
   , CiteDB
   , CiteEntry(..)
+  , CiteUnique
   , registerCiteKeys
     -- ** Anchors
   , Label
@@ -106,7 +108,7 @@ data Meta = Meta
   , metaAuthors :: [[Inline]]
   , metaDate :: [Inline]
   , metaCiteDB :: CiteDB
-  , metaCiteMap :: Map CiteKey Int
+  , metaCiteMap :: CiteMap
   , metaCiteCount :: Int
   , metaAnchorCurrent :: InternalAnchor
   , metaAnchorMap :: Map Label InternalAnchor
@@ -169,6 +171,7 @@ data InternalAnchor
   | NoteAnchor (Int, Int)      -- chapter number and chapter-relative note count
   | ItemAnchor (Int, [Int])    -- chapter number and chapter-relative item numbers
                                --   in reverse order, e.g. [1,3,2] --> \"2.3.1\"
+  | BibAnchor Int              -- global appearance order
   deriving (Eq, Show)
 
 -- | Generate identifying string for an internal anchor.
@@ -187,6 +190,8 @@ internalAnchorID (NoteAnchor (ch, n)) =
   T.append "note-" (hyphenSep [ch, n])
 internalAnchorID (ItemAnchor (ch, ns)) =
   T.append "item-" (hyphenSep (ch:reverse ns))
+internalAnchorID (BibAnchor n) =
+  T.append "bib-" (T.pack (show n))
 
 -- | Generate identifying string for a reference to an anchor.
 --
@@ -237,6 +242,7 @@ internalAnchorDescriptionAsText (FigureAnchor (ch, n)) = dotSep [ch, n]
 internalAnchorDescriptionAsText (TableAnchor (ch, n)) = dotSep [ch, n]
 internalAnchorDescriptionAsText (NoteAnchor (ch, n)) = dotSep [ch, n]
 internalAnchorDescriptionAsText (ItemAnchor (ch, ns)) = dotSep (ch:reverse ns)
+internalAnchorDescriptionAsText (BibAnchor n) = show n
 
 -- Note: For some anchor types, fallback values are returned --
 -- consider throwing an exception in these cases instead.
@@ -250,6 +256,7 @@ internalAnchorLocalNum (TableAnchor (_, n)) = n
 internalAnchorLocalNum (NoteAnchor (_, n)) = n
 internalAnchorLocalNum (ItemAnchor (_, n:_)) = n
 internalAnchorLocalNum (ItemAnchor (_, [])) = 0 -- fallback
+internalAnchorLocalNum (BibAnchor n) = n
 
 -- Given a list of numbers, format them as an inline string
 -- with a separating period between numbers (e.g. \"2.3.1\").
@@ -285,8 +292,25 @@ registerAnchorLabel label meta =
 -- | Identifier key for bibliographic entries.
 type CiteKey = Text
 
+-- | A complete set of citekeys that are used in a document.
+--
+-- Each citekey is associated with some meta information: the number
+-- of its first occurrence in the global citation occurrence order.
+type CiteMap = Map CiteKey Int
+
 -- | A collection of formatted citations.
 type CiteDB = Map CiteKey CiteEntry
+
+-- For some background, consult the biblatex documentation
+-- on its counters @extrayear@, @uniquename@ and @uniquelist@.
+-- | Information required to disambiguate author-year citations.
+--
+-- This stores whether an \"extrayear\" suffix is required to
+-- distinguish multiple publications by the same author(s) in
+-- the same year. A value of @Nothing@ represents that no suffix
+-- is required, whereas @Just n@ indicates that it is the @n@-th
+-- publication by the same author(s) in the same year.
+type CiteUnique = Maybe Int
 
 -- | Citation information for a single bibliographic entry.
 --
@@ -295,7 +319,9 @@ type CiteDB = Map CiteKey CiteEntry
 data CiteEntry = CiteEntry
   { citeAgents :: [[Inline]]
   , citeYear   :: [Inline]
+  , citeUnique :: CiteUnique
   , citeFull   :: [Inline]
+  , citeAnchor :: InternalAnchor
   } deriving (Eq, Show)
 
 -- | Add a list of citekeys to document meta information.
