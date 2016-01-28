@@ -29,7 +29,8 @@ import Text.Doc.Types
 tests :: Test
 tests = testGroup "Text.Bib.WriterSpec"
   [ testsResolve
-  , testsFormat
+  , testsFormatCite
+  , testsFormatBib
   ]
 
 testsResolve :: Test
@@ -74,8 +75,8 @@ testsResolve = testGroup "citation resolving"
        citedb
   ]
 
-testsFormat :: Test
-testsFormat = testGroup "citation formatting"
+testsFormatCite :: Test
+testsFormatCite = testGroup "citation formatting"
   [ testCase "extra year in unambiguous entry" $
     fmtExtraYear Nothing
     @?=
@@ -96,6 +97,43 @@ testsFormat = testGroup "citation formatting"
     fmtExtraYear (Just 702)
     @?=
     "aaa"
+  ]
+
+testsFormatBib :: Test
+testsFormatBib = testGroup "bibliography formatting"
+  [ testCase "format agent: last, first" $
+    fmtAgent LastFirst (Agent [Str "Georg"] [] [Str "Büchner"] [])
+    @?=
+    [Str "Büchner", Str ",", Space, Str "Georg"]
+  , testCase "format agent: last, first von, jr" $
+    fmtAgent LastFirst (Agent [Str "First"] [Str "von"] [Str "Last"] [Str "Jr."])
+    @?=
+    [ Str "Last", Str ",", Space, Str "First", Space, Str "von"
+    , Str ",", Space, Str "Jr."]
+  , testCase "format agent: first von last, jr" $
+    fmtAgent FirstLast (Agent [Str "First"] [Str "von"] [Str "Last"] [Str "Jr."])
+    @?=
+    [ Str "First", Space, Str "von", Space, Str "Last"
+    , Str ",", Space, Str "Jr."]
+  , testCase "format agent: first von last" $
+    fmtAgent FirstLast (Agent [Str "First"] [Str "von"] [Str "Last"] [])
+    @?=
+    [Str "First", Space, Str "von", Space, Str "Last"]
+  , testCase "format single entry authors: last, first" $
+    fmtBibFieldAuthors bibEntry01
+    @?=
+    [Str "Last", Str ",", Space, Str "First"]
+  , testCase "format two entry authors" $
+    fmtBibFieldAuthors bibEntry05
+    @?=
+    [ Str "Last1", Str ",", Space, Str "First1", Space, Str "&", Space
+    , Str "First2", Space, Str "Last2"]
+  , testCase "format three entry authors" $
+    fmtBibFieldAuthors bibEntry06
+    @?=
+    [ Str "Last1", Str ",", Space, Str "First1", Str ",", Space
+    , Str "First2", Space, Str "Last2", Space, Str "&", Space
+    , Str "First3", Space, Str "Last3"]
   ]
 
 
@@ -121,8 +159,9 @@ citeEntry01 uniqcite = CiteEntry
   { citeAgents = [[Str "Last"]]
   , citeYear = [Str "2000"]
   , citeUnique = uniqcite
-  , citeFull = [ Str "Last", Space, Str "2000", Space
-               , Str "Title", Space, Str "one", Str "."]
+  , citeFull = [ Str "Last", Str ",", Space, Str "First", Str ".", Space
+               , Str "2000", Str ".", Space
+               , FontStyle Emph [Str "Title", Space, Str "one"], Str "."]
   , citeAnchor = BibAnchor 0
   }
 
@@ -138,8 +177,9 @@ citeEntry02 uniqcite = CiteEntry
   { citeAgents = [[Str "Last"]]
   , citeYear = [Str "2000"]
   , citeUnique = uniqcite
-  , citeFull = [ Str "Last", Space, Str "2000", Space
-               , Str "Title", Space, Str "two", Str "."]
+  , citeFull = [ Str "Last", Str ",", Space, Str "First", Str ".", Space
+               , Str "2000", Str ".", Space
+               , FontStyle Emph [Str "Title", Space, Str "two"], Str "."]
   , citeAnchor = BibAnchor 2
   }
 
@@ -155,8 +195,9 @@ citeEntry03 uniqcite = CiteEntry
   { citeAgents = [[Str "Last"]]
   , citeYear = [Str "1999"]
   , citeUnique = uniqcite
-  , citeFull = [ Str "Last", Space, Str "1999", Space
-               , Str "Title", Space, Str "three", Str "."]
+  , citeFull = [ Str "Last", Str ",", Space, Str "First", Str ".", Space
+               , Str "1999", Str ".", Space
+               , FontStyle Emph [Str "Title", Space, Str "three"], Str "."]
   , citeAnchor = BibAnchor 3
   }
 
@@ -172,7 +213,29 @@ citeEntry04 uniqcite = CiteEntry
   { citeAgents = [[Str "Last1"]]
   , citeYear = [Str "2000"]
   , citeUnique = uniqcite
-  , citeFull = [ Str "Last1", Space, Str "2000", Space
-               , Str "Title", Space, Str "four", Str "."]
+  , citeFull = [ Str "Last1", Str ",", Space, Str "First1", Str ".", Space
+               , Str "2000", Str ".", Space
+               , FontStyle Emph [Str "Title", Space, Str "four"], Str "."]
   , citeAnchor = BibAnchor 4
   }
+
+-- entry with two authors
+bibEntry05 :: BibEntry
+bibEntry05 = BibEntry "book" $ M.fromList
+  [ ("author", AgentList [ Agent [Str "First1"] [] [Str "Last1"] []
+                         , Agent [Str "First2"] [] [Str "Last2"] []
+                         ])
+  , ("year", LiteralField [Str "2000"])
+  , ("title", LiteralField [Str "Title", Space, Str "five"])
+  ]
+
+-- entry with three authors
+bibEntry06 :: BibEntry
+bibEntry06 = BibEntry "book" $ M.fromList
+  [ ("author", AgentList [ Agent [Str "First1"] [] [Str "Last1"] []
+                         , Agent [Str "First2"] [] [Str "Last2"] []
+                         , Agent [Str "First3"] [] [Str "Last3"] []
+                         ])
+  , ("year", LiteralField [Str "2000"])
+  , ("title", LiteralField [Str "Title", Space, Str "six"])
+  ]

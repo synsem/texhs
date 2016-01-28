@@ -62,12 +62,14 @@ agentFields =
 -- BibTeX fields that contain literal lists.
 listFields :: [BibFieldName]
 listFields =
-  [ "institution"
+  [ "address" -- legacy bibtex
+  , "institution"
   , "location"
   , "organization"
   , "origlocation"
   , "origpublisher"
   , "publisher"
+  , "school" -- legacy bibtex
   ]
 
 -- BibTeX fields that contain raw text.

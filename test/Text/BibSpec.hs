@@ -825,7 +825,8 @@ testsFormatter = testGroup "bib formatter"
   , testCase "simple full citation" $
     fmtCiteFull (snd bibEntry01)
     @?=
-    [Str "Büchner", Space, Str "1835", Space, Str "Lenz", Str "."]
+    [ Str "Büchner", Str ",", Space, Str "Georg", Str ".", Space
+    , Str "1835", Str ".", Space, FontStyle Emph [Str "Lenz"], Str "."]
   ]
 
 
