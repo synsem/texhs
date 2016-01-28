@@ -22,9 +22,10 @@ module Text.Doc.Writer.Html
 
 import Control.Arrow (first)
 import Control.Monad (unless)
-import Data.List (nub)
+import Data.List (nub, intersperse)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
+import Data.Maybe (mapMaybe)
 import Data.Monoid
 import Data.Text.Lazy (Text)
 import qualified Data.Text as T
@@ -37,6 +38,7 @@ import Text.Blaze.Html.Renderer.Text (renderHtml)
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 
+import Text.Bib.Writer
 import Text.Doc.Types
 
 
@@ -175,9 +177,8 @@ inline (Math _ xs) =
 inline Space = toHtml ' '
 inline (Citation _ Nothing) =
   error "HTML Writer does not support unprocessed citations."
-inline (Citation _ (Just xs)) =
-  H.span ! A.class_ "citation" $
-  inlines xs
+inline (Citation cit (Just db)) =
+  multicite db cit
 inline (Pointer _ Nothing) =
   error "HTML Writer does not support unprocessed or undefined pointers."
 inline (Pointer _ (Just anchor)) =
@@ -205,3 +206,43 @@ style Normal = H.span ! A.style "font-style: normal;"
 style Emph = H.em
 style Sub = H.sub
 style Sup = H.sup
+
+---------- inline citations
+
+-- Format a MultiCite citation.
+multicite :: CiteDB -> MultiCite -> Html
+multicite db (MultiCite _ prenote postnote cs) =
+  H.span ! A.class_ "citation-group" $
+  citeprenote prenote <>
+  mapM_ (singlecite db) cs <>
+  citepostnote postnote
+
+-- Format a SingleCite citation.
+singlecite :: CiteDB -> SingleCite -> Html
+singlecite db (SingleCite prenote postnote keys) =
+  citeprenote prenote <>
+  (mconcat . intersperse (H.text "; ") . map citeentry)
+    (mapMaybe (`M.lookup` db) keys) <>
+  citepostnote postnote
+
+citeentry :: CiteEntry -> Html
+citeentry e =
+  let inciteref = a ! A.class_ "citation"
+        ! A.title (H.stringValue (concatMap plain (citeFull e)))
+        ! href (textValue (internalAnchorTarget (citeAnchor e)))
+      authors = inlines (fmtCiteAgents (citeAgents e))
+      year = inlines (citeYear e) <> toHtml (fmtExtraYear (citeUnique e))
+      sep = toHtml ' '
+  in inciteref (authors <> sep <> year)
+
+-- Format a citation prenote:
+-- if present, append space character.
+citeprenote :: [Inline] -> Html
+citeprenote [] = mempty
+citeprenote is@(_:_) = inlines is <> toHtml ' '
+
+-- Format a citation postnote:
+-- if present, prefix comma and space.
+citepostnote :: [Inline] -> Html
+citepostnote [] = mempty
+citepostnote is@(_:_) = H.text ", " <> inlines is

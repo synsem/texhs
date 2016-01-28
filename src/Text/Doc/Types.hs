@@ -39,6 +39,7 @@ module Text.Doc.Types
   , CiteEntry(..)
   , CiteUnique
   , registerCiteKeys
+  , extractCiteKeys
     -- ** Anchors
   , Label
   , Location
@@ -549,7 +550,7 @@ data Inline
   | FontStyle Style [Inline]
   | Math MathType [Inline]
   | Space
-  | Citation MultiCite (Maybe [Inline])
+  | Citation MultiCite (Maybe CiteDB)
   | Pointer Label (Maybe Anchor)
   | Note InternalAnchor [Block]
   deriving (Eq, Show)
@@ -591,9 +592,14 @@ data SingleCite = SingleCite
 -- This may be used by document writers to adjust
 -- the formatting of a citation.
 data CiteMode
-  = CiteParen   -- like biblatex's @\\parencite@, aka @\\citep@
-  | CiteText    -- like biblatex's @\\textcite@, aka @\\citet@
+  = CiteBare    -- like biblatex's @\\cite@
+  | CiteParen   -- like biblatex's @\\parencite@
+  | CiteText    -- like biblatex's @\\textcite@
   deriving (Eq, Show)
+
+-- | Extract all citekeys from a citation.
+extractCiteKeys :: MultiCite -> [CiteKey]
+extractCiteKeys = concatMap singleCiteKeys . multiCites
 
 
 -------------------- Block predicates

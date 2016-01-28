@@ -28,12 +28,10 @@ module Text.Doc.Filter.Bib
 import Control.Applicative ((<$>), (<*>))
 #endif
 import Control.Monad.Trans.Reader
-import Data.List (intercalate)
 import qualified Data.Map.Strict as M
 import Data.Maybe (mapMaybe)
 
-import Text.Bib.Types (BibDB)
-import Text.Bib.Writer (resolveCitations, fmtCiteEntries)
+import Text.Bib (BibDB, resolveCitations)
 import Text.Doc.Types
 
 
@@ -116,7 +114,8 @@ distributeMetaToInline Space =
   return Space
 distributeMetaToInline (Citation cit _) =
   asks metaCiteDB >>= \ db ->
-  return $ Citation cit (Just (fmtMultiCite db cit))
+  return $ Citation cit (Just (M.fromList (mapMaybe (\ key ->
+    (,) key <$> M.lookup key db) (extractCiteKeys cit))))
 distributeMetaToInline (Pointer label Nothing) =
   asks metaAnchorMap >>= \ db ->
   return $ Pointer label (InternalResource <$> M.lookup label db)
@@ -124,13 +123,3 @@ distributeMetaToInline p@(Pointer _ (Just _)) =
   return p
 distributeMetaToInline (Note a bs) =
   Note a <$> mapM distributeMetaToBlock bs
-
--- Stub. Ignores citation mode and pre-/post-notes.
-fmtMultiCite :: CiteDB -> MultiCite -> [Inline]
-fmtMultiCite db (MultiCite _ _ _ xs) =
-  intercalate [Str ";", Space] (map (fmtSingleCite db) xs)
-
--- Stub. Ignores pre-/post-notes.
-fmtSingleCite :: CiteDB -> SingleCite -> [Inline]
-fmtSingleCite db (SingleCite _ _ keys) =
-  fmtCiteEntries (mapMaybe (`M.lookup` db) keys)
