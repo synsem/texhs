@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 ----------------------------------------------------------------------
 -- |
 -- Module      :  Text.Bib.Types
@@ -32,11 +33,15 @@ module Text.Bib.Types
   , deleteFields
   ) where
 
+import Control.Applicative
+import Data.List (intercalate)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
+import Data.Monoid ((<>))
+import Data.Ord (comparing)
 import Data.Text (Text)
 
-import Text.Doc.Types (Inline, CiteKey)
+import Text.Doc.Types (Inline(Space), CiteKey)
 
 
 -------------------- Types
@@ -63,6 +68,23 @@ data BibEntry = BibEntry
   { bibType   :: Text         -- e.g. "article", "book"
   , bibFields :: BibFieldMap
   } deriving (Eq, Show)
+
+-- Compare by name (agents), year and title.
+--
+-- Note: Years are sorted by their string representation,
+-- not their numeric value.
+instance Ord BibEntry where
+  compare =
+    comparing agent <>
+    comparing year <>
+    comparing title
+    where
+      agent e = (intercalate [Space] . map agentLastFirst) <$>
+        ( getBibAgents "author" e <|>
+          getBibAgents "editor" e )
+      year = getBibLiteral "year"
+      title = getBibLiteral "title"
+      agentLastFirst (Agent f p l s) = intercalate [Space] [l,f,p,s]
 
 -- | Representation of person names (e.g. author or editor).
 data Agent = Agent
