@@ -87,6 +87,7 @@ module Text.Doc.Types
 import Data.List (dropWhileEnd, intersperse, intercalate)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
+import Data.Ord (comparing)
 import Data.Text (Text)
 import qualified Data.Text as T
 
@@ -541,6 +542,10 @@ data Inline
   | Pointer Label (Maybe Anchor)
   | Note InternalAnchor [Block]
   deriving (Eq, Show)
+
+-- Preliminary instance. Should use text and text-icu.
+instance Ord Inline where
+  compare = comparing plain
 
 -- | Font styles for textual elements.
 data Style
