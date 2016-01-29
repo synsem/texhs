@@ -21,7 +21,8 @@ module Text.Doc.Writer.Xml
  , inlines2xml
  ) where
 
-import Data.List (intersperse)
+import Control.Monad (unless)
+import Data.List (intersperse, sort)
 import qualified Data.Map.Strict as M
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Monoid
@@ -29,6 +30,9 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import Text.Blaze.Internal
+  ( Markup, customLeaf, customParent, textTag
+  , Attribute, AttributeValue, (!), attribute, textValue, stringValue
+  , text, preEscapedText)
 import Text.Blaze.Renderer.Text (renderMarkup)
 
 import Text.Bib.Writer
@@ -69,6 +73,8 @@ inlines2xml = renderMarkup . inlines
 
 ---------- meta
 
+----- header
+
 -- Create TEI header.
 header :: SectionDoc -> Markup
 header doc = el "teiHeader" $ fileDesc doc
@@ -81,6 +87,26 @@ fileDesc doc = el "fileDesc" $ do
     mapM_ (el "author" . inlines) (docAuthors doc)
   el "publicationStmt" $ p (text "Unknown")
   el "sourceDesc" $ p (text "Born digital.")
+
+----- bibliography
+
+-- Create section for bibliography.
+bibliography :: SectionDoc -> Markup
+bibliography doc =
+  let citeEntries = sort (M.elems (metaCiteDB (docMeta doc)))
+  in unless (null citeEntries) $
+     el "div" !
+     attr "xml:id" "bibliography" !
+     attr "type" "bibliography" $
+       el "head" (text "Bibliography") <>
+       -- note: the contained @listBibl@ gets no separate @head@ element
+       el "listBibl" (mapM_ writeBibEntry citeEntries)
+
+-- Create a single entry in the bibliography.
+writeBibEntry :: CiteEntry -> Markup
+writeBibEntry (CiteEntry anchor _ _ formatted) =
+  el "bibl" ! attr "xml:id" (textValue (internalAnchorID anchor)) $
+  inlines formatted
 
 
 ---------- content
@@ -108,7 +134,7 @@ titlePage doc = el "titlePage" $ do
 
 -- Create back matter as TEI @<back>@ element.
 back :: SectionDoc -> Markup
-back _ = leaf "back"
+back doc = el "back" (bibliography doc)
 
 
 ---------- main matter

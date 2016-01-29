@@ -50,7 +50,7 @@ testsDoc = testGroup "documents"
               , "<docTitle><titlePart type=\"main\"></titlePart></docTitle>"
               , "<byline></byline></titlePage></front>"
               , "<body></body>"
-              , "<back /></text></TEI>"]
+              , "<back></back></text></TEI>"]
   , testCase "simple document" $
     doc2xml (Doc
       defaultMeta { metaTitle = [Str "No title"]
@@ -75,7 +75,7 @@ testsDoc = testGroup "documents"
               , "<body><div xml:id=\"sec-1\" type=\"chapter\">"
               , "<head>Chapter one</head>"
               , "<p>hello <emph>world</emph></p>"
-              , "</div></body><back /></text></TEI>"]
+              , "</div></body><back></back></text></TEI>"]
   ]
 
 testsSections :: Test

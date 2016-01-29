@@ -22,7 +22,7 @@ module Text.Doc.Writer.Html
 
 import Control.Arrow (first)
 import Control.Monad (unless)
-import Data.List (nub, intersperse)
+import Data.List (intersperse, nub, sort)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import Data.Maybe (mapMaybe)
@@ -71,6 +71,8 @@ mkHead doc = H.head $ do
   H.meta ! name "viewport" ! content "width=device-width, initial-scale=1.0"
   H.meta ! name "generator" ! content "texhs"
 
+----- footnotes
+
 -- Create section for footnotes.
 footnotes :: Doc -> Html
 footnotes (Doc meta _) =
@@ -109,6 +111,22 @@ backreference anchor =
            ! href (textValue (internalAnchorTargetRef anchor)) $
      backrefText
 
+----- bibliography
+
+-- Create section for bibliography.
+bibliography :: Doc -> Html
+bibliography (Doc meta _) =
+  let citeEntries = sort (M.elems (metaCiteDB meta))
+  in unless (null citeEntries) $
+     (h1 ! A.id "bibliography" $ "Bibliography") <>
+     (ol ! A.id "biblist" $ mapM_ writeBibEntry citeEntries)
+
+-- Create a single entry in the bibliography.
+writeBibEntry :: CiteEntry -> Html
+writeBibEntry (CiteEntry anchor _ _ formatted) =
+  li ! A.id (textValue (internalAnchorID anchor)) $
+  inlines formatted
+
 
 ---------- content
 
@@ -119,6 +137,7 @@ mkBody doc@(Doc _ docbody) = H.body $ do
   h2 $ mapM_ inlines (docAuthors doc)
   blocks docbody
   footnotes doc
+  bibliography doc
 
 -- Convert 'Block' elements to HTML.
 blocks :: [Block] -> Html

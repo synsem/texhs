@@ -313,6 +313,10 @@ data CiteEntry = CiteEntry
   , citeFull   :: [Inline]
   } deriving (Eq, Show)
 
+-- Used for sorting the bibliography.
+instance Ord CiteEntry where
+  compare = comparing citeFull
+
 -- | Add a list of citekeys to document meta information.
 registerCiteKeys :: [CiteKey] -> Meta -> Meta
 registerCiteKeys keys meta =
