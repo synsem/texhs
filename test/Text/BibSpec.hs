@@ -324,6 +324,21 @@ testsEntry = testGroup "parse bib entry"
     fromBibTeX "" "@book{23,}"
     @?=
     mkBibDB [mkBookEntry "23" []]
+  , testCase "do not strip whitespace around inner group" $
+    fromBibTeX "" "@book{b, title = {a {b} c }}"
+    @?=
+    mkBibDB [mkBookEntry "b"
+      [("title", [ Str "a", Space, Str "b", Space, Str "c" ])]]
+  , testCase "do not add whitespace around inner group" $
+    fromBibTeX "" "@book{b, title = { a{b}c }}"
+    @?=
+    mkBibDB [mkBookEntry "b"
+      [("title", [ Str "abc" ])]]
+  , testCase "do not strip whitespace after inner group" $
+    fromBibTeX "" "@book{b, title = {a{b} c }}"
+    @?=
+    mkBibDB [mkBookEntry "b"
+      [("title", [ Str "ab", Space, Str "c" ])]]
   , testCase "do not strip inner whitespace" $
     fromBibTeX "" "@book{b, eq = 2 # { + } #2 # { } # \"= \" # {4}}"
     @?=

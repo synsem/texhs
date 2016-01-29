@@ -314,9 +314,10 @@ escapedChar = (:) <$> char '\\' <*> count 1 anyChar
 
 -------------------- Parsing helpers
 
--- Like 'braced' but keep the braces in the result.
+-- Like 'braced' but keep the braces in the result
+-- and do not skip trailing whitespace.
 withBraces :: Parser Text -> Parser Text
-withBraces p = wrapBraces <$> braced p
+withBraces p = wrapBraces <$> between (char '{') (char '}') p
   where
     wrapBraces t = T.concat ["{", t, "}"]
 
