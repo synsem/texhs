@@ -18,11 +18,12 @@ module Text.Bib.Writer
     resolveCitations
     -- * Query
   , getCiteAgents
-  , getCiteYear
     -- * Format
     -- ** Citation
   , fmtCiteAgents
+  , fmtCiteYear
   , fmtExtraYear
+  , CiteUnique
     -- ** Bibliography
   , fmtCiteFull
   , AgentFormat(..)
@@ -39,6 +40,20 @@ import Data.Tuple (swap)
 
 import Text.Bib.Types
 import Text.Doc.Types
+
+
+-------------------- Types
+
+-- For some background, consult the biblatex documentation
+-- on its counters @extrayear@, @uniquename@ and @uniquelist@.
+-- | Information required to disambiguate author-year citations.
+--
+-- This stores whether an \"extrayear\" suffix is required to
+-- distinguish multiple publications by the same author(s) in
+-- the same year. A value of @Nothing@ represents that no suffix
+-- is required, whereas @Just n@ indicates that it is the @n@-th
+-- publication by the same author(s) in the same year.
+type CiteUnique = Maybe Int
 
 
 -------------------- Resolve
@@ -70,15 +85,10 @@ mkCiteUniqueMap db citeMap =
       keyEntryPairs = mapMaybe -- drop unknown keys
         (\ key -> (,) key <$> M.lookup key db)
         (M.keys citeMap)
-      -- Note: We cannot use (agents, year) in the form of ([[Inline]], [Inline])
-      -- as proper keys in a Map (unless we add an 'Ord' instance), so we fall
-      -- back to a simple ([String], String) representation (via 'plain') for now.
-      mkNameYearHash :: BibEntry -> ([String], String)
-      mkNameYearHash e = ( map (concatMap plain) (getCiteAgents e)
-                         , concatMap plain (getCiteYear e))
       inverseMap :: Map ([String], String) [CiteKey]
       inverseMap = foldr
-        (uncurry (M.insertWith (++)) . fmap (:[]) . swap . fmap mkNameYearHash)
+        (uncurry (M.insertWith (++)) .
+          fmap (:[]) . swap . fmap mkNameYearHash)
         M.empty
         keyEntryPairs
   in M.foldr (M.union . M.fromList . toCiteUnique) M.empty inverseMap
@@ -97,11 +107,17 @@ toCiteUnique ks@(_:_) = zip ks [0..]
 -- Extract citation information from a bib entry.
 mkCiteEntry :: CiteUnique -> InternalAnchor -> BibEntry -> CiteEntry
 mkCiteEntry uniqcite anchor entry = CiteEntry
-  (getCiteAgents entry)
-  (getCiteYear entry)
-  uniqcite
-  (fmtCiteFull entry)
   anchor
+  (getCiteAgents entry)
+  (fmtCiteYear uniqcite entry)
+  (fmtCiteFull uniqcite entry)
+
+-- Return a string representation of a name-year citation
+-- for an entry (before disambiguation detection).
+mkNameYearHash :: BibEntry -> ([String], String)
+mkNameYearHash e =
+  ( map (concatMap plain) (getCiteAgents e)
+  , maybe "" (concatMap plain) (getBibLiteral "year" e))
 
 -- | Retrieve a list of last names of authors or editors
 -- for an author-year citation.
@@ -111,11 +127,14 @@ getCiteAgents entry =
     (getBibAgents "author" entry <|>
      getBibAgents "editor" entry)
 
--- Note: does not include @extrayear@.
---
--- | Construct year part of an author-year citation.
-getCiteYear :: BibEntry -> [Inline]
-getCiteYear = fromMaybe [] . getBibLiteral "year"
+-- | Construct year part of an author-year citation,
+-- including an @extrayear@ suffix if required for
+-- disambiguation in author-year citations.
+fmtCiteYear :: CiteUnique -> BibEntry -> [Inline]
+fmtCiteYear uniqcite = maybe [] appendExtrayear . getBibLiteral "year"
+  where
+    appendExtrayear = maybe id
+      (flip (++) . (:[]) . Str . fmtExtraYear) uniqcite
 
 
 -------------------- Citation Format
@@ -125,15 +144,14 @@ getCiteYear = fromMaybe [] . getBibLiteral "year"
 fmtCiteAgents :: [[Inline]] -> [Inline]
 fmtCiteAgents = sepItemList [Str ",", Space] [Space, Str "&", Space]
 
--- | Convert a 'CiteUnique' value to a textual @extrayear@ suffix
--- that can be appended to the year part in author-year citations.
--- For example, @Just 0@ is converted to @\"a\"@, as in \"2000a\".
-fmtExtraYear :: CiteUnique -> String
-fmtExtraYear Nothing = ""
-fmtExtraYear (Just n) = case n `divMod` 26 of
+-- | Convert an integer to a textual @extrayear@ suffix that
+-- can be appended to the year part in author-year citations.
+-- For example, @0@ is converted to @\"a\"@, as in \"2000a\".
+fmtExtraYear :: Int -> String
+fmtExtraYear n = case n `divMod` 26 of
   (q,r) | q < 0 -> "" -- error: invalid negative value (ignore)
         | q == 0 -> [['a'..'z'] !! r]
-        | otherwise -> fmtExtraYear (Just (q-1)) ++ [['a'..'z'] !! r]
+        | otherwise -> fmtExtraYear (q-1) ++ [['a'..'z'] !! r]
 
 
 -------------------- Bibliography Format
@@ -149,51 +167,51 @@ fmtExtraYear (Just n) = case n `divMod` 26 of
 ---------- main dispatch: by entry type
 
 -- | Construct full bibliographic reference for an entry.
-fmtCiteFull :: BibEntry -> [Inline]
-fmtCiteFull e@(BibEntry btype _) = case btype of
-  "book" -> fmtBibBook e
-  "collection" -> fmtBibCollection e
-  "proceedings" -> fmtBibCollection e
-  "article" -> fmtBibArticle e
-  "incollection" -> fmtBibInCollection e
-  "inproceedings" -> fmtBibInCollection e
-  "thesis" -> fmtBibThesis Nothing e
-  "phdthesis" -> fmtBibThesis (Just [Str "dissertation"]) e -- or "PhD thesis"
-  "mastersthesis" -> fmtBibThesis (Just [Str "Master\x2019\&s thesis"]) e
-  _ -> fmtBibMisc e
+fmtCiteFull :: CiteUnique -> BibEntry -> [Inline]
+fmtCiteFull u e@(BibEntry btype _) = case btype of
+  "book" -> fmtBibBook u e
+  "collection" -> fmtBibCollection u e
+  "proceedings" -> fmtBibCollection u e
+  "article" -> fmtBibArticle u e
+  "incollection" -> fmtBibInCollection u e
+  "inproceedings" -> fmtBibInCollection u e
+  "thesis" -> fmtBibThesis Nothing u e
+  "phdthesis" -> fmtBibThesis (Just [Str "dissertation"]) u e -- or "PhD thesis"
+  "mastersthesis" -> fmtBibThesis (Just [Str "Master\x2019\&s thesis"]) u e
+  _ -> fmtBibMisc u e
 
 
 ---------- entry types
 
 -- Format a @book@ entry.
-fmtBibBook :: BibEntry -> [Inline]
-fmtBibBook e =
+fmtBibBook :: CiteUnique -> BibEntry -> [Inline]
+fmtBibBook u e =
   sepBy
     (fmtBibFieldAuthors e)
     [Str ".", Space]
-    (fmtBibBookAfterAgents e)
+    (fmtBibBookAfterAgents u e)
   `endBy` [Str "."]
 
 -- Format a @collection@ entry.
-fmtBibCollection :: BibEntry -> [Inline]
-fmtBibCollection e =
+fmtBibCollection :: CiteUnique -> BibEntry -> [Inline]
+fmtBibCollection u e =
   sepBy
     (fmtBibFieldEditors e)
     [Str ".", Space]
-    (fmtBibBookAfterAgents e)
+    (fmtBibBookAfterAgents u e)
   `endBy` [Str "."]
 
 -- Format a @thesis@ entry.
 --
 -- Takes an optional default thesis @type@ as first argument.
-fmtBibThesis :: Maybe [Inline] -> BibEntry -> [Inline]
-fmtBibThesis thesisType e =
+fmtBibThesis :: Maybe [Inline] -> CiteUnique -> BibEntry -> [Inline]
+fmtBibThesis thesisType u e =
   sepBy
     (sepBy
       (fmtBibFieldAuthors e)
       [Str ".", Space]
       (sepBy
-        (fmtBibFieldYear e)
+        (fmtCiteYear u e)
         [Str ".", Space]
         (emph (fmtBibLiteral "title" e))))
     [Str ".", Space]
@@ -209,10 +227,10 @@ fmtBibThesis thesisType e =
   `endBy` [Str "."]
 
 -- Format an @article@ entry.
-fmtBibArticle :: BibEntry -> [Inline]
-fmtBibArticle e =
+fmtBibArticle :: CiteUnique -> BibEntry -> [Inline]
+fmtBibArticle u e =
   sepBy
-    (fmtBibAYT e)
+    (fmtBibAYT u e)
     [Str ".", Space]
     (sepBy
       (sepBy
@@ -227,10 +245,10 @@ fmtBibArticle e =
   `endBy` [Str "."]
 
 -- Format an @incollection@ entry.
-fmtBibInCollection :: BibEntry -> [Inline]
-fmtBibInCollection e =
+fmtBibInCollection :: CiteUnique -> BibEntry -> [Inline]
+fmtBibInCollection u e =
   sepBy
-    (fmtBibAYT e)
+    (fmtBibAYT u e)
     [Str ".", Space]
     (wrap
       [Str "In", Space]
@@ -251,13 +269,13 @@ fmtBibInCollection e =
   `endBy` [Str "."]
 
 -- Format a @misc@ entry. Also used as fallback entry type.
-fmtBibMisc :: BibEntry -> [Inline]
-fmtBibMisc e =
+fmtBibMisc :: CiteUnique -> BibEntry -> [Inline]
+fmtBibMisc u e =
   let ag = if M.member "author" (bibFields e)
            then fmtBibFieldAuthors e
            else fmtBibFieldEditors e
   in sepBy ag [Str ".", Space]
-       (sepBy (fmtBibFieldYear e) [Str ".", Space]
+       (sepBy (fmtCiteYear u e) [Str ".", Space]
          (sepBy (fmtBibLiteral "title" e) [Str ".", Space]
            (fmtBibLiteral "howpublished" e)))
      `endBy` [Str "."]
@@ -266,10 +284,10 @@ fmtBibMisc e =
 ---------- shared multi-field blocks
 
 -- Common format for @book@ and @collection@ after agent part.
-fmtBibBookAfterAgents :: BibEntry -> [Inline]
-fmtBibBookAfterAgents e =
+fmtBibBookAfterAgents :: CiteUnique -> BibEntry -> [Inline]
+fmtBibBookAfterAgents u e =
   sepBy
-    (fmtBibFieldYear e)
+    (fmtCiteYear u e)
     [Str ".", Space]
     (sepBy
       (emph (fmtBibLiteral "title" e))
@@ -281,13 +299,13 @@ fmtBibBookAfterAgents e =
 
 -- Format \"Author. Year. Title\", common prefix of many entry types
 -- (e.g. @article@, @incollection@). The @title@ part is not emphasized.
-fmtBibAYT :: BibEntry -> [Inline]
-fmtBibAYT e =
+fmtBibAYT :: CiteUnique -> BibEntry -> [Inline]
+fmtBibAYT u e =
   sepBy
     (fmtBibFieldAuthors e)
     [Str ".", Space]
     (sepBy
-      (fmtBibFieldYear e)
+      (fmtCiteYear u e)
       [Str ".", Space]
       (fmtBibLiteral "title" e))
 
@@ -309,12 +327,6 @@ fmtBibFieldEditorsInner :: BibEntry -> [Inline]
 fmtBibFieldEditorsInner =
   maybe [] (\xs -> fmtAgentsInner xs `endBy` editorSuffix xs) .
   getBibAgents "editor"
-
--- Note: does not include @extrayear@.
---
--- Retrieve @year@ field.
-fmtBibFieldYear :: BibEntry -> [Inline]
-fmtBibFieldYear = fromMaybe [] . getBibLiteral "year"
 
 -- Retrieve @location@ (or @address@) list field.
 fmtBibFieldLocation :: BibEntry -> [Inline]

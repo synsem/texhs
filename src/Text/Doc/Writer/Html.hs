@@ -231,7 +231,7 @@ citeentry e =
         ! A.title (H.stringValue (concatMap plain (citeFull e)))
         ! href (textValue (internalAnchorTarget (citeAnchor e)))
       authors = inlines (fmtCiteAgents (citeAgents e))
-      year = inlines (citeYear e) <> toHtml (fmtExtraYear (citeUnique e))
+      year = inlines (citeYear e)
       sep = toHtml ' '
   in inciteref (authors <> sep <> year)
 

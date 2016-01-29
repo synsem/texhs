@@ -834,11 +834,11 @@ testsFormatter = testGroup "bib formatter"
     @?=
     [[Str "Büchner"]]
   , testCase "single cite year" $
-    getCiteYear (snd bibEntry01)
+    fmtCiteYear Nothing (snd bibEntry01)
     @?=
     [Str "1835"]
   , testCase "simple full citation" $
-    fmtCiteFull (snd bibEntry01)
+    fmtCiteFull Nothing (snd bibEntry01)
     @?=
     [ Str "Büchner", Str ",", Space, Str "Georg", Str ".", Space
     , Str "1835", Str ".", Space, FontStyle Emph [Str "Lenz"], Str "."]

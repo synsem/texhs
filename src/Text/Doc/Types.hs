@@ -37,7 +37,6 @@ module Text.Doc.Types
   , CiteMap
   , CiteDB
   , CiteEntry(..)
-  , CiteUnique
   , registerCiteKeys
   , extractCiteKeys
     -- ** Anchors
@@ -302,27 +301,15 @@ type CiteMap = Map CiteKey Int
 -- | A collection of formatted citations.
 type CiteDB = Map CiteKey CiteEntry
 
--- For some background, consult the biblatex documentation
--- on its counters @extrayear@, @uniquename@ and @uniquelist@.
--- | Information required to disambiguate author-year citations.
---
--- This stores whether an \"extrayear\" suffix is required to
--- distinguish multiple publications by the same author(s) in
--- the same year. A value of @Nothing@ represents that no suffix
--- is required, whereas @Just n@ indicates that it is the @n@-th
--- publication by the same author(s) in the same year.
-type CiteUnique = Maybe Int
-
 -- | Citation information for a single bibliographic entry.
 --
 -- This can be used to generate an author-year style citation
 -- and a full bibliographic reference for a single entry.
 data CiteEntry = CiteEntry
-  { citeAgents :: [[Inline]]
+  { citeAnchor :: InternalAnchor
+  , citeAgents :: [[Inline]]
   , citeYear   :: [Inline]
-  , citeUnique :: CiteUnique
   , citeFull   :: [Inline]
-  , citeAnchor :: InternalAnchor
   } deriving (Eq, Show)
 
 -- | Add a list of citekeys to document meta information.

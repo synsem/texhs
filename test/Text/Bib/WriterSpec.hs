@@ -42,34 +42,34 @@ testsResolve = testGroup "citation resolving"
   , testCase "single entry" $
     let bibdb = M.fromList [("one", bibEntry01)]
         citemap = M.fromList [("one", 0)]
-        citedb = M.fromList [("one", citeEntry01 Nothing)]
+        citedb = M.fromList [("one", citeEntry01 "")]
     in resolveCitations bibdb citemap
        @?=
        citedb
   , testCase "unambiguous citation despite ambiguous BibDB entries" $
     let citemap = M.fromList [("one", 0)]
-        citedb = M.fromList [("one", citeEntry01 Nothing)]
+        citedb = M.fromList [("one", citeEntry01 "")]
     in resolveCitations fullBibDB citemap
        @?=
        citedb
   , testCase "two entries with same author but different year" $
     let citemap = M.fromList [("one", 0), ("three", 3)]
-        citedb = M.fromList [ ("one", citeEntry01 Nothing)
-                            , ("three", citeEntry03 Nothing)]
+        citedb = M.fromList [ ("one", citeEntry01 "")
+                            , ("three", citeEntry03 "")]
     in resolveCitations fullBibDB citemap
        @?=
        citedb
   , testCase "two entries with same year but different author" $
     let citemap = M.fromList [("one", 0), ("four", 4)]
-        citedb = M.fromList [ ("one", citeEntry01 Nothing)
-                            , ("four", citeEntry04 Nothing)]
+        citedb = M.fromList [ ("one", citeEntry01 "")
+                            , ("four", citeEntry04 "")]
     in resolveCitations fullBibDB citemap
        @?=
        citedb
   , testCase "two entries with author-year ambiguity" $
     let citemap = M.fromList [("one", 0), ("two", 2)]
-        citedb = M.fromList [ ("one", citeEntry01 (Just 0))
-                            , ("two", citeEntry02 (Just 1))]
+        citedb = M.fromList [ ("one", citeEntry01 "a")
+                            , ("two", citeEntry02 "b")]
     in resolveCitations fullBibDB citemap
        @?=
        citedb
@@ -77,24 +77,24 @@ testsResolve = testGroup "citation resolving"
 
 testsFormatCite :: Test
 testsFormatCite = testGroup "citation formatting"
-  [ testCase "extra year in unambiguous entry" $
-    fmtExtraYear Nothing
+  [ testCase "invalid negative extra year" $
+    fmtExtraYear (-1)
     @?=
     ""
   , testCase "extra year in ambiguous entry 0" $
-    fmtExtraYear (Just 0)
+    fmtExtraYear 0
     @?=
     "a"
   , testCase "extra year in ambiguous entry 26" $
-    fmtExtraYear (Just 26)
+    fmtExtraYear 26
     @?=
     "aa"
   , testCase "extra year in ambiguous entry 701" $
-    fmtExtraYear (Just 701)
+    fmtExtraYear 701
     @?=
     "zz"
   , testCase "extra year in ambiguous entry 702" $
-    fmtExtraYear (Just 702)
+    fmtExtraYear 702
     @?=
     "aaa"
   ]
@@ -154,16 +154,17 @@ bibEntry01 = BibEntry "book" $ M.fromList
   , ("title", LiteralField [Str "Title", Space, Str "one"])
   ]
 
-citeEntry01 :: CiteUnique -> CiteEntry
-citeEntry01 uniqcite = CiteEntry
-  { citeAgents = [[Str "Last"]]
-  , citeYear = [Str "2000"]
-  , citeUnique = uniqcite
-  , citeFull = [ Str "Last", Str ",", Space, Str "First", Str ".", Space
-               , Str "2000", Str ".", Space
-               , FontStyle Emph [Str "Title", Space, Str "one"], Str "."]
-  , citeAnchor = BibAnchor 0
-  }
+citeEntry01 :: String -> CiteEntry
+citeEntry01 extrayear =
+  let year = Str "2000" : str extrayear
+  in CiteEntry
+     { citeAnchor = BibAnchor 0
+     , citeAgents = [[Str "Last"]]
+     , citeYear = year
+     , citeFull = [ Str "Last", Str ",", Space, Str "First", Str ".", Space ] ++ year ++
+                  [ Str ".", Space, FontStyle Emph [Str "Title", Space, Str "one"]
+                  , Str "."]
+     }
 
 bibEntry02 :: BibEntry
 bibEntry02 = BibEntry "book" $ M.fromList
@@ -172,16 +173,17 @@ bibEntry02 = BibEntry "book" $ M.fromList
   , ("title", LiteralField [Str "Title", Space, Str "two"])
   ]
 
-citeEntry02 :: CiteUnique -> CiteEntry
-citeEntry02 uniqcite = CiteEntry
-  { citeAgents = [[Str "Last"]]
-  , citeYear = [Str "2000"]
-  , citeUnique = uniqcite
-  , citeFull = [ Str "Last", Str ",", Space, Str "First", Str ".", Space
-               , Str "2000", Str ".", Space
-               , FontStyle Emph [Str "Title", Space, Str "two"], Str "."]
-  , citeAnchor = BibAnchor 2
-  }
+citeEntry02 :: String -> CiteEntry
+citeEntry02 extrayear =
+  let year = Str "2000" : str extrayear
+  in CiteEntry
+     { citeAnchor = BibAnchor 2
+     , citeAgents = [[Str "Last"]]
+     , citeYear = year
+     , citeFull = [ Str "Last", Str ",", Space, Str "First", Str ".", Space] ++ year ++
+                  [ Str ".", Space, FontStyle Emph [Str "Title", Space, Str "two"]
+                  , Str "."]
+     }
 
 bibEntry03 :: BibEntry
 bibEntry03 = BibEntry "book" $ M.fromList
@@ -190,16 +192,17 @@ bibEntry03 = BibEntry "book" $ M.fromList
   , ("title", LiteralField [Str "Title", Space, Str "three"])
   ]
 
-citeEntry03 :: CiteUnique -> CiteEntry
-citeEntry03 uniqcite = CiteEntry
-  { citeAgents = [[Str "Last"]]
-  , citeYear = [Str "1999"]
-  , citeUnique = uniqcite
-  , citeFull = [ Str "Last", Str ",", Space, Str "First", Str ".", Space
-               , Str "1999", Str ".", Space
-               , FontStyle Emph [Str "Title", Space, Str "three"], Str "."]
-  , citeAnchor = BibAnchor 3
-  }
+citeEntry03 :: String -> CiteEntry
+citeEntry03 extrayear =
+  let year = Str "1999" : str extrayear
+  in CiteEntry
+     { citeAnchor = BibAnchor 3
+     , citeAgents = [[Str "Last"]]
+     , citeYear = year
+     , citeFull = [ Str "Last", Str ",", Space, Str "First", Str ".", Space] ++ year ++
+                  [ Str ".", Space, FontStyle Emph [Str "Title", Space, Str "three"]
+                  , Str "."]
+     }
 
 bibEntry04 :: BibEntry
 bibEntry04 = BibEntry "book" $ M.fromList
@@ -208,16 +211,17 @@ bibEntry04 = BibEntry "book" $ M.fromList
   , ("title", LiteralField [Str "Title", Space, Str "four"])
   ]
 
-citeEntry04 :: CiteUnique -> CiteEntry
-citeEntry04 uniqcite = CiteEntry
-  { citeAgents = [[Str "Last1"]]
-  , citeYear = [Str "2000"]
-  , citeUnique = uniqcite
-  , citeFull = [ Str "Last1", Str ",", Space, Str "First1", Str ".", Space
-               , Str "2000", Str ".", Space
-               , FontStyle Emph [Str "Title", Space, Str "four"], Str "."]
-  , citeAnchor = BibAnchor 4
-  }
+citeEntry04 :: String -> CiteEntry
+citeEntry04 extrayear =
+  let year = Str "2000" : str extrayear
+  in CiteEntry
+     { citeAnchor = BibAnchor 4
+     , citeAgents = [[Str "Last1"]]
+     , citeYear = year
+     , citeFull = [ Str "Last1", Str ",", Space, Str "First1", Str ".", Space] ++ year ++
+                  [ Str ".", Space, FontStyle Emph [Str "Title", Space, Str "four"]
+                  , Str "."]
+     }
 
 -- entry with two authors
 bibEntry05 :: BibEntry
@@ -239,3 +243,9 @@ bibEntry06 = BibEntry "book" $ M.fromList
   , ("year", LiteralField [Str "2000"])
   , ("title", LiteralField [Str "Title", Space, Str "six"])
   ]
+
+-------------------- helper
+
+-- Convert string to inlines.
+str :: String -> [Inline]
+str xs = if null xs then [] else [Str xs]

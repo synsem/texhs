@@ -248,7 +248,7 @@ citeentry e =
   let inciteref = el "ref" ! attr "type" "citation" !
         attr "target" (textValue (internalAnchorTarget (citeAnchor e)))
       authors = inlines (fmtCiteAgents (citeAgents e))
-      year = inlines (citeYear e) <> textP (fmtExtraYear (citeUnique e))
+      year = inlines (citeYear e)
   in inciteref (el "bibl" (el "author" authors <> el "date" year))
 
 -- Format a citation prenote:

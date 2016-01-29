@@ -27,9 +27,9 @@ module Text.Bib
   , resolveCitations
     -- ** Query
   , getCiteAgents
-  , getCiteYear
     -- ** Format
   , fmtCiteAgents
+  , fmtCiteYear
   , fmtCiteFull
   ) where
 
