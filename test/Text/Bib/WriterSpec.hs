@@ -42,34 +42,47 @@ testsResolve = testGroup "citation resolving"
   , testCase "single entry" $
     let bibdb = M.fromList [("one", bibEntry01)]
         citemap = M.fromList [("one", 0)]
-        citedb = M.fromList [("one", citeEntry01 "")]
+        citedb = M.fromList [("one", citeEntry01 0 "")]
     in resolveCitations bibdb citemap
        @?=
        citedb
   , testCase "unambiguous citation despite ambiguous BibDB entries" $
     let citemap = M.fromList [("one", 0)]
-        citedb = M.fromList [("one", citeEntry01 "")]
+        citedb = M.fromList [("one", citeEntry01 0 "")]
     in resolveCitations fullBibDB citemap
        @?=
        citedb
   , testCase "two entries with same author but different year" $
     let citemap = M.fromList [("one", 0), ("three", 3)]
-        citedb = M.fromList [ ("one", citeEntry01 "")
-                            , ("three", citeEntry03 "")]
+        citedb = M.fromList [ ("one", citeEntry01 0 "")
+                            , ("three", citeEntry03 3 "")]
     in resolveCitations fullBibDB citemap
        @?=
        citedb
   , testCase "two entries with same year but different author" $
     let citemap = M.fromList [("one", 0), ("four", 4)]
-        citedb = M.fromList [ ("one", citeEntry01 "")
-                            , ("four", citeEntry04 "")]
+        citedb = M.fromList [ ("one", citeEntry01 0 "")
+                            , ("four", citeEntry04 4 "")]
     in resolveCitations fullBibDB citemap
        @?=
        citedb
   , testCase "two entries with author-year ambiguity" $
     let citemap = M.fromList [("one", 0), ("two", 2)]
-        citedb = M.fromList [ ("one", citeEntry01 "a")
-                            , ("two", citeEntry02 "b")]
+        citedb = M.fromList [ ("one", citeEntry01 0 "a")
+                            , ("two", citeEntry02 2 "b")]
+    in resolveCitations fullBibDB citemap
+       @?=
+       citedb
+  , testCase "three entries with author-year ambiguity" $
+    -- Note: Correct assignment of extrayear requires sorting by title:
+    --   - 2000a : "A title"      (citeEntry07)
+    --   - 2000b : "Title one"    (citeEntry01)
+    --   - 2000c : "Title two"    (citeEntry02)
+    let citemap = M.fromList [("one", 0), ("three", 3), ("two", 4), ("seven", 7)]
+        citedb = M.fromList [ ("one", citeEntry01 0 "b")
+                            , ("two", citeEntry02 4 "c")
+                            , ("three", citeEntry03 3 "")
+                            , ("seven", citeEntry07 7 "a")]
     in resolveCitations fullBibDB citemap
        @?=
        citedb
@@ -145,6 +158,9 @@ fullBibDB = M.fromList
   , ("two", bibEntry02)
   , ("three", bibEntry03)
   , ("four", bibEntry04)
+  , ("five", bibEntry05)
+  , ("six", bibEntry06)
+  , ("seven", bibEntry07)
   ]
 
 bibEntry01 :: BibEntry
@@ -154,11 +170,11 @@ bibEntry01 = BibEntry "book" $ M.fromList
   , ("title", LiteralField [Str "Title", Space, Str "one"])
   ]
 
-citeEntry01 :: String -> CiteEntry
-citeEntry01 extrayear =
+citeEntry01 :: Int -> String -> CiteEntry
+citeEntry01 n extrayear =
   let year = Str "2000" : str extrayear
   in CiteEntry
-     { citeAnchor = BibAnchor 0
+     { citeAnchor = BibAnchor n
      , citeAgents = [[Str "Last"]]
      , citeYear = year
      , citeFull = [ Str "Last", Str ",", Space, Str "First", Str ".", Space ] ++ year ++
@@ -173,11 +189,11 @@ bibEntry02 = BibEntry "book" $ M.fromList
   , ("title", LiteralField [Str "Title", Space, Str "two"])
   ]
 
-citeEntry02 :: String -> CiteEntry
-citeEntry02 extrayear =
+citeEntry02 :: Int -> String -> CiteEntry
+citeEntry02 n extrayear =
   let year = Str "2000" : str extrayear
   in CiteEntry
-     { citeAnchor = BibAnchor 2
+     { citeAnchor = BibAnchor n
      , citeAgents = [[Str "Last"]]
      , citeYear = year
      , citeFull = [ Str "Last", Str ",", Space, Str "First", Str ".", Space] ++ year ++
@@ -192,11 +208,11 @@ bibEntry03 = BibEntry "book" $ M.fromList
   , ("title", LiteralField [Str "Title", Space, Str "three"])
   ]
 
-citeEntry03 :: String -> CiteEntry
-citeEntry03 extrayear =
+citeEntry03 :: Int -> String -> CiteEntry
+citeEntry03 n extrayear =
   let year = Str "1999" : str extrayear
   in CiteEntry
-     { citeAnchor = BibAnchor 3
+     { citeAnchor = BibAnchor n
      , citeAgents = [[Str "Last"]]
      , citeYear = year
      , citeFull = [ Str "Last", Str ",", Space, Str "First", Str ".", Space] ++ year ++
@@ -211,11 +227,11 @@ bibEntry04 = BibEntry "book" $ M.fromList
   , ("title", LiteralField [Str "Title", Space, Str "four"])
   ]
 
-citeEntry04 :: String -> CiteEntry
-citeEntry04 extrayear =
+citeEntry04 :: Int -> String -> CiteEntry
+citeEntry04 n extrayear =
   let year = Str "2000" : str extrayear
   in CiteEntry
-     { citeAnchor = BibAnchor 4
+     { citeAnchor = BibAnchor n
      , citeAgents = [[Str "Last1"]]
      , citeYear = year
      , citeFull = [ Str "Last1", Str ",", Space, Str "First1", Str ".", Space] ++ year ++
@@ -243,6 +259,26 @@ bibEntry06 = BibEntry "book" $ M.fromList
   , ("year", LiteralField [Str "2000"])
   , ("title", LiteralField [Str "Title", Space, Str "six"])
   ]
+
+bibEntry07 :: BibEntry
+bibEntry07 = BibEntry "book" $ M.fromList
+  [ ("author", AgentList [Agent [Str "First"] [] [Str "Last"] []])
+  , ("year", LiteralField [Str "2000"])
+  , ("title", LiteralField [Str "A", Space, Str "title"])
+  ]
+
+citeEntry07 :: Int -> String -> CiteEntry
+citeEntry07 n extrayear =
+  let year = Str "2000" : str extrayear
+  in CiteEntry
+     { citeAnchor = BibAnchor n
+     , citeAgents = [[Str "Last"]]
+     , citeYear = year
+     , citeFull = [ Str "Last", Str ",", Space, Str "First", Str ".", Space ] ++ year ++
+                  [ Str ".", Space, FontStyle Emph [Str "A", Space, Str "title"]
+                  , Str "."]
+     }
+
 
 -------------------- helper
 

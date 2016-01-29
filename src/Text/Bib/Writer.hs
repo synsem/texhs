@@ -33,9 +33,11 @@ module Text.Bib.Writer
 
 import Control.Applicative
 import Control.Monad (msum)
+import Data.List (sortBy)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Ord (comparing)
 import Data.Tuple (swap)
 
 import Text.Bib.Types
@@ -91,15 +93,22 @@ mkCiteUniqueMap db citeMap =
           fmap (:[]) . swap . fmap mkNameYearHash)
         M.empty
         keyEntryPairs
-  in M.foldr (M.union . M.fromList . toCiteUnique) M.empty inverseMap
+  in M.foldr (M.union . M.fromList . toCiteUnique db) M.empty inverseMap
 
 -- Attach disambiguation label to a list of citekeys
 -- with identical author-year key. Empty and singleton
 -- lists need no disambiguation, so they are dropped.
-toCiteUnique :: [CiteKey] -> [(CiteKey, Int)]
-toCiteUnique [] = []
-toCiteUnique [_] = []
-toCiteUnique ks@(_:_) = zip ks [0..]
+--
+-- Note: We are sorting keys using the Ord instance
+-- for 'BibEntry'. This should match the method used
+-- for sorting the bibliography, otherwise it could
+-- happen that "2000a" is listed after "2000b"
+-- (unless bibliography sorting considers extrayear
+-- suffixes as part of the year).
+toCiteUnique :: BibDB -> [CiteKey] -> [(CiteKey, Int)]
+toCiteUnique _ [] = []
+toCiteUnique _ [_] = []
+toCiteUnique db ks@(_:_) = zip (sortBy (comparing (`M.lookup` db)) ks) [0..]
 
 
 -------------------- Query
