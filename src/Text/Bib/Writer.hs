@@ -20,6 +20,8 @@ module Text.Bib.Writer
   , getCiteAgents
     -- * Format
     -- ** Citation
+  , fmtMultiCite
+  , fmtSingleCite
   , fmtCiteAgents
   , fmtCiteYear
   , fmtExtraYear
@@ -33,11 +35,13 @@ module Text.Bib.Writer
 
 import Control.Applicative
 import Control.Monad (msum)
-import Data.List (sortBy)
+import Data.Function (on)
+import Data.List (groupBy, intercalate, sortBy)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.Ord (comparing)
+import qualified Data.Text as T
 import Data.Tuple (swap)
 
 import Text.Bib.Types
@@ -161,6 +165,100 @@ fmtExtraYear n = case n `divMod` 26 of
   (q,r) | q < 0 -> "" -- error: invalid negative value (ignore)
         | q == 0 -> [['a'..'z'] !! r]
         | otherwise -> fmtExtraYear (q-1) ++ [['a'..'z'] !! r]
+
+-- | Construct a multicite inline citation.
+fmtMultiCite :: CiteDB -> MultiCite -> [Inline]
+fmtMultiCite db multiCite@(MultiCite citemode _ _ _) =
+  let wrapper = case citemode of
+        CiteBare -> id
+        CiteParen -> flip (fmtWrap [Str "("]) [Str ")"]
+        CiteText -> id
+  in wrapper $ fmtMultiCiteInner db multiCite
+
+-- Construct the inner part of a multicite inline citation.
+fmtMultiCiteInner :: CiteDB -> MultiCite -> [Inline]
+fmtMultiCiteInner db (MultiCite citemode prenote postnote cs) =
+  fmtSepBy
+    (fmtSepBy
+      prenote
+      [Space]
+      ((if citemode == CiteText
+        then fmtSepEndBy [Str ",", Space] [Str ",", Space, Str "and", Space]
+        else intercalate [Str ";", Space])
+       (map (fmtSingleCite db citemode) cs)))
+    [Str ",", Space]
+    postnote
+
+-- | Construct a singlecite inline citation.
+fmtSingleCite :: CiteDB -> CiteMode -> SingleCite -> [Inline]
+fmtSingleCite db citemode (SingleCite prenote postnote keys) =
+  let entries = groupCitesByAuthor (mapMaybe (`M.lookup` db) keys)
+      -- prenote (postnote) is added to first (last) citekey
+      fillers = replicate (max 0 (length entries - 1)) []
+      prenotes = prenote : fillers
+      postnotes = fillers ++ [postnote]
+      sepKeys = [Str ";", Space]
+  in intercalate sepKeys $
+     zipWith3 (fmtCiteGroup citemode) prenotes postnotes entries
+
+-- Group a list of citations (within a SingleCite) by author.
+--
+-- This is used to compress adjacent citations of bibentries
+-- by the same author or editor. For example, instead of
+-- \"Doe 1999; Doe 2000\", we want \"Doe 1999, 2000\".
+groupCitesByAuthor :: [CiteEntry] -> [[CiteEntry]]
+groupCitesByAuthor = groupBy ((==) `on` citeAgents)
+
+-- Format a list of cite entries (by the same author).
+--
+-- Assumption: All cite entries share the same agents (authors or editors).
+fmtCiteGroup :: CiteMode -> [Inline] -> [Inline] -> [CiteEntry] -> [Inline]
+fmtCiteGroup _ _ _ [] = mempty
+fmtCiteGroup CiteBare pre post entries@(e:_) =
+  fmtSepBy
+    (fmtSepBy
+      pre
+      [Space]
+      (fmtSepBy
+        (mkLink
+          (fmtCiteAgents (citeAgents e))
+          (internalAnchorTarget (citeAnchor e))
+          (T.pack (concatMap plain (citeFull e))))
+        [Space]
+        (intercalate
+          [Str ",", Space]
+          (map (\ i -> mkLink
+             (citeYear i)
+             (internalAnchorTarget (citeAnchor i))
+             (T.pack (concatMap plain (citeFull i))))
+           entries))))
+    [Str ",", Space]
+    post
+fmtCiteGroup CiteParen pre post entries =
+  fmtCiteGroup CiteBare pre post entries
+fmtCiteGroup CiteText pre post entries@(e:_) =
+  fmtSepBy
+    (mkLink
+      (fmtCiteAgents (citeAgents e))
+      (internalAnchorTarget (citeAnchor e))
+      (T.pack (concatMap plain (citeFull e))))
+    [Space]
+    (fmtWrap
+      [Str "("]
+      (fmtSepBy
+        (fmtSepBy
+          pre
+          [Space]
+          (intercalate
+            [Str ",", Space]
+            (map (\ i -> mkLink
+                (citeYear i)
+                (internalAnchorTarget (citeAnchor i))
+                (T.pack (concatMap plain (citeFull i))))
+              entries)))
+        [Str ",", Space]
+        post)
+      [Str ")"])
 
 
 -------------------- Bibliography Format

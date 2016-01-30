@@ -15,6 +15,7 @@ module Text.Bib.WriterSpec
   ) where
 
 import qualified Data.Map.Strict as M
+import qualified Data.Text as T
 import Test.Framework (Test, testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit ((@?=))
@@ -43,6 +44,13 @@ testsResolve = testGroup "citation resolving"
     let bibdb = M.fromList [("one", bibEntry01)]
         citemap = M.fromList [("one", 0)]
         citedb = M.fromList [("one", citeEntry01 0 "")]
+    in resolveCitations bibdb citemap
+       @?=
+       citedb
+  , testCase "single entry with three authors" $
+    let bibdb = M.fromList [("six", bibEntry06)]
+        citemap = M.fromList [("six", 0)]
+        citedb = M.fromList [("six", citeEntry06 0 "")]
     in resolveCitations bibdb citemap
        @?=
        citedb
@@ -110,6 +118,158 @@ testsFormatCite = testGroup "citation formatting"
     fmtExtraYear 702
     @?=
     "aaa"
+  , testCase "bare citation of a single citekey without notes" $
+    let citedb = M.fromList [("one", citeEntry01 0 "")]
+        cit = MultiCite CiteBare [] [] [SingleCite [] [] ["one"]]
+        title01 = mkCiteLinkTitle (citeEntry01 0 "")
+    in fmtMultiCite citedb cit
+       @?=
+       [ Pointer "" (Just (ExternalResource [Str "Last"] "#bib-0" title01))
+       , Space
+       , Pointer "" (Just (ExternalResource [Str "2000"] "#bib-0" title01)) ]
+  , testCase "bare citation of a single citekey with postnote" $
+    let citedb = M.fromList [("one", citeEntry01 0 "")]
+        cit = MultiCite CiteBare [] [] [SingleCite [] [Str "19"] ["one"]]
+        title01 = mkCiteLinkTitle (citeEntry01 0 "")
+    in fmtMultiCite citedb cit
+       @?=
+       [ Pointer "" (Just (ExternalResource [Str "Last"] "#bib-0" title01))
+       , Space
+       , Pointer "" (Just (ExternalResource [Str "2000"] "#bib-0" title01))
+       , Str ",", Space, Str "19" ]
+  , testCase "paren citation of a single citekey without notes" $
+    let citedb = M.fromList [("one", citeEntry01 0 "")]
+        cit = MultiCite CiteParen [] [] [SingleCite [] [] ["one"]]
+        title01 = mkCiteLinkTitle (citeEntry01 0 "")
+    in fmtMultiCite citedb cit
+       @?=
+       [ Str "("
+       , Pointer "" (Just (ExternalResource [Str "Last"] "#bib-0" title01))
+       , Space
+       , Pointer "" (Just (ExternalResource [Str "2000"] "#bib-0" title01))
+       , Str ")" ]
+  , testCase "paren citation of a single citekey with postnote" $
+    let citedb = M.fromList [("one", citeEntry01 0 "")]
+        cit = MultiCite CiteParen [] [] [SingleCite [] [Str "19"] ["one"]]
+        title01 = mkCiteLinkTitle (citeEntry01 0 "")
+    in fmtMultiCite citedb cit
+       @?=
+       [ Str "("
+       , Pointer "" (Just (ExternalResource [Str "Last"] "#bib-0" title01))
+       , Space
+       , Pointer "" (Just (ExternalResource [Str "2000"] "#bib-0" title01))
+       , Str ",", Space, Str "19", Str ")" ]
+  , testCase "text citation of a single citekey without notes" $
+    let citedb = M.fromList [("one", citeEntry01 0 "")]
+        cit = MultiCite CiteText [] [] [SingleCite [] [] ["one"]]
+        title01 = mkCiteLinkTitle (citeEntry01 0 "")
+    in fmtMultiCite citedb cit
+       @?=
+       [ Pointer "" (Just (ExternalResource [Str "Last"] "#bib-0" title01))
+       , Space, Str "("
+       , Pointer "" (Just (ExternalResource [Str "2000"] "#bib-0" title01))
+       , Str ")" ]
+  , testCase "text citation of a single citekey with postnote" $
+    let citedb = M.fromList [("one", citeEntry01 0 "")]
+        cit = MultiCite CiteText [] [] [SingleCite [] [Str "19"] ["one"]]
+        title01 = mkCiteLinkTitle (citeEntry01 0 "")
+    in fmtMultiCite citedb cit
+       @?=
+       [ Pointer "" (Just (ExternalResource [Str "Last"] "#bib-0" title01))
+       , Space, Str "("
+       , Pointer "" (Just (ExternalResource [Str "2000"] "#bib-0" title01))
+       , Str ",", Space, Str "19", Str ")" ]
+  , testCase "bare citation of two citekeys with prenote" $
+    let cit = MultiCite CiteBare [] [] [SingleCite [Str "see"] [] ["four", "seven"]]
+        title04 = mkCiteLinkTitle (citeEntry04 12 "")
+        title07 = mkCiteLinkTitle (citeEntry07 7 "a")
+    in fmtMultiCite citeDB01 cit
+       @?=
+       [ Str "see", Space
+       , Pointer "" (Just (ExternalResource [Str "Last1"] "#bib-12" title04))
+       , Space
+       , Pointer "" (Just (ExternalResource [Str "2000"] "#bib-12" title04))
+       , Str ";", Space
+       , Pointer "" (Just (ExternalResource [Str "Last"] "#bib-7" title07))
+       , Space
+       , Pointer "" (Just (ExternalResource [Str "2000", Str "a"] "#bib-7" title07))
+       ]
+  , testCase "conflate adjacent citations by same author" $
+    let cit = MultiCite CiteText [] [] [SingleCite [Str "see"] [Str "88"] ["seven", "three"]]
+        title03 = mkCiteLinkTitle (citeEntry03 3 "")
+        title07 = mkCiteLinkTitle (citeEntry07 7 "a")
+    in fmtMultiCite citeDB01 cit
+       @?=
+       [ Pointer "" (Just (ExternalResource [Str "Last"] "#bib-7" title07))
+       , Space, Str "(", Str "see", Space
+       , Pointer "" (Just (ExternalResource [Str "2000", Str "a"] "#bib-7" title07))
+       , Str ",", Space
+       , Pointer "" (Just (ExternalResource [Str "1999"] "#bib-3" title03))
+       , Str ",", Space, Str "88", Str ")"
+       ]
+  , testCase "conflate adjacent citations by same authorgroup" $
+    let cit = MultiCite CiteParen [] [] [SingleCite [] [] ["six", "eight", "seven"]]
+        title06 = mkCiteLinkTitle (citeEntry06 14 "")
+        title07 = mkCiteLinkTitle (citeEntry07 7 "a")
+        title08 = mkCiteLinkTitle (citeEntry08 15 "")
+        authors06 = [ Str "Last1", Str ",", Space, Str "Last2", Space
+                    , Str "&", Space, Str "Last3"]
+    in fmtMultiCite citeDB01 cit
+       @?=
+       [ Str "("
+       , Pointer "" (Just (ExternalResource authors06 "#bib-14" title06))
+       , Space
+       , Pointer "" (Just (ExternalResource [Str "2000"] "#bib-14" title06))
+       , Str ",", Space
+       , Pointer "" (Just (ExternalResource [Str "1999"] "#bib-15" title08))
+       , Str ";", Space
+       , Pointer "" (Just (ExternalResource [Str "Last"] "#bib-7" title07))
+       , Space
+       , Pointer "" (Just (ExternalResource [Str "2000", Str "a"] "#bib-7" title07))
+       , Str ")"
+       ]
+  , testCase "multicite with two singlecites and several notes" $
+    let cit = MultiCite CiteText [Str "aa"] [Str "bb"]
+          [ SingleCite [Str "cc"] [Str "dd"] ["three"]
+          , SingleCite [Str "ee"] [Str "ff"] ["seven"]]
+        title03 = mkCiteLinkTitle (citeEntry03 3 "")
+        title07 = mkCiteLinkTitle (citeEntry07 7 "a")
+    in fmtMultiCite citeDB01 cit
+       @?=
+       [ Str "aa", Space
+       , Pointer "" (Just (ExternalResource [Str "Last"] "#bib-3" title03))
+       , Space, Str "(", Str "cc", Space
+       , Pointer "" (Just (ExternalResource [Str "1999"] "#bib-3" title03))
+       , Str ",", Space, Str "dd", Str ")", Str ",", Space, Str "and", Space
+       , Pointer "" (Just (ExternalResource [Str "Last"] "#bib-7" title07))
+       , Space, Str "(", Str "ee", Space
+       , Pointer "" (Just (ExternalResource [Str "2000", Str "a"] "#bib-7" title07))
+       , Str ",", Space, Str "ff", Str ")", Str ",", Space, Str "bb"
+       ]
+  , testCase "multicite with three singlecites and no notes" $
+    let cit = MultiCite CiteParen [] []
+          [ SingleCite [] [] ["three"]
+          , SingleCite [] [] ["four"]
+          , SingleCite [] [] ["seven"]]
+        title03 = mkCiteLinkTitle (citeEntry03 3 "")
+        title04 = mkCiteLinkTitle (citeEntry04 12 "")
+        title07 = mkCiteLinkTitle (citeEntry07 7 "a")
+    in fmtMultiCite citeDB01 cit
+       @?=
+       [ Str "("
+       , Pointer "" (Just (ExternalResource [Str "Last"] "#bib-3" title03))
+       , Space
+       , Pointer "" (Just (ExternalResource [Str "1999"] "#bib-3" title03))
+       , Str ";", Space
+       , Pointer "" (Just (ExternalResource [Str "Last1"] "#bib-12" title04))
+       , Space
+       , Pointer "" (Just (ExternalResource [Str "2000"] "#bib-12" title04))
+       , Str ";", Space
+       , Pointer "" (Just (ExternalResource [Str "Last"] "#bib-7" title07))
+       , Space
+       , Pointer "" (Just (ExternalResource [Str "2000", Str "a"] "#bib-7" title07))
+       , Str ")"
+       ]
   ]
 
 testsFormatBib :: Test
@@ -161,6 +321,18 @@ fullBibDB = M.fromList
   , ("five", bibEntry05)
   , ("six", bibEntry06)
   , ("seven", bibEntry07)
+  , ("eight", bibEntry08)
+  ]
+
+citeDB01 :: CiteDB
+citeDB01 = M.fromList
+  [ ("one", citeEntry01 0 "b")
+  , ("three", citeEntry03 3 "")
+  , ("two", citeEntry02 4 "c")
+  , ("seven", citeEntry07 7 "a")
+  , ("four", citeEntry04 12 "")
+  , ("six", citeEntry06 14 "")
+  , ("eight", citeEntry08 15 "")
   ]
 
 bibEntry01 :: BibEntry
@@ -260,6 +432,20 @@ bibEntry06 = BibEntry "book" $ M.fromList
   , ("title", LiteralField [Str "Title", Space, Str "six"])
   ]
 
+citeEntry06 :: Int -> String -> CiteEntry
+citeEntry06 n extrayear =
+  let year = Str "2000" : str extrayear
+  in CiteEntry
+     { citeAnchor = BibAnchor n
+     , citeAgents = [[Str "Last1"], [Str "Last2"], [Str "Last3"]]
+     , citeYear = year
+     , citeFull = [ Str "Last1", Str ",", Space, Str "First1", Str ",", Space
+                  , Str "First2", Space, Str "Last2", Space, Str "&", Space
+                  , Str "First3", Space, Str "Last3", Str ".", Space ] ++ year ++
+                  [ Str ".", Space, FontStyle Emph [Str "Title", Space, Str "six"]
+                  , Str "."]
+     }
+
 bibEntry07 :: BibEntry
 bibEntry07 = BibEntry "book" $ M.fromList
   [ ("author", AgentList [Agent [Str "First"] [] [Str "Last"] []])
@@ -279,9 +465,39 @@ citeEntry07 n extrayear =
                   , Str "."]
      }
 
+-- entry with three authors
+bibEntry08 :: BibEntry
+bibEntry08 = BibEntry "book" $ M.fromList
+  [ ("author", AgentList [ Agent [Str "First1"] [] [Str "Last1"] []
+                         , Agent [Str "First2"] [] [Str "Last2"] []
+                         , Agent [Str "First3"] [] [Str "Last3"] []
+                         ])
+  , ("year", LiteralField [Str "1999"])
+  , ("title", LiteralField [Str "Title", Space, Str "eight"])
+  ]
+
+citeEntry08 :: Int -> String -> CiteEntry
+citeEntry08 n extrayear =
+  let year = Str "1999" : str extrayear
+  in CiteEntry
+     { citeAnchor = BibAnchor n
+     , citeAgents = [[Str "Last1"], [Str "Last2"], [Str "Last3"]]
+     , citeYear = year
+     , citeFull = [ Str "Last1", Str ",", Space, Str "First1", Str ",", Space
+                  , Str "First2", Space, Str "Last2", Space, Str "&", Space
+                  , Str "First3", Space, Str "Last3", Str ".", Space ] ++ year ++
+                  [ Str ".", Space, FontStyle Emph [Str "Title", Space, Str "eight"]
+                  , Str "."]
+     }
+
+
 
 -------------------- helper
 
 -- Convert string to inlines.
 str :: String -> [Inline]
 str xs = if null xs then [] else [Str xs]
+
+-- Create expected value of the @title@ attribute.
+mkCiteLinkTitle :: CiteEntry -> LinkTitle
+mkCiteLinkTitle = T.pack . concatMap plain . citeFull
