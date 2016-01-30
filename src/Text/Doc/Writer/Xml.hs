@@ -22,9 +22,9 @@ module Text.Doc.Writer.Xml
  ) where
 
 import Control.Monad (unless)
-import Data.List (intersperse, sort)
+import Data.List (sort)
 import qualified Data.Map.Strict as M
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (fromMaybe)
 import Data.Monoid
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -230,7 +230,8 @@ inline Space = text " "
 inline (Citation _ Nothing) =
   error "XML Writer does not support unprocessed citations."
 inline (Citation cit (Just db)) =
-  multicite db cit
+  el "seg" ! attr "type" "citation-group" $
+  inlines (fmtMultiCite db cit)
 inline (Pointer _ Nothing) =
   error "XML Writer does not support unprocessed or undefined pointers."
 inline (Pointer _ (Just anchor)) =
@@ -250,44 +251,6 @@ style Normal = el "hi" ! attr "style" "font-style: normal;"
 style Emph = el "emph"
 style Sub = el "hi" ! attr "style" "vertical-align: sub; font-size: smaller;"
 style Sup = el "hi" ! attr "style" "vertical-align: super; font-size: smaller;"
-
----------- inline citations
-
--- Format a MultiCite citation.
-multicite :: CiteDB -> MultiCite -> Markup
-multicite db (MultiCite _ prenote postnote cs) =
-  el "seg" ! attr "type" "citation-group" $
-  citeprenote prenote <>
-  mapM_ (singlecite db) cs <>
-  citepostnote postnote
-
--- Format a SingleCite citation.
-singlecite :: CiteDB -> SingleCite -> Markup
-singlecite db (SingleCite prenote postnote keys) =
-  citeprenote prenote <>
-  (mconcat . intersperse (text "; ") . map citeentry)
-    (mapMaybe (`M.lookup` db) keys) <>
-  citepostnote postnote
-
-citeentry :: CiteEntry -> Markup
-citeentry e =
-  let inciteref = el "ref" ! attr "type" "citation" !
-        attr "target" (textValue (internalAnchorTarget (citeAnchor e)))
-      authors = inlines (fmtCiteAgents (citeAgents e))
-      year = inlines (citeYear e)
-  in inciteref (el "bibl" (el "author" authors <> el "date" year))
-
--- Format a citation prenote:
--- if present, append space character.
-citeprenote :: [Inline] -> Markup
-citeprenote [] = mempty
-citeprenote is@(_:_) = inlines is <> text " "
-
--- Format a citation postnote:
--- if present, prefix comma and space.
-citepostnote :: [Inline] -> Markup
-citepostnote [] = mempty
-citepostnote is@(_:_) = text ", " <> inlines is
 
 
 ---------- String to text helper functions
