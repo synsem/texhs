@@ -32,6 +32,7 @@ module Text.Doc.Types
   , registerHeader
   , registerHeaderPhantom
   , getPhantomAnchor
+  , isPhantomSection
     -- ** Citations
   , CiteKey
   , CiteMap
@@ -436,6 +437,11 @@ getPhantomAnchor meta =
   let reg = metaBookRegion meta
       count = metaPhantomSectionCount meta
   in SectionAnchor (SectionInfo reg (SectionPhantom count))
+
+-- | Test whether an internal anchor is a phantom section.
+isPhantomSection :: InternalAnchor -> Bool
+isPhantomSection (SectionAnchor (SectionInfo _ (SectionPhantom _))) = True
+isPhantomSection _ = False
 
 -- | Register a new section header
 -- in the document meta information.

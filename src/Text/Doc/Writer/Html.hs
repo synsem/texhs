@@ -74,7 +74,7 @@ mkHead doc = H.head $ do
 
 ----- toc
 
--- Create table of contents as a @<nav>@ element.
+-- Create a table of contents.
 toc :: Doc -> Html
 toc doc =
   let (SectionDoc _ secs) = doc2secdoc doc
@@ -82,13 +82,23 @@ toc doc =
        H.nav ! A.id "toc" $
        ul $ mapM_ tocEntry secs
 
--- Create an entry for a single section in the toc.
+-- Create a toc entry for a single section (and its subsections).
 tocEntry :: Section -> Html
 tocEntry (Section _ anchor title _ subsecs) = do
-  li $ a ! href (textValue (internalAnchorTarget anchor))
-     $ inlines title
+  li $ a ! href (textValue (internalAnchorTarget anchor)) $
+    sectionNumberPrefix anchor <> inlines title
   unless (null subsecs) $
     ul $ mapM_ tocEntry subsecs
+
+-- Create a section number.
+--
+-- Includes a trailing space, ready to be prefixed to a section title.
+-- For phantom (unnumbered) sections, the generated prefix is empty.
+sectionNumberPrefix :: InternalAnchor -> Html
+sectionNumberPrefix anchor@(SectionAnchor _) =
+  unless (isPhantomSection anchor)
+    (inlines (internalAnchorDescription anchor) <> toHtml ' ')
+sectionNumberPrefix _ = mempty
 
 ----- footnotes
 
@@ -172,7 +182,7 @@ block :: Block -> Html
 block (Para xs) = p $ inlines xs
 block (Header level anchor xs) =
   heading level ! A.id (textValue (internalAnchorID anchor)) $
-  inlines xs
+  sectionNumberPrefix anchor <> inlines xs
 block (List UnorderedList xss) = ul $ mapM_ (li . blocks) xss
 block (List OrderedList xss) = ol $ mapM_ (li . blocks) xss
 block (ListItemBlock xs) =
