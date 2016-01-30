@@ -465,13 +465,13 @@ ref = flip Pointer Nothing <$> textLabel "ref"
 href :: Parser Inline
 href = do
   (url', description) <- cmdTwoOblArgs "href" (T.pack <$> plainValue) inlines
-  return (Pointer "external" (Just (ExternalResource description url' "")))
+  return (Pointer "external" (Just (ExternalResource description url' "" "")))
 
 -- | Parse @url@ command from @hyperref@ package.
 url :: Parser Inline
 url = do
   url' <- textLabel "url"
-  return (Pointer "external" (Just (ExternalResource [Str (T.unpack url')] url' "")))
+  return (Pointer "external" (Just (ExternalResource [Str (T.unpack url')] url' "" "")))
 
 
 ---------- Argument parsers

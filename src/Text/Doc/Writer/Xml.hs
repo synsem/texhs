@@ -31,7 +31,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import Text.Blaze.Internal
   ( Markup, customLeaf, customParent, textTag
-  , Attribute, AttributeValue, (!), attribute, textValue, stringValue
+  , Attribute, AttributeValue, (!), (!?), attribute, textValue, stringValue
   , text, preEscapedText)
 import Text.Blaze.Renderer.Text (renderMarkup)
 
@@ -235,7 +235,10 @@ inline (Citation cit (Just db)) =
 inline (Pointer _ Nothing) =
   error "XML Writer does not support unprocessed or undefined pointers."
 inline (Pointer _ (Just anchor)) =
-  el "ref" ! attr "target" (textValue (anchorTarget anchor)) $
+  el "ref"
+     ! attr "target" (textValue (anchorTarget anchor))
+     !? ( not (T.null (anchorType anchor))
+        , attr "type" (textValue (anchorType anchor))) $
   inlines (anchorDescription anchor)
 inline (Note anchor notetext) =
   el "note" !

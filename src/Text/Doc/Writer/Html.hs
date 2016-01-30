@@ -232,6 +232,8 @@ inline (Pointer _ Nothing) =
   error "HTML Writer does not support unprocessed or undefined pointers."
 inline (Pointer _ (Just anchor)) =
   a ! href (textValue (anchorTarget anchor))
+    !? ( not (T.null (anchorType anchor))
+       , A.class_ (textValue (anchorType anchor)))
     !? ( not (T.null (anchorTitle anchor))
        , A.title (textValue (anchorTitle anchor))) $
   inlines (anchorDescription anchor)

@@ -223,14 +223,16 @@ fmtCiteGroup CiteBare pre post entries@(e:_) =
         (mkLink
           (fmtCiteAgents (citeAgents e))
           (internalAnchorTarget (citeAnchor e))
-          (T.pack (concatMap plain (citeFull e))))
+          (T.pack (concatMap plain (citeFull e)))
+          "citation")
         [Space]
         (intercalate
           [Str ",", Space]
           (map (\ i -> mkLink
              (citeYear i)
              (internalAnchorTarget (citeAnchor i))
-             (T.pack (concatMap plain (citeFull i))))
+             (T.pack (concatMap plain (citeFull i)))
+             "citation")
            entries))))
     [Str ",", Space]
     post
@@ -241,7 +243,8 @@ fmtCiteGroup CiteText pre post entries@(e:_) =
     (mkLink
       (fmtCiteAgents (citeAgents e))
       (internalAnchorTarget (citeAnchor e))
-      (T.pack (concatMap plain (citeFull e))))
+      (T.pack (concatMap plain (citeFull e)))
+      "citation")
     [Space]
     (fmtWrap
       [Str "("]
@@ -254,7 +257,8 @@ fmtCiteGroup CiteText pre post entries@(e:_) =
             (map (\ i -> mkLink
                 (citeYear i)
                 (internalAnchorTarget (citeAnchor i))
-                (T.pack (concatMap plain (citeFull i))))
+                (T.pack (concatMap plain (citeFull i)))
+                "citation")
               entries)))
         [Str ",", Space]
         post)

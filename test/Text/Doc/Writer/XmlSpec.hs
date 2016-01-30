@@ -253,7 +253,7 @@ testsInlines = testGroup "inlines"
               "<hi style=\"vertical-align: super; font-size: smaller;\">2</hi></formula>"
   , testCase "link to external resource" $
     inlines2xml [Pointer "external" (Just (ExternalResource
-      [Str "some", Space, Str "description"] "http://example.com/" ""))]
+      [Str "some", Space, Str "description"] "http://example.com/" "" ""))]
     @?=
     "<ref target=\"http://example.com/\">some description</ref>"
   , testCase "link to internal figure" $
