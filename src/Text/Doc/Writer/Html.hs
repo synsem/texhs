@@ -30,7 +30,7 @@ import Data.Monoid
 import Data.Text.Lazy (Text)
 import qualified Data.Text as T
 import Text.Blaze.Html5
-  ( (!), Html, toHtml, textValue, docTypeHtml
+  ( (!), (!?), Html, toHtml, textValue, docTypeHtml
   , h1, h2, ul, ol, li, p, a)
 import Text.Blaze.Html5.Attributes
   (name, charset, content, href)
@@ -231,7 +231,9 @@ inline (Citation cit (Just db)) =
 inline (Pointer _ Nothing) =
   error "HTML Writer does not support unprocessed or undefined pointers."
 inline (Pointer _ (Just anchor)) =
-  a ! href (textValue (anchorTarget anchor)) $
+  a ! href (textValue (anchorTarget anchor))
+    !? ( not (T.null (anchorTitle anchor))
+       , A.title (textValue (anchorTitle anchor))) $
   inlines (anchorDescription anchor)
 inline (Note anchor _) =
   a ! A.id (textValue (internalAnchorIDRef anchor))

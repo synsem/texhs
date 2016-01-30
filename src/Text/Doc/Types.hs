@@ -43,8 +43,10 @@ module Text.Doc.Types
     -- ** Anchors
   , Label
   , Location
+  , LinkTitle
   , Anchor(..)
   , anchorTarget
+  , anchorTitle
   , anchorDescription
   , InternalAnchor(..)
   , internalAnchorID
@@ -84,6 +86,7 @@ module Text.Doc.Types
   , normalizeInlines
   , stripInlines
     -- ** Generic formatting
+  , mkLink
   , fmtEmph
   , fmtSepBy
   , fmtSepEndBy
@@ -165,7 +168,7 @@ instance HasMeta Doc where
 -- that can be the target of a 'Pointer'.
 data Anchor
   = InternalResource InternalAnchor
-  | ExternalResource [Inline] Location
+  | ExternalResource [Inline] Location LinkTitle
   deriving (Eq, Show)
 
 -- | An internal anchor is a location within the current document.
@@ -213,7 +216,14 @@ internalAnchorIDRef anchor = T.append (internalAnchorID anchor) "-ref"
 -- This can be used for @href@ attributes in HTML hyperlinks.
 anchorTarget :: Anchor -> Text
 anchorTarget (InternalResource res) = internalAnchorTarget res
-anchorTarget (ExternalResource _ loc) = loc
+anchorTarget (ExternalResource _ loc _) = loc
+
+-- | Generate link title string for an anchor.
+--
+-- This can be used for @title@ attributes in HTML hyperlinks.
+anchorTitle :: Anchor -> Text
+anchorTitle (InternalResource _) = ""
+anchorTitle (ExternalResource _ _ t) = t
 
 -- | Generate target location string for an internal anchor.
 --
@@ -231,7 +241,7 @@ internalAnchorTargetRef = T.cons '#' . internalAnchorIDRef
 -- | Generate description text for an anchor.
 anchorDescription :: Anchor -> [Inline]
 anchorDescription (InternalResource i) = internalAnchorDescription i
-anchorDescription (ExternalResource l _) = l
+anchorDescription (ExternalResource l _ _) = l
 
 -- | Generate description text for an internal anchor.
 --
@@ -286,6 +296,11 @@ type Label = Text
 --
 -- This is used as the link target of an 'ExternalResource'.
 type Location = Text
+
+-- | An optional secondary description of an external resource.
+--
+-- This is used as the link title of an 'ExternalResource'.
+type LinkTitle = Text
 
 -- | Assign a label to the current anchor
 -- in the document meta information.
@@ -692,6 +707,11 @@ stripInlines = dropWhile isSpace . dropWhileEnd isSpace
 
 
 -------------------- Generic formatting helpers
+
+-- | Create a 'Pointer' from a given description, target and link title.
+mkLink :: [Inline] -> Location -> LinkTitle -> [Inline]
+mkLink description target linkTitle =
+  [Pointer "" (Just (ExternalResource description target linkTitle))]
 
 -- | Apply emphasis iff content is not null.
 fmtEmph :: [Inline] -> [Inline]
