@@ -83,6 +83,12 @@ module Text.Doc.Types
     -- ** Normalization
   , normalizeInlines
   , stripInlines
+    -- ** Generic formatting
+  , fmtEmph
+  , fmtSepBy
+  , fmtSepEndBy
+  , fmtEndBy
+  , fmtWrap
   ) where
 
 import Data.List (dropWhileEnd, intersperse, intercalate)
@@ -683,3 +689,51 @@ normalizeInlines (xs : ys) = xs : normalizeInlines ys
 -- | Strip leading and trailing whitespace.
 stripInlines :: [Inline] -> [Inline]
 stripInlines = dropWhile isSpace . dropWhileEnd isSpace
+
+
+-------------------- Generic formatting helpers
+
+-- | Apply emphasis iff content is not null.
+fmtEmph :: [Inline] -> [Inline]
+fmtEmph [] = []
+fmtEmph xs@(_:_) = [FontStyle Emph xs]
+
+-- | Concatenate a list, interspersing two different separators:
+-- one between inner list items, one between the last two items.
+-- Works just like 'Data.List.intercalate' except that the last
+-- two items are separated by a special separator.
+--
+-- Syntax: @fmtSepEndBy midSep endSep itemlist@.
+-- This separates items by @midSep@, except for the last two items,
+-- which are separated by @endSep@.
+--
+-- Example:
+--
+-- > fmtSepEndBy ", " " and " ["one", "two", "three"]  ==  "one, two and three"
+--
+fmtSepEndBy :: [a] -> [a] -> [[a]] -> [a]
+fmtSepEndBy _ _ [] = []
+fmtSepEndBy _ _ [i] = i
+fmtSepEndBy _ endSep [i,j] = i ++ endSep ++ j
+fmtSepEndBy midSep endSep (i:items@(_:_:_)) = i ++ midSep ++ fmtSepEndBy midSep endSep items
+
+-- | Insert separator iff both parts are not null.
+--
+-- Syntax: @fmtSepBy left sep right@.
+fmtSepBy :: [a] -> [a] -> [a] -> [a]
+fmtSepBy [] _ right = right
+fmtSepBy left _ [] = left
+fmtSepBy left@(_:_) sep right@(_:_) = left ++ sep ++ right
+
+-- | Add suffix iff content is not null.
+--
+-- Syntax: @fmtEndBy content suffix@.
+fmtEndBy :: [a] -> [a] -> [a]
+fmtEndBy = fmtWrap []
+
+-- | Add prefix and suffix iff content is not null.
+--
+-- Syntax: @fmtWrap prefix content suffix@.
+fmtWrap :: [a] -> [a] -> [a] -> [a]
+fmtWrap _ [] _ = []
+fmtWrap pre is@(_:_) post = pre ++ is ++ post

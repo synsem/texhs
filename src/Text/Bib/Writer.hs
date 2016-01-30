@@ -151,7 +151,7 @@ fmtCiteYear uniqcite = maybe [] appendExtrayear . getBibLiteral "year"
 -- | Construct author part of an author-year citation
 -- from a list of last names of authors.
 fmtCiteAgents :: [[Inline]] -> [Inline]
-fmtCiteAgents = sepItemList [Str ",", Space] [Space, Str "&", Space]
+fmtCiteAgents = fmtSepEndBy [Str ",", Space] [Space, Str "&", Space]
 
 -- | Convert an integer to a textual @extrayear@ suffix that
 -- can be appended to the year part in author-year citations.
@@ -195,87 +195,87 @@ fmtCiteFull u e@(BibEntry btype _) = case btype of
 -- Format a @book@ entry.
 fmtBibBook :: CiteUnique -> BibEntry -> [Inline]
 fmtBibBook u e =
-  sepBy
+  fmtSepBy
     (fmtBibFieldAuthors e)
     [Str ".", Space]
     (fmtBibBookAfterAgents u e)
-  `endBy` [Str "."]
+  `fmtEndBy` [Str "."]
 
 -- Format a @collection@ entry.
 fmtBibCollection :: CiteUnique -> BibEntry -> [Inline]
 fmtBibCollection u e =
-  sepBy
+  fmtSepBy
     (fmtBibFieldEditors e)
     [Str ".", Space]
     (fmtBibBookAfterAgents u e)
-  `endBy` [Str "."]
+  `fmtEndBy` [Str "."]
 
 -- Format a @thesis@ entry.
 --
 -- Takes an optional default thesis @type@ as first argument.
 fmtBibThesis :: Maybe [Inline] -> CiteUnique -> BibEntry -> [Inline]
 fmtBibThesis thesisType u e =
-  sepBy
-    (sepBy
+  fmtSepBy
+    (fmtSepBy
       (fmtBibFieldAuthors e)
       [Str ".", Space]
-      (sepBy
+      (fmtSepBy
         (fmtCiteYear u e)
         [Str ".", Space]
-        (emph (fmtBibLiteral "title" e))))
+        (fmtEmph (fmtBibLiteral "title" e))))
     [Str ".", Space]
-    (sepBy
+    (fmtSepBy
       (fmtBibFieldLocation e)
       [Str ":", Space]
-      (sepBy
+      (fmtSepBy
         (fmtBibListAnyOf ["institution", "school"] e)
         [Space]
         (fromMaybe [Str "dissertation"]
           -- @type@ field overrides entry type
           (getBibLiteral "type" e <|> thesisType))))
-  `endBy` [Str "."]
+  `fmtEndBy` [Str "."]
 
 -- Format an @article@ entry.
 fmtBibArticle :: CiteUnique -> BibEntry -> [Inline]
 fmtBibArticle u e =
-  sepBy
+  fmtSepBy
     (fmtBibAYT u e)
     [Str ".", Space]
-    (sepBy
-      (sepBy
-        (emph (fmtBibFieldJournaltitle e))
+    (fmtSepBy
+      (fmtSepBy
+        (fmtEmph (fmtBibFieldJournaltitle e))
         [Space]
-        (sepBy
+        (fmtSepBy
           (fmtBibLiteral "volume" e)
           []
-          (wrap [Str "("] (fmtBibFieldNumber e) [Str ")"])))
+          (fmtWrap [Str "("] (fmtBibFieldNumber e) [Str ")"])))
       [Str ".", Space]
       (fmtBibLiteral "pages" e))
-  `endBy` [Str "."]
+  `fmtEndBy` [Str "."]
 
 -- Format an @incollection@ entry.
 fmtBibInCollection :: CiteUnique -> BibEntry -> [Inline]
 fmtBibInCollection u e =
-  sepBy
+  fmtSepBy
     (fmtBibAYT u e)
     [Str ".", Space]
-    (wrap
+    (fmtWrap
       [Str "In", Space]
-      (sepBy
-        (sepBy
+      (fmtSepBy
+        (fmtSepBy
           (fmtBibFieldEditorsInner e)
           [Str ",", Space]
-          (sepBy
-            (emph $ fmtBibLiteral "booktitle" e)
+          (fmtSepBy
+            (fmtEmph $ fmtBibLiteral "booktitle" e)
             [Str ",", Space]
             (fmtBibLiteral "pages" e)))
         [Str ".", Space]
-        (sepBy
+        (fmtSepBy
           (fmtBibFieldLocation e)
           [Str ":", Space]
           (fmtBibList "publisher" e)))
       [])
-  `endBy` [Str "."]
+  `fmtEndBy` [Str "."]
 
 -- Format a @misc@ entry. Also used as fallback entry type.
 fmtBibMisc :: CiteUnique -> BibEntry -> [Inline]
@@ -283,11 +283,11 @@ fmtBibMisc u e =
   let ag = if M.member "author" (bibFields e)
            then fmtBibFieldAuthors e
            else fmtBibFieldEditors e
-  in sepBy ag [Str ".", Space]
-       (sepBy (fmtCiteYear u e) [Str ".", Space]
-         (sepBy (fmtBibLiteral "title" e) [Str ".", Space]
+  in fmtSepBy ag [Str ".", Space]
+       (fmtSepBy (fmtCiteYear u e) [Str ".", Space]
+         (fmtSepBy (fmtBibLiteral "title" e) [Str ".", Space]
            (fmtBibLiteral "howpublished" e)))
-     `endBy` [Str "."]
+     `fmtEndBy` [Str "."]
 
 
 ---------- shared multi-field blocks
@@ -295,13 +295,13 @@ fmtBibMisc u e =
 -- Common format for @book@ and @collection@ after agent part.
 fmtBibBookAfterAgents :: CiteUnique -> BibEntry -> [Inline]
 fmtBibBookAfterAgents u e =
-  sepBy
+  fmtSepBy
     (fmtCiteYear u e)
     [Str ".", Space]
-    (sepBy
-      (emph (fmtBibLiteral "title" e))
+    (fmtSepBy
+      (fmtEmph (fmtBibLiteral "title" e))
       [Str ".", Space]
-      (sepBy
+      (fmtSepBy
         (fmtBibFieldLocation e)
         [Str ":", Space]
         (fmtBibList "publisher" e)))
@@ -310,10 +310,10 @@ fmtBibBookAfterAgents u e =
 -- (e.g. @article@, @incollection@). The @title@ part is not emphasized.
 fmtBibAYT :: CiteUnique -> BibEntry -> [Inline]
 fmtBibAYT u e =
-  sepBy
+  fmtSepBy
     (fmtBibFieldAuthors e)
     [Str ".", Space]
-    (sepBy
+    (fmtSepBy
       (fmtCiteYear u e)
       [Str ".", Space]
       (fmtBibLiteral "title" e))
@@ -328,13 +328,13 @@ fmtBibFieldAuthors = maybe [] fmtAgentsOuter . getBibAgents "author"
 -- Retrieve @editor@ field and format as primary (outer) agents.
 fmtBibFieldEditors :: BibEntry -> [Inline]
 fmtBibFieldEditors =
-  maybe [] (\ xs -> fmtAgentsOuter xs `endBy` editorSuffix xs) .
+  maybe [] (\ xs -> fmtAgentsOuter xs `fmtEndBy` editorSuffix xs) .
   getBibAgents "editor"
 
 -- Retrieve @editor@ field and format as secondary (inner) agents.
 fmtBibFieldEditorsInner :: BibEntry -> [Inline]
 fmtBibFieldEditorsInner =
-  maybe [] (\xs -> fmtAgentsInner xs `endBy` editorSuffix xs) .
+  maybe [] (\xs -> fmtAgentsInner xs `fmtEndBy` editorSuffix xs) .
   getBibAgents "editor"
 
 -- Retrieve @location@ (or @address@) list field.
@@ -367,9 +367,9 @@ data AgentFormat
 -- | Format an agent name according to some format.
 fmtAgent :: AgentFormat -> Agent -> [Inline]
 fmtAgent LastFirst (Agent f p l s) =
-  sepBy l [Str ",", Space] (sepBy (sepBy f [Space] p) [Str ",", Space] s)
+  fmtSepBy l [Str ",", Space] (fmtSepBy (fmtSepBy f [Space] p) [Str ",", Space] s)
 fmtAgent FirstLast (Agent f p l s) =
-  sepBy (sepBy f [Space] (sepBy p [Space] l)) [Str ",", Space] s
+  fmtSepBy (fmtSepBy f [Space] (fmtSepBy p [Space] l)) [Str ",", Space] s
 
 -- Format a list of primary (outer) agents, typically at the beginning
 -- of a bibliographic entry. The first agent is formatted 'LastFirst',
@@ -377,14 +377,14 @@ fmtAgent FirstLast (Agent f p l s) =
 fmtAgentsOuter :: [Agent] -> [Inline]
 fmtAgentsOuter [] = []
 fmtAgentsOuter (x:xs) =
-  sepItemList [Str ",", Space] [Space, Str "&", Space]
+  fmtSepEndBy [Str ",", Space] [Space, Str "&", Space]
     (fmtAgent LastFirst x : map (fmtAgent FirstLast) xs)
 
 -- Format a list of secondary (inner) agents, typically within a
 -- bibliographic entry. All agents are formatted 'FirstLast'.
 fmtAgentsInner :: [Agent] -> [Inline]
 fmtAgentsInner =
-  sepItemList [Str ",", Space] [Space, Str "&", Space] .
+  fmtSepEndBy [Str ",", Space] [Space, Str "&", Space] .
   map (fmtAgent FirstLast)
 
 -- Determine editor suffix, i.e. \"(ed.)\" or \"(eds.)\".
@@ -411,7 +411,7 @@ fmtBibLiteralAnyOf names entry = fromMaybe [] $
 -- Return the empty list in case of failure.
 fmtBibList :: BibFieldName -> BibEntry -> [Inline]
 fmtBibList name = maybe []
-  (sepItemList [Str ",", Space] [Space, Str "&", Space]) .
+  (fmtSepEndBy [Str ",", Space] [Space, Str "&", Space]) .
   getBibList name
 
 -- Try to retrieve an unwrapped literal list from a BibEntry.
@@ -419,45 +419,5 @@ fmtBibList name = maybe []
 -- or the empty list in case of failure.
 fmtBibListAnyOf :: [BibFieldName] -> BibEntry -> [Inline]
 fmtBibListAnyOf names entry = fromMaybe [] $
-  sepItemList [Str ",", Space] [Space, Str "&", Space] <$>
+  fmtSepEndBy [Str ",", Space] [Space, Str "&", Space] <$>
   msum (map (`getBibList` entry) names)
-
-
----------- combinators
-
--- Apply emphasis iff content is not null.
-emph :: [Inline] -> [Inline]
-emph [] = []
-emph xs@(_:_) = [FontStyle Emph xs]
-
--- @sepItemList midSep endSep itemlist@ separates items by @midSep@,
--- except for the last two items, which are separated by @endSep@.
---
--- Example:
---
--- > sepItemList ", " " and " ["one", "two", "three"]  ==  "one, two and three"
---
-sepItemList :: [a] -> [a] -> [[a]] -> [a]
-sepItemList _ _ [] = []
-sepItemList _ _ [i] = i
-sepItemList _ endSep [i,j] = i ++ endSep ++ j
-sepItemList midSep endSep (i:items@(_:_:_)) = i ++ midSep ++ sepItemList midSep endSep items
-
--- Insert separator iff both parts are not null.
-sepBy :: [a] -> [a] -> [a] -> [a]
-sepBy [] _ right = right
-sepBy left _ [] = left
-sepBy left@(_:_) sep right@(_:_) = left ++ sep ++ right
-
--- Add suffix iff content is not null.
---
--- Syntax: @endBy content suffix@.
-endBy :: [a] -> [a] -> [a]
-endBy = wrap []
-
--- Add prefix and suffix iff content is not null.
---
--- Syntax: @wrap prefix content suffix@.
-wrap :: [a] -> [a] -> [a] -> [a]
-wrap _ [] _ = []
-wrap pre is@(_:_) post = pre ++ is ++ post
