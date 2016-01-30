@@ -30,7 +30,7 @@ import Data.Monoid
 import Data.Text.Lazy (Text)
 import qualified Data.Text as T
 import Text.Blaze.Html5
-  ( (!), Html, toHtml, textValue, docTypeHtml, title
+  ( (!), Html, toHtml, textValue, docTypeHtml
   , h1, h2, ul, ol, li, p, a)
 import Text.Blaze.Html5.Attributes
   (name, charset, content, href)
@@ -40,6 +40,7 @@ import qualified Text.Blaze.Html5.Attributes as A
 
 import Text.Bib.Writer
 import Text.Doc.Types
+import Text.Doc.Section
 
 
 ---------- main: Doc to HTML conversion
@@ -67,9 +68,27 @@ inlines2html = renderHtml . inlines
 mkHead :: Doc -> Html
 mkHead doc = H.head $ do
   H.meta ! charset "utf-8"
-  title $ inlines (docTitle doc)
+  H.title $ inlines (docTitle doc)
   H.meta ! name "viewport" ! content "width=device-width, initial-scale=1.0"
   H.meta ! name "generator" ! content "texhs"
+
+----- toc
+
+-- Create table of contents as a @<nav>@ element.
+toc :: Doc -> Html
+toc doc =
+  let (SectionDoc _ secs) = doc2secdoc doc
+  in unless (null secs) $
+       H.nav ! A.id "toc" $
+       ul $ mapM_ tocEntry secs
+
+-- Create an entry for a single section in the toc.
+tocEntry :: Section -> Html
+tocEntry (Section _ anchor title _ subsecs) = do
+  li $ a ! href (textValue (internalAnchorTarget anchor))
+     $ inlines title
+  unless (null subsecs) $
+    ul $ mapM_ tocEntry subsecs
 
 ----- footnotes
 
@@ -135,6 +154,7 @@ mkBody :: Doc -> Html
 mkBody doc@(Doc _ docbody) = H.body $ do
   h1 $ inlines (docTitle doc)
   h2 $ mapM_ inlines (docAuthors doc)
+  toc doc
   blocks docbody
   footnotes doc
   bibliography doc

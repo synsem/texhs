@@ -104,7 +104,12 @@ testsDoc = testGroup "documents"
               , metaGenerator
               , "</head><body>"
               , "<h1>No title</h1><h2>Nobody</h2>"
-                -- body
+                -- nav
+              , "<nav id=\"toc\"><ul>"
+              , "<li><a href=\"#sec-1\">one</a></li>"
+              , "<li><a href=\"#sec-2\">two</a></li>"
+              , "<li><a href=\"#sec-3\">three</a></li></ul></nav>"
+                -- content
               , "<h2 id=\"sec-1\">one</h2>"
               , "<p>One"
               , "<a id=\"note-1-1-ref\" class=\"note-ref\" href=\"#note-1-1\"><sup>1.1</sup></a>"
