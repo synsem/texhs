@@ -47,6 +47,7 @@ module Text.Doc.Reader.TeX
 
 import Control.Applicative
 import Control.Monad
+import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
@@ -433,11 +434,36 @@ rm = FontStyle Normal <$> (cmd "rm" *> inlines)
 -- | Parse @cite@ command.
 cite :: Parser Inline
 cite = do
-  arg <- inlineCmd "cite"
-  let keys = (T.split (==',') . T.pack . concatMap plain) arg
+  (citemode, keys) <- choice citationParsers
   modifyMeta (registerCiteKeys keys)
-  let mcite = MultiCite CiteParen [] [] [SingleCite [] [] keys]
+  let mcite = MultiCite citemode [] [] [SingleCite [] [] keys]
   return (Citation mcite Nothing)
+  where
+    citationParsers :: [Parser (CiteMode, [CiteKey])]
+    citationParsers = map
+      (\(name, mode) -> (,) mode <$> (parseCiteKeys <$> inlineCmd name))
+      (M.assocs citeCommandMap)
+
+-- Citation modes associated with known citation commands.
+citeCommandMap :: Map String CiteMode
+citeCommandMap = M.fromList
+  [ -- biblatex
+    ("cite", CiteBare)
+  , ("parencite", CiteParen)
+  , ("textcite", CiteText)
+    -- natbib
+  , ("citet", CiteText)
+  , ("citep", CiteParen)
+  , ("citealt", CiteBare)
+  , ("citealp", CiteBare)
+  ]
+
+-- Extract CiteKeys from the obligatory argument of a citation command.
+parseCiteKeys :: [Inline] -> [CiteKey]
+parseCiteKeys =
+  filter (not . T.null) .
+  map T.strip . T.split (==',') .
+  T.pack . concatMap plain
 
 -- | Parse @footnote@ command.
 note :: Parser Inline
@@ -493,7 +519,7 @@ number = parseDigits <$> plainValue
 
 -- | Skip a single inter-level element.
 skipInterlevel :: Parser ()
-skipInterlevel = choice [label, bookregion]
+skipInterlevel = choice [label, bookregion, nocite]
 
 -- | Parse @label@ command.
 label :: Parser ()
@@ -512,6 +538,12 @@ bookregion = choice (map parseRegion regionMap)
                 , ("mainmatter", Mainmatter)
                 , ("appendix", Backmatter)
                 , ("backmatter", Backmatter)]
+
+-- | Parse @nocite@ command.
+nocite :: Parser ()
+nocite = do
+  keys <- parseCiteKeys <$> inlineCmd "nocite"
+  modifyMeta (registerCiteKeys keys)
 
 
 ---------- Unit parsers: whitespace

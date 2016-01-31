@@ -233,6 +233,7 @@ processCtrlseq name = case name of
 commandDB :: Map String ArgSpec
 commandDB = M.unions [ M.map toArgSpec argspecsSyntactic
                      , M.map toArgSpec argspecsSemantic
+                     , argspecsCitation
                      , argspecsSectioning]
   where
     argspecsSemantic = M.fromList
@@ -244,7 +245,6 @@ commandDB = M.unions [ M.map toArgSpec argspecsSyntactic
       , ("textit", (0,1))
       , ("label", (0,1))
       , ("caption", (0,1))
-      , ("cite", (1,1))
       , ("centering", (0,0))
       , ("multicolumn", (0,3))
       , ("frontmatter", (0,0))
@@ -257,6 +257,20 @@ commandDB = M.unions [ M.map toArgSpec argspecsSyntactic
         -- graphicx
       , ("includegraphics", (1,1))
       ]
+    argspecsCitation = M.fromList $ zip
+      [ -- biblatex
+        "cite"
+      , "parencite"
+      , "textcite"
+      , "citeauthor"
+      , "citeyear"
+      , "nocite"
+        -- natbib
+      , "citet"
+      , "citep"
+      , "citealt"
+      , "citealp"
+      ] (repeat [OptionalStar, Optional, Optional, Mandatory])
     argspecsSectioning = M.fromList $ zip
       [  -- LaTeX
         "part"

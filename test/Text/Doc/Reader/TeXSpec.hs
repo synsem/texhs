@@ -39,6 +39,7 @@ tests = testGroup "Text.Doc.Reader.TeXSpec"
   [ testsBasic
   , testsBlocks
   , testsInlines
+  , testsCites
   , testsMath
   , testsSections
   , testsLists
@@ -149,6 +150,57 @@ testsInlines = testGroup "inline elements"
     @?=
     Right [FontStyle Emph [Str "one", FontStyle Normal
       [Str "two", FontStyle Emph [Str "three"]]]]
+  ]
+
+testsCites :: Test
+testsCites = testGroup "citations"
+  [ testCase "empty citation" $
+    runParser (inlines <* eof)
+      [Command "cite" [OblArg []]]
+    @?=
+    Right [Citation (MultiCite CiteBare [] []
+      [SingleCite [] [] []]) Nothing]
+  , testCase "simple citation" $
+    runParser (inlines <* eof)
+      [Command "cite" [OblArg [Plain "one"]]]
+    @?=
+    Right [Citation (MultiCite CiteBare [] []
+      [SingleCite [] [] ["one"]]) Nothing]
+  , testCase "single citation with two keys" $
+    runParser (inlines <* eof)
+      [Command "cite" [OblArg [Plain "one,", White, Plain "two"]]]
+    @?=
+    Right [Citation (MultiCite CiteBare [] []
+      [SingleCite [] [] ["one", "two"]]) Nothing]
+  , testCase "simple textcite" $
+    runParser (inlines <* eof)
+      [Command "textcite" [OblArg [Plain "one"]]]
+    @?=
+    Right [Citation (MultiCite CiteText [] []
+      [SingleCite [] [] ["one"]]) Nothing]
+  , testCase "simple parencite" $
+    runParser (inlines <* eof)
+      [Command "parencite" [OblArg [Plain "one"]]]
+    @?=
+    Right [Citation (MultiCite CiteParen [] []
+      [SingleCite [] [] ["one"]]) Nothing]
+  , testCase "nocite disappears" $
+    runParser (inlines <* eof)
+      [Command "nocite" [OblArg [Plain "one"]]]
+    @?=
+    Right []
+  , testCase "citation keys are added to meta" $
+    either (error . show) (M.lookup "zero" . metaCiteMap . snd)
+      (runParserWithState (inlines <* eof)
+        [Command "cite" [OblArg [Plain "zero"]]])
+    @?=
+    Just 0
+  , testCase "nocite keys are added to meta" $
+    either (error . show) (M.lookup "one" . metaCiteMap . snd)
+      (runParserWithState (inlines <* eof)
+        [Command "nocite" [OblArg [Plain "zero,", White, Plain "one"]]])
+    @?=
+    Just 1
   ]
 
 testsMath :: Test
