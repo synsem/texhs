@@ -45,7 +45,9 @@ module Text.Doc.Reader.TeX
  , literalString
    -- * Unit parsers
  , skipSpace
- , skipWhite
+ , skipSpaces
+ , skipPar
+ , skipPars
  , skipInterlevel
  ) where
 
@@ -94,7 +96,7 @@ doc = preamble *> docbody
 
 -- | Parse meta information from a LaTeX preamble.
 preamble :: Parser ()
-preamble = void $ many skipWhite *> many (lexemeBlock preambleElem)
+preamble = skipPars <* many (lexemeBlock preambleElem)
 
 -- Parse a single LaTeX preamble element.
 preambleElem :: Parser ()
@@ -106,7 +108,7 @@ docbody = grpDown "document" *> dropParents *> content
 
 -- Parse document content.
 content :: Parser Content
-content = many (choice [skipWhite, skipInterlevel]) *> blocks <* eof
+content = skipPars *> blocks <* eof
 
 
 ---------- Preamble parsers
@@ -146,19 +148,19 @@ date = do
 -- Combinator that drops trailing whitespace ('White')
 -- and void inter-level elements.
 lexeme :: Parser a -> Parser a
-lexeme p = p <* many (choice [skipSpace, skipInterlevel])
+lexeme p = p <* skipSpaces
 
 -- Combinator that drops any trailing whitespace ('White'),
 -- paragraph breaks ('Par') and void inter-level elements.
 lexemeBlock :: Parser a -> Parser a
-lexemeBlock p = p <* many (choice [skipWhite, skipInterlevel])
+lexemeBlock p = p <* skipPars
 
 
 ---------- Block parsers
 
 -- | Parse any number of blocks.
 blocks :: Parser [Block]
-blocks = many (lexeme block)
+blocks = many (lexemeBlock block)
 
 -- | Parse a single block.
 block :: Parser Block
@@ -172,7 +174,7 @@ blockCmd name = inCmd name blocks
 
 -- | Parse a single (non-empty) paragraph.
 para :: Parser Block
-para = Para <$> ((:) <$> inline <*> inlines <* optional skipPar)
+para = Para <$> someInlines <* skipPars
 
 -- | Parse a chapter or section heading.
 header :: Parser Block
@@ -183,7 +185,7 @@ header = do
                   (getPhantomAnchor <$> getMeta)
              else modifyMeta (registerHeader level') *>
                   (metaAnchorCurrent <$> getMeta)
-  void $ many (choice [skipWhite, skipInterlevel])
+  skipPars -- may contain label assignments, thus must follow 'modifyMeta'
   return (Header level' anchor' title')
   where
     headerParsers = map parseHeader headerMap ++
@@ -204,17 +206,17 @@ header = do
 -- | Parse an @itemize@ group.
 itemize :: Parser Block
 itemize = List UnorderedList <$>
-  inGrp "itemize" (list (cmd "item") blocks)
+  inGrp "itemize" (skipPars *> list (lexemeBlock (cmd "item")) blocks)
 
 -- | Parse an @enumerate@ group.
 enumerate :: Parser Block
 enumerate = List OrderedList <$>
-  inGrp "enumerate" (list (cmd "item") blocks)
+  inGrp "enumerate" (skipPars *> list (lexemeBlock (cmd "item")) blocks)
 
 -- | Parse a @quotation@ group.
 quotation :: Parser Block
 quotation = QuotationBlock <$>
-  inGrp "quotation" blocks
+  inGrp "quotation" (skipPars *> blocks)
 
 -- Note: For simplicity, we allow top-level @xlist@ groups.
 -- They are numbered relative to the most recent @ex@ item.
@@ -230,7 +232,7 @@ itemblock = lexemeBlock $ choice
 
 -- Parse the body of an @exe@ or @xlist@ group.
 itemblockInner :: Parser Block
-itemblockInner = many skipWhite *>
+itemblockInner = skipPars *>
   (ListItemBlock <$> many (lexemeBlock exItem))
 
 -- Parse an @ex@ command (in an @exe@ or @xlist@ group)
@@ -300,10 +302,10 @@ glossline =
 -- @includegraphics@ (from @graphicx@ package) and @caption@.
 figure :: Parser Block
 figure = inGrp "figure" $ do
-  anchor <- registerFigure <* many skipWhite
-  void $ optional (lexemeBlock (choice
-         [ void (cmd "centering")
-         , grpUnwrap "center"]))
+  anchor <- registerFigure
+  skipPars <* optional (lexemeBlock (choice
+    [ void (cmd "centering")
+    , grpUnwrap "center"]))
   imgloc <- lexemeBlock (literalTextArg "includegraphics")
   imgdesc <- lexemeBlock (inlineCmd "caption")
   return (Figure anchor imgloc imgdesc)
@@ -324,10 +326,10 @@ registerFigure = do
 -- and a @caption@ command.
 table :: Parser Block
 table = inGrp "table" $ do
-  anchor <- registerTable <* many skipWhite
-  void $ optional (lexemeBlock (choice
-         [ void (cmd "centering")
-         , grpUnwrap "center"]))
+  anchor <- registerTable
+  skipPars <* optional (lexemeBlock (choice
+    [ void (cmd "centering")
+    , grpUnwrap "center"]))
   tabledata <- lexemeBlock tabular
   tabledesc <- lexemeBlock (inlineCmd "caption")
   return (Table anchor tabledesc tabledata)
@@ -361,6 +363,17 @@ registerTable = do
 
 ---------- Inline parsers
 
+-- | Parse a single inline element.
+inline :: Parser Inline
+inline = space <|> inlineWord
+
+-- Parse a non-space inline element.
+inlineWord :: Parser Inline
+inlineWord = choice
+  [ str, emph, em, rm
+  , cite, note, ref, href, url
+  , math ]
+
 -- | Parse any number of inline elements.
 --
 -- Anonymous groups are flattened.
@@ -369,6 +382,14 @@ inlines = concat <$> many (choice
   [ count 1 inline
   , inGrp "" inlines
   , [] <$ skipInterlevel ])
+
+-- | Parse a non-empty list of inline elements.
+--
+-- Anonymous groups are flattened.
+someInlines :: Parser [Inline]
+someInlines = choice
+  [ (:) <$> inline <*> inlines
+  , (++) <$> inGrp "" someInlines <*> inlines ]
 
 -- Parse content of a math group.
 inlinesMath :: Parser [Inline]
@@ -380,17 +401,6 @@ inlinesMath = concat <$> many (choice
 -- | Parse a single inline element in a math group.
 inlineMath :: Parser Inline
 inlineMath = sup <|> sub <|> inline
-
--- | Parse a single inline element.
-inline :: Parser Inline
-inline = space <|> inlineWord
-
--- Parse a non-space inline element.
-inlineWord :: Parser Inline
-inlineWord = choice
-  [ str, emph, em, rm
-  , cite, note, ref, href, url
-  , math ]
 
 -- Parse inline elements in the first mandatory argument of a command.
 inlineCmd :: String -> Parser [Inline]
@@ -537,7 +547,7 @@ literalString = concat <$> many (choice
   , literalSub
   , literalSup
   , literalAlign
-  , literalWhite
+  , literalSpace
   ])
 
 -- Extract string from 'Plain' atom.
@@ -563,8 +573,8 @@ literalAlign :: Parser String
 literalAlign = "&" <$ satisfy isAlignMark
 
 -- Deconstruct 'White' atom to normal space (\" \").
-literalWhite :: Parser String
-literalWhite = " " <$ skipWhite
+literalSpace :: Parser String
+literalSpace = " " <$ skipSpace
 
 
 ---------- Unit parsers: void inter-level elements
@@ -600,14 +610,20 @@ nocite = do
 
 ---------- Unit parsers: whitespace
 
+-- | Skip any inline-level whitespace,
+-- including inter-level elements.
+skipSpaces :: Parser ()
+skipSpaces = void $ many (choice [skipSpace, skipInterlevel])
+
+-- | Skip any block-level whitespace,
+-- including inter-level elements.
+skipPars :: Parser ()
+skipPars = void $ many (choice [skipPar, skipSpace, skipInterlevel])
+
 -- | Skip a single whitespace element ('White').
 skipSpace :: Parser ()
 skipSpace = void $ satisfy isWhite
 
--- | Skip a 'Par' element.
+-- | Skip a single paragraph break ('Par').
 skipPar :: Parser ()
 skipPar = void $ satisfy isPar
-
--- | Skip a 'White' or 'Par' element.
-skipWhite :: Parser ()
-skipWhite = void $ satisfy (\x -> isPar x || isWhite x)

@@ -145,14 +145,14 @@ testsLists = testGroup "lists"
     readTeX "" "\\begin{itemize}\\item one\\item two\\end{itemize}"
     @?=
     [Group "itemize" []
-      [Command "item" [], Plain "one"
-      ,Command "item" [], Plain "two"]]
+      [Command "item" [OptArg []], Plain "one"
+      ,Command "item" [OptArg []], Plain "two"]]
   , testCase "par within list item" $
     readTeX "" "\\begin{itemize}\\item one\n\none\\item two\\end{itemize}"
     @?=
     [Group "itemize" []
-      [Command "item" [], Plain "one", Par, Plain "one"
-      ,Command "item" [], Plain "two"]]
+      [Command "item" [OptArg []], Plain "one", Par, Plain "one"
+      ,Command "item" [OptArg []], Plain "two"]]
   ]
 
 testsCmdArgs :: Test

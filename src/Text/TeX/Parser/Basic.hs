@@ -248,6 +248,7 @@ commandDB = M.unions [ M.map toArgSpec argspecsSyntactic
         ("rm", (0,0))
       , ("it", (0,0))
         -- LaTeX
+      , ("item", (1,0))
       , ("textrm", (0,1))
       , ("textit", (0,1))
       , ("label", (0,1))

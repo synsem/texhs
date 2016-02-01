@@ -112,6 +112,31 @@ testsBlocks = testGroup "block elements"
       [Group "quotation" [] [Plain "one"]]
     @?=
     Right [QuotationBlock [Para [Str "one"]]]
+  , testCase "block quote with leading and trailing par breaks" $
+    runParser (blocks <* eof)
+      [Group "quotation" [] [Par, Plain "one", Par], Par]
+    @?=
+    Right [QuotationBlock [Para [Str "one"]]]
+  , testCase "adjacent inline groups form a single paragraph" $
+    runParser (blocks <* eof)
+      [ Plain "one", White
+      , Group "" [] [Plain "two", White]
+      , Group "" [] [Plain "three"]
+      , Par
+      , Plain "four"]
+    @?=
+    Right [ Para [Str "one", Space, Str "two", Space, Str "three"]
+          , Para [Str "four"]]
+  , testCase "adjacent inline groups form a single paragraph" $
+    runParser (blocks <* eof)
+      [ Group "" [] [Plain "one", White]
+      , Group "" [] [Plain "two", White]
+      , Group "" [] [Plain "three"]
+      , Par
+      , Group "" [] [Plain "four"]]
+    @?=
+    Right [ Para [Str "one", Space, Str "two", Space, Str "three"]
+          , Para [Str "four"]]
   ]
 
 testsInlines :: Test
@@ -150,6 +175,13 @@ testsInlines = testGroup "inline elements"
     @?=
     Right [FontStyle Emph [Str "one", FontStyle Normal
       [Str "two", FontStyle Emph [Str "three"]]]]
+  , testCase "adjacent inlines in groups" $
+    runParser (inlines <* eof)
+      [ Group "" [] [Plain "one", White]
+      , Group "" [] [Plain "two", White]
+      , Group "" [] [Plain "three"]]
+    @?=
+    Right [Str "one", Space, Str "two", Space, Str "three"]
   ]
 
 testsCites :: Test
@@ -339,6 +371,40 @@ testsLists = testGroup "list blocks"
     Right [List OrderedList
       [ [Para [Str "one",Space,Str "one"]]
       , [Para [Str "two"]]]]
+  , testCase "itemize list with leading and trailing par breaks" $
+    runParser (blocks <* eof)
+      [Group "itemize" []
+        [Par
+        ,Command "item" [], Plain "one", White, Plain "one"
+        ,Command "item" [], Plain "two", White], Par]
+    @?=
+    Right [List UnorderedList
+      [ [Para [Str "one",Space,Str "one"]]
+      , [Para [Str "two",Space]]]]
+  , testCase "itemize list with many par breaks" $
+    runParser (blocks <* eof)
+      [Group "itemize" []
+        [Par
+        ,Command "item" [], Par, Plain "one", Par, Plain "one"
+        ,Command "item" [], Par, Plain "two", Par], Par]
+    @?=
+    Right [List UnorderedList
+      [ [Para [Str "one"], Para [Str "one"]]
+      , [Para [Str "two"]]]]
+  , testCase "enumerate list with leading par break" $
+    runParser (blocks <* eof)
+      [Group "enumerate" []
+        [Par, Command "item" [], Plain "one", White]]
+    @?=
+    Right [List OrderedList
+      [[Para [Str "one",Space]]]]
+  , testCase "enumerate list with par break after 'item' command" $
+    runParser (blocks <* eof)
+      [Group "enumerate" []
+        [Command "item" [], Par, Plain "one"]]
+    @?=
+    Right [List OrderedList
+      [[Para [Str "one"]]]]
   , testCase "nested list" $
     runParser (inlines *> itemize) exampleList2
     @?=
