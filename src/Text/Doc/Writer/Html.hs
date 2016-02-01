@@ -71,15 +71,28 @@ mkHead doc = H.head $ do
   H.meta ! name "viewport" ! content "width=device-width, initial-scale=1.0"
   H.meta ! name "generator" ! content "texhs"
 
+----- header
+
+-- Create @<header>@ element.
+header :: Doc -> Html
+header doc = H.header $ do
+  h1 ! A.class_ "title" $ inlines (docTitle doc)
+  h2 ! A.class_ "author" $ mapM_ inlines (docAuthors doc)
+
 ----- toc
 
 -- Create a table of contents.
 toc :: Doc -> Html
 toc doc =
-  let (SectionDoc _ secs) = doc2secdoc doc
+  let (SectionDoc meta secs) = doc2secdoc doc
   in unless (null secs) $
        H.nav ! A.id "toc" $
-       ul $ mapM_ tocEntry secs
+       ul $ do
+         mapM_ tocEntry secs
+         unless (M.null (metaNoteMap meta))
+           (li $ a ! href "#footnotes" $ "Footnotes")
+         unless (M.null (metaCiteDB meta))
+           (li $ a ! href "#bibliography" $ "Bibliography")
 
 -- Create a toc entry for a single section (and its subsections).
 tocEntry :: Section -> Html
@@ -161,12 +174,12 @@ writeBibEntry (CiteEntry anchor _ _ formatted) =
 -- Create @<body>@ element.
 mkBody :: Doc -> Html
 mkBody doc@(Doc _ docbody) = H.body $ do
-  h1 $ inlines (docTitle doc)
-  h2 $ mapM_ inlines (docAuthors doc)
+  header doc
   toc doc
-  blocks docbody
-  footnotes doc
-  bibliography doc
+  H.main $ do
+    blocks docbody
+    footnotes doc
+    bibliography doc
 
 -- Convert 'Block' elements to HTML.
 blocks :: [Block] -> Html

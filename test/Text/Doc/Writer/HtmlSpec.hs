@@ -44,9 +44,10 @@ testsDoc = testGroup "documents"
               , "<title></title>"
               , metaViewport
               , metaGenerator
-              , "</head><body>"
-              , "<h1></h1><h2></h2>"
-              , "</body></html>"]
+              , "</head><body><header>"
+              , "<h1 class=\"title\"></h1>"
+              , "<h2 class=\"author\"></h2></header><main>"
+              , "</main></body></html>"]
   , testCase "simple document" $
     doc2html (Doc
       defaultMeta { metaTitle = [Str "No", Space, Str "title"]
@@ -59,10 +60,11 @@ testsDoc = testGroup "documents"
               , "<title>No title</title>"
               , metaViewport
               , metaGenerator
-              , "</head><body>"
-              , "<h1>No title</h1><h2>Nobody</h2>"
+              , "</head><body><header>"
+              , "<h1 class=\"title\">No title</h1>"
+              , "<h2 class=\"author\">Nobody</h2></header><main>"
               , "<p>hello <em>world</em></p>"
-              , "</body></html>"]
+              , "</main></body></html>"]
   , testCase "document with chapters and footnotes" $
     doc2html (Doc
       defaultMeta { metaTitle = [Str "No", Space, Str "title"]
@@ -102,14 +104,17 @@ testsDoc = testGroup "documents"
               , "<title>No title</title>"
               , metaViewport
               , metaGenerator
-              , "</head><body>"
-              , "<h1>No title</h1><h2>Nobody</h2>"
+              , "</head><body><header>"
+              , "<h1 class=\"title\">No title</h1>"
+              , "<h2 class=\"author\">Nobody</h2></header>"
                 -- nav
               , "<nav id=\"toc\"><ul>"
               , "<li><a href=\"#sec-1\">1 one</a></li>"
               , "<li><a href=\"#sec-2\">2 two</a></li>"
-              , "<li><a href=\"#sec-3\">3 three</a></li></ul></nav>"
+              , "<li><a href=\"#sec-3\">3 three</a></li>"
+              , "<li><a href=\"#footnotes\">Footnotes</a></li></ul></nav>"
                 -- content
+              , "<main>"
               , "<h2 id=\"sec-1\">1 one</h2>"
               , "<p>One"
               , "<a id=\"note-1-1-ref\" class=\"note-ref\" href=\"#note-1-1\"><sup>1.1</sup></a>"
@@ -136,7 +141,7 @@ testsDoc = testGroup "documents"
               , "<p><a class=\"note-backref\" href=\"#note-3-2-ref\">^</a></p></li>"
               , "<li id=\"note-3-3\"><p>Footnote four</p>"
               , "<p><a class=\"note-backref\" href=\"#note-3-3-ref\">^</a></p></li>"
-              , "</ol></body></html>"]
+              , "</ol></main></body></html>"]
   ]
 
 testsBlocks :: Test
