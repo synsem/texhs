@@ -172,10 +172,17 @@ mathInner = many $ choice [plain, group, command, white, alignMark,
 arg :: TeXParser Arg
 arg = OblArg <$> argbody
 
+-- Note: This parser will fail on certain unexpected atoms
+-- that are not allowed as bare (ungrouped) arguments to a command
+-- (e.g. whitespace, align marks, math groups, superscripts, subscripts).
 -- | Parse the content of an obligatory argument:
 -- the content of a group or a single atom.
 argbody :: TeXParser TeX
-argbody = groupbody <|> count 1 anyPlainChar
+argbody = choice
+  [ groupbody
+  , count 1 anyPlainChar
+  , count 1 command
+  ]
 
 -- Use this parser as a heuristic to eat up possible obligatory
 -- arguments of unknown control sequences.

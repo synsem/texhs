@@ -375,6 +375,22 @@ testsAccents = testGroup "accents"
     parseTeX "" (mkCtrlSeq "\"": mkGroup [mkCtrlSeq "i"])
     @?=
     [Plain "\x0131\x0308"]
+  , testCase "circumflex applied to normal i" $
+    parseTeX "" [mkCtrlSeq "^", mkLetter 'i']
+    @?=
+    [Plain "i\x0302"]
+  , testCase "circumflex applied to dotless i in singleton group argument" $
+    parseTeX "" (mkCtrlSeq "^": mkGroup [mkCtrlSeq "i"])
+    @?=
+    [Plain "\x0131\x0302"]
+  , testCase "obligatory argument of circumflex may be a command" $
+    runTeXParser texParser "" [mkCtrlSeq "^", mkCtrlSeq "i"]
+    @?=
+    Right [Command "^" [OblArg [Command "i" []]]]
+  , testCase "circumflex applied to dotless i" $
+    parseTeX "" [mkCtrlSeq "^", mkCtrlSeq "i"]
+    @?=
+    [Plain "\x0131\x0302"]
   , testCase "double accent in text mode: diaeresis and circumflex" $
     parseTeX "" (mkCtrlSeq "\"": mkGroup (mkCtrlSeq "^" : mkString "a"))
     @?=
