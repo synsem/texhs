@@ -61,14 +61,17 @@ populateCiteDB db meta =
 -- and thus have no online access to document meta information
 -- (e.g. writers based on blaze-markup or blaze-html).
 
--- | Distribute document information from Meta to content elements
--- (blocks and inlines).
+-- | Distribute global document information from Meta
+-- to content elements (blocks and inlines).
 --
--- In particular, inject formatted versions of citations into the
--- second argument of 'Citation' inlines.
+-- In particular, inject data into the second arguments of
+-- 'Citation' and 'Pointer' inline elements.
 distributeMeta :: Doc -> Doc
 distributeMeta (Doc meta content) =
-  Doc meta (runReader (distributeMetaToContent content) meta)
+  let distributeTo = flip runReader meta . distributeMetaToContent
+      -- Content elements within 'Meta' must be processed as well.
+      meta' = meta { metaNoteMap = M.map distributeTo (metaNoteMap meta) }
+  in Doc meta' (distributeTo content)
 
 distributeMetaToContent :: Content -> Reader Meta Content
 distributeMetaToContent = mapM distributeMetaToBlock
