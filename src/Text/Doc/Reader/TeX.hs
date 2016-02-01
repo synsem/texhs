@@ -447,7 +447,7 @@ cite = do
   where
     citationParsers :: [Parser (CiteMode, [CiteKey])]
     citationParsers = map
-      (\(name, mode) -> (,) mode <$> (parseCiteKeys <$> inlineCmd name))
+      (\(name, mode) -> (,) mode <$> (parseCiteKeys <$> literalTextArg name))
       (M.assocs citeCommandMap)
 
 -- Citation modes associated with known citation commands.
@@ -467,11 +467,10 @@ citeCommandMap = M.fromList
   ]
 
 -- Extract CiteKeys from the obligatory argument of a citation command.
-parseCiteKeys :: [Inline] -> [CiteKey]
+parseCiteKeys :: Text -> [CiteKey]
 parseCiteKeys =
   filter (not . T.null) .
-  map T.strip . T.split (==',') .
-  T.pack . concatMap plain
+  map T.strip . T.split (==',')
 
 -- | Parse @footnote@ command.
 note :: Parser Inline
@@ -595,7 +594,7 @@ bookregion = choice (map parseRegion regionMap)
 -- | Parse @nocite@ command.
 nocite :: Parser ()
 nocite = do
-  keys <- parseCiteKeys <$> inlineCmd "nocite"
+  keys <- parseCiteKeys <$> literalTextArg "nocite"
   modifyMeta (registerCiteKeys keys)
 
 

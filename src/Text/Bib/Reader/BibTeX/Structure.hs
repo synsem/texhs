@@ -125,9 +125,9 @@ unwrapFieldValue (ComposedField vs) = T.concat (map unwrapFieldValue vs)
 -- A whitelist of special characters that are allowed
 -- in citation keys, entry type names and field keys.
 --
--- Allowed characters: @\@.:;!?+-*/[]@.
+-- Allowed characters: @_\@.:;!?+-*/[]@.
 safeSpecialChars :: String
-safeSpecialChars = "@.:;!?+-*/[]"
+safeSpecialChars = "_@.:;!?+-*/[]"
 
 
 -------------------- Parser types

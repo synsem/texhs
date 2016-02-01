@@ -166,6 +166,19 @@ testsCites = testGroup "citations"
     @?=
     Right [Citation (MultiCite CiteBare [] []
       [SingleCite [] [] ["one"]]) Nothing]
+  , testCase "citekey with space and underscore" $
+    runParser (inlines <* eof)
+      [Command "cite" [OblArg
+        [Plain "a", SubScript [Plain "b"], Plain "2", White, Plain "c"]]]
+    @?=
+    Right [Citation (MultiCite CiteBare [] []
+      [SingleCite [] [] ["a_b2 c"]]) Nothing]
+  , testCase "nocitekey with space and underscore" $
+    runParser (inlines <* eof)
+      [Command "nocite" [OblArg
+        [Plain "a", SubScript [Plain "b"], Plain "2", White, Plain "c"]]]
+    @?=
+    Right []
   , testCase "single citation with two keys" $
     runParser (inlines <* eof)
       [Command "cite" [OblArg [Plain "one,", White, Plain "two"]]]
