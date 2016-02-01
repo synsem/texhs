@@ -77,6 +77,8 @@ mkHead doc = H.head $ do
 header :: Doc -> Html
 header doc = H.header $ do
   h1 ! A.class_ "title" $ inlines (docTitle doc)
+  unless (null (docSubTitle doc)) $
+    h1 ! A.class_ "subtitle" $ inlines (docSubTitle doc)
   h2 ! A.class_ "author" $ mapM_ inlines (docAuthors doc)
 
 ----- toc

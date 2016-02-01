@@ -83,7 +83,10 @@ header doc = el "teiHeader" $ fileDesc doc
 fileDesc :: SectionDoc -> Markup
 fileDesc doc = el "fileDesc" $ do
   el "titleStmt" $ do
-    el "title" (inlines (docTitle doc))
+    el "title" ! attr "type" "full" $ do
+      el "title" ! attr "type" "main" $ inlines (docTitle doc)
+      unless (null (docSubTitle doc)) $
+        el "title" ! attr "type" "sub" $ inlines (docSubTitle doc)
     mapM_ (el "author" . inlines) (docAuthors doc)
   el "publicationStmt" $ p (text "Unknown")
   el "sourceDesc" $ p (text "Born digital.")

@@ -42,7 +42,8 @@ testsDoc = testGroup "documents"
     LT.concat [ "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
               , "<TEI xmlns=\"http://www.tei-c.org/ns/1.0\">"
               , "<teiHeader><fileDesc>"
-              , "<titleStmt><title></title></titleStmt>"
+              , "<titleStmt><title type=\"full\">"
+              , "<title type=\"main\"></title></title></titleStmt>"
               , "<publicationStmt><p>Unknown</p></publicationStmt>"
               , "<sourceDesc><p>Born digital.</p></sourceDesc>"
               , "</fileDesc></teiHeader>"
@@ -53,7 +54,8 @@ testsDoc = testGroup "documents"
               , "<back></back></text></TEI>"]
   , testCase "simple document" $
     doc2xml (Doc
-      defaultMeta { metaTitle = [Str "No title"]
+      defaultMeta { metaTitle = [Str "No", Space, Str "title"]
+                  , metaSubTitle = [Str "No", Space, Str "subtitle"]
                   , metaAuthors = [[Str "Nobody"]]
                   , metaDate = [Str "2015-12-31"] }
       [ Header 2 (SectionAnchor (SectionInfo Mainmatter
@@ -64,7 +66,9 @@ testsDoc = testGroup "documents"
     LT.concat [ "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
               , "<TEI xmlns=\"http://www.tei-c.org/ns/1.0\">"
               , "<teiHeader><fileDesc>"
-              , "<titleStmt><title>No title</title>"
+              , "<titleStmt><title type=\"full\">"
+              , "<title type=\"main\">No title</title>"
+              , "<title type=\"sub\">No subtitle</title></title>"
               , "<author>Nobody</author></titleStmt>"
               , "<publicationStmt><p>Unknown</p></publicationStmt>"
               , "<sourceDesc><p>Born digital.</p></sourceDesc>"

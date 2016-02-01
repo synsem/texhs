@@ -51,6 +51,7 @@ testsDoc = testGroup "documents"
   , testCase "simple document" $
     doc2html (Doc
       defaultMeta { metaTitle = [Str "No", Space, Str "title"]
+                  , metaSubTitle = [Str "No", Space, Str "subtitle"]
                   , metaAuthors = [[Str "Nobody"]]
                   , metaDate = [Str "2015-12-31"] }
       [Para [Str "hello", Space, FontStyle Emph [Str "world"]]])
@@ -62,6 +63,7 @@ testsDoc = testGroup "documents"
               , metaGenerator
               , "</head><body><header>"
               , "<h1 class=\"title\">No title</h1>"
+              , "<h1 class=\"subtitle\">No subtitle</h1>"
               , "<h2 class=\"author\">Nobody</h2></header><main>"
               , "<p>hello <em>world</em></p>"
               , "</main></body></html>"]

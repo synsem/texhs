@@ -100,7 +100,9 @@ preamble = skipPars <* many (lexemeBlock preambleElem)
 
 -- Parse a single LaTeX preamble element.
 preambleElem :: Parser ()
-preambleElem = choice [title, authors, date, usepkg, documentclass]
+preambleElem = choice
+  [ title, subtitle, authors, date
+  , usepkg, documentclass ]
 
 -- | Parse content from a LaTeX document body.
 docbody :: Parser Content
@@ -127,6 +129,13 @@ title = do
   title' <- inlineCmd "title"
   meta <- getMeta
   putMeta (meta { metaTitle = title' })
+
+-- Parse document subtitle.
+subtitle :: Parser ()
+subtitle = do
+  subtitle' <- inlineCmd "subtitle"
+  meta <- getMeta
+  putMeta (meta { metaSubTitle = subtitle' })
 
 -- Parse document authors.
 authors :: Parser ()

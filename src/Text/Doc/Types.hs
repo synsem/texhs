@@ -17,6 +17,7 @@ module Text.Doc.Types
   ( -- * Doc type
     Doc(..)
   , docTitle
+  , docSubTitle
   , docAuthors
   , docDate
     -- * Meta
@@ -118,6 +119,7 @@ data Doc = Doc Meta Content
 -- | Meta information of a 'Doc' document.
 data Meta = Meta
   { metaTitle :: [Inline]
+  , metaSubTitle :: [Inline]
   , metaAuthors :: [[Inline]]
   , metaDate :: [Inline]
   , metaCiteDB :: CiteDB
@@ -139,6 +141,7 @@ data Meta = Meta
 defaultMeta :: Meta
 defaultMeta = Meta
   { metaTitle = []
+  , metaSubTitle = []
   , metaAuthors = []
   , metaDate = []
   , metaCiteDB = M.empty
@@ -678,6 +681,10 @@ isSpace _ = False
 -- | Extract document title.
 docTitle :: HasMeta d => d -> [Inline]
 docTitle = metaTitle . docMeta
+
+-- | Extract document subtitle.
+docSubTitle :: HasMeta d => d -> [Inline]
+docSubTitle = metaSubTitle . docMeta
 
 -- | Extract document authors.
 docAuthors :: HasMeta d => d -> [[Inline]]
