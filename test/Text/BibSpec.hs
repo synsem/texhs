@@ -42,6 +42,7 @@ tests = testGroup "Text.BibSpec"
   , testsInheritanceXData
   , testsInheritanceCrossref
   , testsInheritance
+  , testsNormalize
   , testsFormatter
   ]
 
@@ -825,6 +826,32 @@ testsInheritance = testGroup "xdata and crossref interaction"
         , ("booktitle", LiteralField [Str "x1-booktitle"]) ]
       , mkEntry "c1" "collection"
         [ ("title", LiteralField [Str "c1-title"]) ]]
+  ]
+
+testsNormalize :: Test
+testsNormalize = testGroup "normalize to biblatex model"
+  [ testCase "book with no author is a collection" $
+    fromBibTeX "" "@book{b, editor={Nobody}}"
+    @?=
+    mkBibDB [mkEntry "b" "collection"
+      [("editor", AgentList [Agent [] [] [Str "Nobody"] []])]]
+  , testCase "book with author and editor is still a book" $
+    fromBibTeX "" "@book{b, author={A}, editor={E}}"
+    @?=
+    mkBibDB [mkEntry "b" "book"
+      [ ("author", AgentList [Agent [] [] [Str "A"] []])
+      , ("editor", AgentList [Agent [] [] [Str "E"] []])]]
+  , testCase "field name \"address\" is renamed to \"location\"" $
+    fromBibTeX "" "@book{b, author={A}, address={Berlin}}"
+    @?=
+    mkBibDB [mkEntry "b" "book"
+      [ ("author", AgentList [Agent [] [] [Str "A"] []])
+      , ("location", LiteralList [[Str "Berlin"]])]]
+  , testCase "field name \"journal\" is renamed to \"journaltitle\"" $
+    fromBibTeX "" "@article{a, journal={NN}}"
+    @?=
+    mkBibDB [mkEntry "a" "article"
+      [("journaltitle", LiteralField [Str "NN"])]]
   ]
 
 testsFormatter :: Test

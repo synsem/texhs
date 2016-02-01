@@ -358,7 +358,7 @@ fmtBibThesis thesisType u e =
       (fmtBibFieldLocation e)
       [Str ":", Space]
       (fmtSepBy
-        (fmtBibListAnyOf ["institution", "school"] e)
+        (fmtBibList "institution" e)
         [Space]
         (fromMaybe [Str "dissertation"]
           -- @type@ field overrides entry type
@@ -467,17 +467,13 @@ fmtBibFieldEditorsInner =
   maybe [] (\xs -> fmtAgentsInner xs `fmtEndBy` editorSuffix xs) .
   getBibAgents "editor"
 
--- Retrieve @location@ (or @address@) list field.
+-- Retrieve @location@ list field.
 fmtBibFieldLocation :: BibEntry -> [Inline]
-fmtBibFieldLocation = fmtBibListAnyOf
-  [ "location"
-  , "address" ] -- legacy bibtex
+fmtBibFieldLocation = fmtBibList "location"
 
--- Retrieve @journaltitle@ (or @journal@) field.
+-- Retrieve @journaltitle@ field.
 fmtBibFieldJournaltitle :: BibEntry -> [Inline]
-fmtBibFieldJournaltitle = fmtBibLiteralAnyOf
-  [ "journaltitle"
-  , "journal" ] -- legacy bibtex
+fmtBibFieldJournaltitle = fmtBibLiteral "journaltitle"
 
 -- Retrieve @number@ or @issue@ field.
 fmtBibFieldNumber :: BibEntry -> [Inline]
@@ -543,11 +539,3 @@ fmtBibList :: BibFieldName -> BibEntry -> [Inline]
 fmtBibList name = maybe []
   (fmtSepEndBy [Str ",", Space] [Space, Str "&", Space]) .
   getBibList name
-
--- Try to retrieve an unwrapped literal list from a BibEntry.
--- Return the value for the first field name that exists,
--- or the empty list in case of failure.
-fmtBibListAnyOf :: [BibFieldName] -> BibEntry -> [Inline]
-fmtBibListAnyOf names entry = fromMaybe [] $
-  fmtSepEndBy [Str ",", Space] [Space, Str "&", Space] <$>
-  msum (map (`getBibList` entry) names)

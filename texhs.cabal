@@ -42,6 +42,7 @@ library
                        Text.TeX.Parser.Core
                        Text.TeX.Parser.Types
                        Text.Bib
+                       Text.Bib.Filter
                        Text.Bib.Types
                        Text.Bib.Writer
                        Text.Bib.Reader.BibTeX
