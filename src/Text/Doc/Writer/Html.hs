@@ -29,7 +29,7 @@ import Data.Monoid
 import Data.Text.Lazy (Text)
 import qualified Data.Text as T
 import Text.Blaze.Html5
-  ( (!), (!?), Html, toHtml, textValue, docTypeHtml
+  ( (!), (!?), Html, toHtml, text, textValue, docTypeHtml
   , h1, h2, ul, ol, li, p, a)
 import Text.Blaze.Html5.Attributes
   (name, charset, content, href)
@@ -191,10 +191,18 @@ block (QuotationBlock xs) = H.blockquote $ blocks xs
 block (Figure anchor imgloc imgdesc) =
   H.figure ! A.id (textValue (internalAnchorID anchor)) $
   H.img ! A.src (textValue imgloc) <>
-  H.figcaption (inlines imgdesc)
+  H.figcaption (mconcat
+    [ text "Figure "
+    , inlines (internalAnchorDescription anchor)
+    , text ": "
+    , inlines imgdesc ])
 block (Table anchor tdesc tdata) =
   H.table ! A.id (textValue (internalAnchorID anchor)) $
-  H.caption (inlines tdesc) <>
+  H.caption (mconcat
+    [ text "Table "
+    , inlines (internalAnchorDescription anchor)
+    , text ": "
+    , inlines tdesc ]) <>
   H.tbody (mapM_ (H.tr . mapM_ tableCell) tdata)
 block (SimpleTable tdata) =
   H.table $

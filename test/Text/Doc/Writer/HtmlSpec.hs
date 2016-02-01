@@ -217,11 +217,11 @@ testsBlocks = testGroup "blocks"
     blocks2html [Figure (FigureAnchor (2,1)) "image.png" [Str "description"]]
     @?=
     LT.append "<figure id=\"figure-2-1\"><img src=\"image.png\">"
-              "<figcaption>description</figcaption></figure>"
+              "<figcaption>Figure 2.1: description</figcaption></figure>"
   , testCase "empty table" $
     blocks2html [Table (TableAnchor (2,1)) [Str "description"] []]
     @?=
-    LT.append "<table id=\"table-2-1\"><caption>description</caption>"
+    LT.append "<table id=\"table-2-1\"><caption>Table 2.1: description</caption>"
               "<tbody></tbody></table>"
   , testCase "simple table" $
     blocks2html [Table (TableAnchor (2,1)) [Str "description"]
@@ -229,7 +229,7 @@ testsBlocks = testGroup "blocks"
       ,[SingleCell [Str "bottom-left"], SingleCell [Str "bottom-right"]]]]
     @?=
     LT.concat [ "<table id=\"table-2-1\">"
-              , "<caption>description</caption>"
+              , "<caption>Table 2.1: description</caption>"
               , "<tbody>"
               , "<tr><td>top-left</td><td>top-right</td></tr>"
               , "<tr><td>bottom-left</td><td>bottom-right</td></tr>"
@@ -241,7 +241,7 @@ testsBlocks = testGroup "blocks"
       ,[SingleCell [Str "1"], SingleCell [Str "2"], SingleCell [Str "3"]]]]
     @?=
     LT.concat [ "<table id=\"table-3-4\">"
-              , "<caption>description</caption>"
+              , "<caption>Table 3.4: description</caption>"
               , "<tbody>"
               , "<tr><td>single column</td><td colspan=\"2\">two</td></tr>"
               , "<tr><td colspan=\"3\">three columns</td></tr>"
