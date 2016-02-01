@@ -38,6 +38,11 @@ module Text.Doc.Reader.TeX
  , emph
  , em
  , rm
+   -- * Number parsers
+ , number
+   -- * Text parsers
+ , literalText
+ , literalString
    -- * Unit parsers
  , skipSpace
  , skipWhite
@@ -50,6 +55,7 @@ import Control.Monad
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import Data.Maybe (fromMaybe)
+import Data.Text (Text)
 import qualified Data.Text as T
 import Numeric (readDec)
 
@@ -298,7 +304,7 @@ figure = inGrp "figure" $ do
   void $ optional (lexemeBlock (choice
          [ void (cmd "centering")
          , grpUnwrap "center"]))
-  imgloc <- lexemeBlock (textLabel "includegraphics")
+  imgloc <- lexemeBlock (literalTextArg "includegraphics")
   imgdesc <- lexemeBlock (inlineCmd "caption")
   return (Figure anchor imgloc imgdesc)
 
@@ -395,9 +401,9 @@ inlineCmd name = inCmd name inlines
 inlineCmdCheckStar :: String -> Parser (Bool, [Inline])
 inlineCmdCheckStar name = inCmdCheckStar name inlines
 
--- Parse raw textual label in the first mandatory argument of a command.
-textLabel :: String -> Parser Label
-textLabel name = inCmd name (T.pack <$> plainValue)
+-- Parse the first mandatory argument of a command as raw text.
+literalTextArg :: String -> Parser Text
+literalTextArg name = inCmd name literalText
 
 -- | Parse whitespace.
 space :: Parser Inline
@@ -417,7 +423,7 @@ sub = FontStyle Sub <$> inSubScript inlinesMath
 
 -- | Parse character data.
 str :: Parser Inline
-str = Str <$> plainValue
+str = Str <$> literalPlain
 
 -- | Parse @emph@ command.
 emph :: Parser Inline
@@ -487,34 +493,79 @@ registerNote fntext = do
 
 -- | Parse @ref@ command.
 ref :: Parser Inline
-ref = flip Pointer Nothing <$> textLabel "ref"
+ref = flip Pointer Nothing <$> literalTextArg "ref"
 
 -- | Parse @href@ command from @hyperref@ package.
 href :: Parser Inline
 href = do
-  (url', description) <- cmdTwoOblArgs "href" (T.pack <$> plainValue) inlines
+  (url', description) <- cmdTwoOblArgs "href" literalText inlines
   return (Pointer "external" (Just (ExternalResource description url' "" "")))
 
 -- | Parse @url@ command from @hyperref@ package.
 url :: Parser Inline
 url = do
-  url' <- textLabel "url"
+  url' <- literalTextArg "url"
   return (Pointer "external" (Just (ExternalResource [Str (T.unpack url')] url' "" "")))
 
 
----------- Argument parsers
-
--- | Parse the textual content of a single 'Plain' element.
-plainValue :: Parser String
-plainValue = satisfy isPlain >>= \(Plain xs) -> return xs
+---------- Number parsers
 
 -- | Parse a decimal number.
 number :: Parser (Maybe Int)
-number = parseDigits <$> plainValue
+number = parseDigits <$> literalString
   where
     parseDigits s = case readDec s of
       [(i,[])] -> Just i
       _ -> Nothing
+
+
+---------- Text parsers
+
+-- | Parse content as raw text.
+--
+-- See 'literalString'.
+literalText :: Parser Text
+literalText = T.pack <$> literalString
+
+-- | Parse content as raw string.
+--
+-- This will deconstruct subscripts and superscripts
+-- as well as whitespace and walk into groups.
+literalString :: Parser String
+literalString = concat <$> many (choice
+  [ literalPlain
+  , literalGroup
+  , literalSub
+  , literalSup
+  , literalAlign
+  , literalWhite
+  ])
+
+-- Extract string from 'Plain' atom.
+literalPlain :: Parser String
+literalPlain = satisfy isPlain >>= \(Plain xs) -> return xs
+
+-- Extract string content from an anonymous group.
+literalGroup :: Parser String
+literalGroup = inGrp "" literalString
+
+-- Deconstruct 'SubScript' atom to raw text
+-- with underscore (\'_\') prefix.
+literalSub :: Parser String
+literalSub = ('_':) <$> inSubScript literalString
+
+-- Deconstruct 'SupScript' atom to raw text
+-- with circumflex (\'^\') prefix.
+literalSup :: Parser String
+literalSup = ('^':) <$> inSupScript literalString
+
+-- Deconstruct 'AlignMark' atom to \'&\'.
+literalAlign :: Parser String
+literalAlign = "&" <$ satisfy isAlignMark
+
+-- Deconstruct 'White' atom to normal space (\" \").
+literalWhite :: Parser String
+literalWhite = " " <$ skipWhite
 
 
 ---------- Unit parsers: void inter-level elements
@@ -526,7 +577,7 @@ skipInterlevel = choice [label, bookregion, nocite]
 -- | Parse @label@ command.
 label :: Parser ()
 label = do
-  label' <- textLabel "label"
+  label' <- literalTextArg "label"
   modifyMeta (registerAnchorLabel label')
 
 -- | Parse a command that affects the current bookregion:

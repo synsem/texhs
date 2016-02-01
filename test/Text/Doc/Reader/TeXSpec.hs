@@ -932,11 +932,31 @@ testsCrossrefs = testGroup "cross-references"
       , Plain "b"]
     @?=
     Right [Para [Str "a", Str "b"]]
+  , testCase "labels may contain whitespace" $
+    runParser (inlines <* eof)
+      [Command "label" [OblArg [Plain "my", White, Plain "label"]]]
+    @?=
+    Right []
+  , testCase "labels may contain underscores" $
+    -- This reflects a workaround for allowing underscores in label names.
+    -- Once there is a mechanism for handling verbatim text in the parser,
+    -- it should be used for label names as well.
+    runParser (inlines <* eof)
+      [Command "label" [OblArg
+        [Plain "my", SubScript [Plain "l"], Plain "abel"]]]
+    @?=
+    Right []
   , testCase "simple pointer with undefined target" $
     runParser block
       [Command "ref" [OblArg [Plain "nosuchtarget"]]]
     @?=
     Right (Para [Pointer "nosuchtarget" Nothing])
+  , testCase "pointer name with whitespace and underscore" $
+    runParser block
+      [Command "ref" [OblArg
+        [Plain "a", SubScript [Plain "b"], Plain "2", White, Plain "c" ]]]
+    @?=
+    Right (Para [Pointer "a_b2 c" Nothing])
   , testCase "section label and reference" $
     runParser (blocks <* eof)
       [ Command "section" [OblArg [Plain "one"]]
@@ -964,6 +984,17 @@ testsCrossrefs = testGroup "cross-references"
     @?=
     Just (SectionAnchor (SectionInfo Frontmatter
       (SectionRegular (0,0,2,1,0,0,0))))
+  , testCase "register label with underscore and whitespace" $
+    either (error . show) (M.lookup "my_label 1" . metaAnchorMap . snd)
+      (runParserWithState (blocks <* eof)
+        [ Command "section" [OblArg [Plain "one"]]
+        , Command "label" [OblArg
+            [ Plain "my", SubScript [Plain "l"], Plain "abel"
+            , White, Plain "1"]]
+        ])
+    @?=
+    Just (SectionAnchor (SectionInfo Frontmatter
+      (SectionRegular (0,0,1,0,0,0,0))))
   ]
 
 testsHyperref :: Test
