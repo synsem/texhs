@@ -633,6 +633,8 @@ data CiteMode
   = CiteBare    -- like biblatex's @\\cite@
   | CiteParen   -- like biblatex's @\\parencite@
   | CiteText    -- like biblatex's @\\textcite@
+  | CiteAuthor  -- like biblatex's @\\citeauthor@
+  | CiteYear    -- like biblatex's @\\citeyear@
   deriving (Eq, Show)
 
 -- | Extract all citekeys from a citation.

@@ -170,9 +170,8 @@ fmtExtraYear n = case n `divMod` 26 of
 fmtMultiCite :: CiteDB -> MultiCite -> [Inline]
 fmtMultiCite db multiCite@(MultiCite citemode _ _ _) =
   let wrapper = case citemode of
-        CiteBare -> id
         CiteParen -> flip (fmtWrap [Str "("]) [Str ")"]
-        CiteText -> id
+        _ -> id
   in wrapper $ fmtMultiCiteInner db multiCite
 
 -- Construct the inner part of a multicite inline citation.
@@ -263,6 +262,35 @@ fmtCiteGroup CiteText pre post entries@(e:_) =
         [Str ",", Space]
         post)
       [Str ")"])
+fmtCiteGroup CiteAuthor pre post (e:_) =
+  -- like CiteBare but without the years part
+  fmtSepBy
+    (fmtSepBy
+      pre
+      [Space]
+      (mkLink
+        (fmtCiteAgents (citeAgents e))
+        (internalAnchorTarget (citeAnchor e))
+        (T.pack (concatMap plain (citeFull e)))
+        "citation"))
+    [Str ",", Space]
+    post
+fmtCiteGroup CiteYear pre post entries@(_:_) =
+  -- like CiteBare but without the author part
+  fmtSepBy
+    (fmtSepBy
+      pre
+      [Space]
+      (intercalate
+        [Str ",", Space]
+        (map (\ i -> mkLink
+          (citeYear i)
+          (internalAnchorTarget (citeAnchor i))
+          (T.pack (concatMap plain (citeFull i)))
+          "citation")
+         entries)))
+    [Str ",", Space]
+    post
 
 
 -------------------- Bibliography Format

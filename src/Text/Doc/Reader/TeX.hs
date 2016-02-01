@@ -451,6 +451,8 @@ citeCommandMap = M.fromList
     ("cite", CiteBare)
   , ("parencite", CiteParen)
   , ("textcite", CiteText)
+  , ("citeauthor", CiteAuthor)
+  , ("citeyear", CiteYear)
     -- natbib
   , ("citet", CiteText)
   , ("citep", CiteParen)

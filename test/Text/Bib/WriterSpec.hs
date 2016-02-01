@@ -270,6 +270,37 @@ testsFormatCite = testGroup "citation formatting"
        , Pointer "" (Just (ExternalResource [Str "2000", Str "a"] "#bib-7" title07 "citation"))
        , Str ")"
        ]
+  , testCase "cite author of a single citekey without notes" $
+    let citedb = M.fromList [("one", citeEntry01 0 "")]
+        cit = MultiCite CiteAuthor [] [] [SingleCite [] [] ["one"]]
+        title01 = mkCiteLinkTitle (citeEntry01 0 "")
+    in fmtMultiCite citedb cit
+       @?=
+       [Pointer "" (Just (ExternalResource [Str "Last"] "#bib-0" title01 "citation"))]
+  , testCase "cite author of a single citekey with prenote and postnote" $
+    let citedb = M.fromList [("one", citeEntry01 0 "")]
+        cit = MultiCite CiteAuthor [] [] [SingleCite [Str "see"] [Str "sometime"] ["one"]]
+        title01 = mkCiteLinkTitle (citeEntry01 0 "")
+    in fmtMultiCite citedb cit
+       @?=
+       [ Str "see", Space
+       , Pointer "" (Just (ExternalResource [Str "Last"] "#bib-0" title01 "citation"))
+       , Str ",", Space, Str "sometime" ]
+  , testCase "cite year of a single citekey without notes" $
+    let citedb = M.fromList [("one", citeEntry01 0 "")]
+        cit = MultiCite CiteYear [] [] [SingleCite [] [] ["one"]]
+        title01 = mkCiteLinkTitle (citeEntry01 0 "")
+    in fmtMultiCite citedb cit
+       @?=
+       [Pointer "" (Just (ExternalResource [Str "2000"] "#bib-0" title01 "citation"))]
+  , testCase "cite year of a single citekey with (inner) prenote" $
+    let citedb = M.fromList [("one", citeEntry01 0 "")]
+        cit = MultiCite CiteYear [] [] [SingleCite [Str "written", Space, Str "in"] [] ["one"]]
+        title01 = mkCiteLinkTitle (citeEntry01 0 "")
+    in fmtMultiCite citedb cit
+       @?=
+       [ Str "written", Space, Str "in", Space
+       , Pointer "" (Just (ExternalResource [Str "2000"] "#bib-0" title01 "citation")) ]
   ]
 
 testsFormatBib :: Test
