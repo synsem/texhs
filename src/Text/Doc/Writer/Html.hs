@@ -98,8 +98,8 @@ toc doc =
 
 -- Create a toc entry for a single section (and its subsections).
 tocEntry :: Section -> Html
-tocEntry (Section _ anchor title _ subsecs) = do
-  li $ a ! href (textValue (internalAnchorTarget anchor)) $
+tocEntry (Section _ anchor title _ subsecs) = li $ do
+  a ! href (textValue (internalAnchorTarget anchor)) $
     sectionNumberPrefix anchor <> inlines title
   unless (null subsecs) $
     ul $ mapM_ tocEntry subsecs

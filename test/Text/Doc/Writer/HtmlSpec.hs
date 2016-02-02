@@ -89,6 +89,14 @@ testsDoc = testGroup "documents"
           [Str "two"]
       , Para [ Str "No", Space, Str "footnotes", Space, Str "in", Space
              , Str "Chapter", Space, Str "two."]
+      , Header 3
+          (SectionAnchor (SectionInfo Mainmatter
+            (SectionRegular (0,2,1,0,0,0,0))))
+          [Str "two-sub1"]
+      , Header 3
+          (SectionAnchor (SectionInfo Mainmatter
+            (SectionRegular (0,2,2,0,0,0,0))))
+          [Str "two-sub2"]
       , Header 2
           (SectionAnchor (SectionInfo Mainmatter
             (SectionRegular (0,3,0,0,0,0,0))))
@@ -112,7 +120,9 @@ testsDoc = testGroup "documents"
                 -- nav
               , "<nav id=\"toc\"><ul>"
               , "<li><a href=\"#sec-1\">1 one</a></li>"
-              , "<li><a href=\"#sec-2\">2 two</a></li>"
+              , "<li><a href=\"#sec-2\">2 two</a><ul>"
+              , "<li><a href=\"#sec-2-1\">2.1 two-sub1</a></li>"
+              , "<li><a href=\"#sec-2-2\">2.2 two-sub2</a></li></ul></li>"
               , "<li><a href=\"#sec-3\">3 three</a></li>"
               , "<li><a href=\"#footnotes\">Footnotes</a></li></ul></nav>"
                 -- content
@@ -123,6 +133,8 @@ testsDoc = testGroup "documents"
               , ".</p>"
               , "<h2 id=\"sec-2\">2 two</h2>"
               , "<p>No footnotes in Chapter two.</p>"
+              , "<h3 id=\"sec-2-1\">2.1 two-sub1</h3>"
+              , "<h3 id=\"sec-2-2\">2.2 two-sub2</h3>"
               , "<h2 id=\"sec-3\">3 three</h2>"
               , "<p>Hello"
               , "<a id=\"note-3-1-ref\" class=\"note-ref\" href=\"#note-3-1\"><sup>3.1</sup></a>"
