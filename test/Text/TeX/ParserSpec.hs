@@ -112,7 +112,7 @@ testsBasic = testGroup "basic"
         mkString "a" ++ [alignTok] ++ mkString "b" ++ [mkCtrlSeq "\\"] ++
         mkString "c" ++ [alignTok] ++ mkString "d" ++ [mkCtrlSeq "\\"]))
     @?=
-    [ Group "tabular" [OptArg [], OblArg [Plain "ll"]]
+    [ Group "tabular" [OblArg [Plain "ll"]]
       [ Plain "a", AlignMark, Plain "b", Newline
       , Plain "c", AlignMark, Plain "d", Newline]]
   , testCase "nested environments" $
@@ -198,12 +198,12 @@ testsControlSequences = testGroup "control sequences"
   , testCase "unstarred 'chapter' without optional arg" $
     runTeXParser command "" (mkCtrlSeq "chapter" : mkGroup (mkString "title"))
     @?=
-    Right (Command "chapter" [OptArg [], OblArg [Plain "title"]])
+    Right (Command "chapter" [OblArg [Plain "title"]])
   , testCase "'section' cannot take two mandatory args" $
     parseTeX "" (mkCtrlSeq "section" : mkOther '*' :
       mkGroup (mkString "title") ++ mkGroup (mkString "trailer"))
     @?=
-    [ Command "section" [StarArg, OptArg [], OblArg [Plain "title"]]
+    [ Command "section" [StarArg, OblArg [Plain "title"]]
     , Group "" [] [Plain "trailer"]]
   , testCase "'section' needs mandatory argument" $
     parseTeX "" (mkCtrlSeq "section" : mkOther '*' :

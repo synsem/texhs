@@ -89,7 +89,7 @@ testsBasic = testGroup "basic"
   , testCase "simple 2x2 tabular" $
     readTeX "" "\\begin{tabular}{ll}a&b\\\\c&d\\\\\\end{tabular}"
     @?=
-    [Group "tabular" [OptArg [], OblArg [Plain "ll"]]
+    [Group "tabular" [OblArg [Plain "ll"]]
       [Plain "a", AlignMark, Plain "b", Newline,
        Plain "c", AlignMark, Plain "d", Newline]]
   , testCase "nested environments" $
@@ -145,14 +145,14 @@ testsLists = testGroup "lists"
     readTeX "" "\\begin{itemize}\\item one\\item two\\end{itemize}"
     @?=
     [Group "itemize" []
-      [Command "item" [OptArg []], Plain "one"
-      ,Command "item" [OptArg []], Plain "two"]]
+      [Command "item" [], Plain "one"
+      ,Command "item" [], Plain "two"]]
   , testCase "par within list item" $
-    readTeX "" "\\begin{itemize}\\item one\n\none\\item two\\end{itemize}"
+    readTeX "" "\\begin{itemize}\\item one\n\none\\item[] two\\end{itemize}"
     @?=
     [Group "itemize" []
-      [Command "item" [OptArg []], Plain "one", Par, Plain "one"
-      ,Command "item" [OptArg []], Plain "two"]]
+      [Command "item" [], Plain "one", Par, Plain "one"
+      ,Command "item" [OptArg []], White, Plain "two"]]
   ]
 
 testsCmdArgs :: Test

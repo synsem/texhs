@@ -44,7 +44,7 @@ import Control.Applicative ((<*), (<*>), (*>), (<$), (<$>))
 import Control.Monad (void)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
-import Data.Maybe (fromMaybe, catMaybes)
+import Data.Maybe (catMaybes)
 import Text.Parsec
   ((<|>), choice, optional, optionMaybe, many, many1,
    count, between, (<?>), parserFail, eof)
@@ -316,7 +316,6 @@ parseArgType Mandatory = Just <$> arg
 parseArgType Optional =
   parseArgType (OptionalGroup '[' ']')
 parseArgType (OptionalGroup open close) =
-  (Just . fromMaybe (OptArg [])) <$>
   optionMaybe (optargBetween open close)
 parseArgType OptionalStar = maybeStar
 
