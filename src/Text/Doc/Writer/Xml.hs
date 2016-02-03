@@ -128,8 +128,10 @@ front doc = el "front" (titlePage doc)
 -- Create title page for TEI front matter.
 titlePage :: SectionDoc -> Markup
 titlePage doc = el "titlePage" $ do
-  el "docTitle" $
+  el "docTitle" $ do
     el "titlePart" ! attr "type" "main" $ inlines (docTitle doc)
+    unless (null (docSubTitle doc)) $
+      el "titlePart" ! attr "type" "sub" $ inlines (docSubTitle doc)
   el "byline" $ mapM_ (el "docAuthor" . inlines) (docAuthors doc)
 
 
