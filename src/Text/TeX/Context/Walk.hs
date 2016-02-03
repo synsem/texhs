@@ -35,10 +35,12 @@ module Text.TeX.Context.Walk
     -- ** Specific command
   , cmd
   , inCmd
+  , inCmd2
+  , inCmd3
+  , inCmdOpt2
   , inCmdCheckStar
+  , inCmdWithOpts
   , cmdDown
-  , cmdTwoOblArgs
-  , cmdThreeOblArgs
     -- * Group parsers
     -- ** Specific group
   , grp
@@ -235,20 +237,46 @@ cmdDownWithStar n = peek (isCmdWithStar n) *> step intoCmdArg
 cmdPeekOblArg :: Int -> Parser a -> Parser a
 cmdPeekOblArg n p = step (peekOblArg n) *> p <* safeUp
 
+-- Note: We are not creating an isolated context for the argument.
+-- Parsers are expected to operate on the focus value only (no 'up').
+--
+-- | Apply parser to the n-th optional argument of a command,
+-- without consuming the command.
+cmdPeekOptArg :: Int -> Parser a -> Parser a
+cmdPeekOptArg n p = step (peekOptArg n) *> p <* safeUp
+
 -- | Parse a specific command and apply two parsers
 -- to its first two mandatory arguments.
-cmdTwoOblArgs :: String -> Parser a -> Parser b -> Parser (a,b)
-cmdTwoOblArgs n p0 p1 = (,) <$> (peek (isCmd n) *>
+inCmd2 :: String -> Parser a -> Parser b -> Parser (a,b)
+inCmd2 n p0 p1 = (,) <$> (peek (isCmd n) *>
   cmdPeekOblArg 0 p0) <*>
   cmdPeekOblArg 1 p1 <* cmd n
 
 -- | Parse a specific command and apply three parsers
 -- to its first three mandatory arguments.
-cmdThreeOblArgs :: String -> Parser a -> Parser b -> Parser c -> Parser (a,b,c)
-cmdThreeOblArgs n p0 p1 p2 = (,,) <$> (peek (isCmd n) *>
+inCmd3 :: String -> Parser a -> Parser b -> Parser c -> Parser (a,b,c)
+inCmd3 n p0 p1 p2 = (,,) <$> (peek (isCmd n) *>
   cmdPeekOblArg 0 p0) <*>
   cmdPeekOblArg 1 p1 <*>
   cmdPeekOblArg 2 p2 <* cmd n
+
+-- | @inCmdOpt2 name opt0 opt1 p@ parses the command @name@ and
+-- applies the parsers @opt0@ and @opt1@ to its first two optional
+-- arguments, respectively, and applies the parser @p@ to its
+-- first mandatory argument.
+inCmdOpt2 :: String -> Parser oa -> Parser ob -> Parser a -> Parser (oa,ob,a)
+inCmdOpt2 n opt0 opt1 obl = (,,) <$> (peek (isCmd n) *>
+  cmdPeekOptArg 0 opt0) <*>
+  cmdPeekOptArg 1 opt1 <*>
+  inCmd n obl
+
+-- | @inCmdWithOpts name opts p@ parses the command @name@ and
+-- applies the parsers @opts@ to its optional arguments and
+-- the parser @p@ to its first mandatory argument.
+inCmdWithOpts :: String -> [Parser a] -> Parser b -> Parser ([a],b)
+inCmdWithOpts n opts obl = (,) <$> (peek (isCmd n) *>
+  zipWithM cmdPeekOptArg [0..] opts) <*>
+  inCmd n obl
 
 
 ---------- Group parsers

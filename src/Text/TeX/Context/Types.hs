@@ -33,6 +33,7 @@ module Text.TeX.Context.Types
   , unwrap
   , intoCmdArg
   , peekOblArg
+  , peekOptArg
     -- ** Extractors
   , getHead
     -- ** Manipulate context
@@ -136,6 +137,14 @@ peekOblArg :: Int -> TeXStep
 peekOblArg n (Context foc@(Command _ args:_) nxt) =
   return (Context (getOblArg n args) (foc:nxt))
 peekOblArg _ ctx = failStep ctx
+
+-- | Focus on an optional argument of a command.
+--
+-- The original command is preserved as the parent.
+peekOptArg :: Int -> TeXStep
+peekOptArg n (Context foc@(Command _ args:_) nxt) =
+  return (Context (getOptArg n args) (foc:nxt))
+peekOptArg _ ctx = failStep ctx
 
 -- | Extract head of focus.
 getHead :: TeXContext -> Either TeXDocError TeXAtom

@@ -356,7 +356,7 @@ tabular = inGrp "tabular" $ do
 tableCell :: Parser TableCell
 tableCell = choice
   [ (uncurry MultiCell . (\(n,_,d) -> (n,d))) <$>
-    cmdThreeOblArgs "multicolumn" (fromMaybe 1 <$> number) inlines inlines
+    inCmd3 "multicolumn" (fromMaybe 1 <$> number) inlines inlines
   , SingleCell <$> inlines]
 
 -- Register table as the current anchor
@@ -516,7 +516,7 @@ ref = flip Pointer Nothing <$> literalTextArg "ref"
 -- | Parse @href@ command from @hyperref@ package.
 href :: Parser Inline
 href = do
-  (url', description) <- cmdTwoOblArgs "href" literalText inlines
+  (url', description) <- inCmd2 "href" literalText inlines
   return (Pointer "external" (Just (ExternalResource description url' "" "")))
 
 -- | Parse @url@ command from @hyperref@ package.
