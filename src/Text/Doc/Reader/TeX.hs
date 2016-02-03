@@ -459,15 +459,20 @@ rm = FontStyle Normal <$> (cmd "rm" *> inlines)
 -- | Parse @cite@ command.
 cite :: Parser Inline
 cite = do
-  (citemode, keys) <- choice citationParsers
+  (citemode, (pre', post', keys)) <- choice citationParsers
   modifyMeta (registerCiteKeys keys)
-  let mcite = MultiCite citemode [] [] [SingleCite [] [] keys]
+  -- if there is only one optional arg, treat it as postnote:
+  let (pre, post) = if null post' then ([], pre') else (pre', post')
+      mcite = MultiCite citemode [] [] [SingleCite pre post keys]
   return (Citation mcite Nothing)
   where
-    citationParsers :: [Parser (CiteMode, [CiteKey])]
+    citationParsers :: [Parser (CiteMode, ([Inline], [Inline], [CiteKey]))]
     citationParsers = map
-      (\(name, mode) -> (,) mode <$> (parseCiteKeys <$> literalTextArg name))
+      (\(name, mode) -> (,) mode <$> parseCite name)
       (M.assocs citeCommandMap)
+    -- Parse a citation command with two optional arguments.
+    parseCite :: String -> Parser ([Inline], [Inline], [CiteKey])
+    parseCite name = inCmdOpt2 name inlines inlines (parseCiteKeys <$> literalText)
 
 -- Citation modes associated with known citation commands.
 citeCommandMap :: Map String CiteMode

@@ -198,6 +198,22 @@ testsCites = testGroup "citations"
     @?=
     Right [Citation (MultiCite CiteBare [] []
       [SingleCite [] [] ["one"]]) Nothing]
+  , testCase "simple citation with postnote" $
+    runParser (inlines <* eof)
+      [Command "cite" [ OptArg [Plain "post"]
+                      , OptArg []
+                      , OblArg [Plain "one"]]]
+    @?=
+    Right [Citation (MultiCite CiteBare [] []
+      [SingleCite [] [Str "post"] ["one"]]) Nothing]
+  , testCase "simple citation with prenote and postnote" $
+    runParser (inlines <* eof)
+      [Command "cite" [ OptArg [Plain "pre"]
+                      , OptArg [Plain "post"]
+                      , OblArg [Plain "one"]]]
+    @?=
+    Right [Citation (MultiCite CiteBare [] []
+      [SingleCite [Str "pre"] [Str "post"] ["one"]]) Nothing]
   , testCase "citekey with space and underscore" $
     runParser (inlines <* eof)
       [Command "cite" [OblArg
