@@ -188,7 +188,7 @@ data InternalAnchor
   | ItemAnchor (Int, [Int])    -- chapter number and chapter-relative item numbers
                                --   in reverse order, e.g. [1,3,2] --> \"2.3.1\"
   | BibAnchor Int              -- global appearance order
-  deriving (Eq, Show)
+  deriving (Eq, Ord, Show)
 
 -- | Generate identifying string for an internal anchor.
 --
@@ -374,7 +374,7 @@ registerCiteKeys keys meta =
 
 -- | Identifying information about a section.
 data SectionInfo = SectionInfo BookRegion SectionPosition
-  deriving (Eq, Show)
+  deriving (Eq, Ord, Show)
 
 -- Return pieces for easily constructing an identifying string for a
 -- SectionInfo. In particular, return a prefix string (for the book
@@ -398,7 +398,7 @@ data BookRegion
   = Frontmatter
   | Mainmatter
   | Backmatter
-  deriving (Eq, Show)
+  deriving (Eq, Ord, Show)
 
 -- Help generate an identifying string for 'sectionInfoID'.
 bookRegionID :: BookRegion -> Text
@@ -416,7 +416,7 @@ data SectionPosition
     -- An \"unnumbered\" section is still associated
     -- with an identifying count.
   | SectionPhantom Int
-  deriving (Eq, Show)
+  deriving (Eq, Ord, Show)
 
 -- | Representation of a numbered section (within a 'BookRegion')
 -- as a tuple: @(part, chapter, section, subsection,
