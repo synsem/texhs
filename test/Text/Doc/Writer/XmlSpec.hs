@@ -86,7 +86,7 @@ testsDoc = testGroup "documents"
 testsSections :: Test
 testsSections = testGroup "sections"
   [ testCase "single paragraph in chapter" $
-    sections2xml [Section 2
+    sections2xml defaultMeta [Section 2
       (SectionAnchor (SectionInfo Mainmatter
         (SectionRegular (0,1,0,0,0,0,0))))
       [ Str "Chapter", Space, Str "one"]
@@ -101,11 +101,11 @@ testsSections = testGroup "sections"
 testsBlocks :: Test
 testsBlocks = testGroup "blocks"
   [ testCase "single paragraph" $
-    blocks2xml [Para [Str "hello", Space, FontStyle Emph [Str "world"]]]
+    blocks2xml defaultMeta [Para [Str "hello", Space, FontStyle Emph [Str "world"]]]
     @?=
     "<p>hello <emph>world</emph></p>"
   , testCase "simple unordered list" $
-    blocks2xml [List UnorderedList
+    blocks2xml defaultMeta [List UnorderedList
       [ [Para [Str "one",Space,Str "one"]]
       , [Para [Str "two",Space]]
       , [Para [Str "three"]]]]
@@ -113,25 +113,25 @@ testsBlocks = testGroup "blocks"
     LT.append "<list type=\"unordered\"><item><p>one one</p></item>"
               "<item><p>two </p></item><item><p>three</p></item></list>"
   , testCase "simple ordered list" $
-    blocks2xml [List OrderedList
+    blocks2xml defaultMeta [List OrderedList
       [ [Para [Str "one"]]
       , [Para [Str "two"]]]]
     @?=
     LT.append "<list type=\"ordered\"><item><p>one</p></item>"
               "<item><p>two</p></item></list>"
   , testCase "empty item list" $
-    blocks2xml [ListItemBlock []]
+    blocks2xml defaultMeta [ListItemBlock []]
     @?=
     "<list type=\"numbered-item-list\"></list>"
   , testCase "item list with single item" $
-    blocks2xml [ListItemBlock [ListItem (ItemAnchor (0,[1]))
+    blocks2xml defaultMeta [ListItemBlock [ListItem (ItemAnchor (0,[1]))
       [Para [Str "hello", Space, Str "world"]]]]
     @?=
     LT.concat [ "<list type=\"numbered-item-list\">"
               , "<item xml:id=\"item-0-1\" type=\"numbered-item\" n=\"1\">"
               , "<p>hello world</p></item></list>"]
   , testCase "item list with multiple nested sublists" $
-    blocks2xml [ListItemBlock
+    blocks2xml defaultMeta [ListItemBlock
       [ ListItem (ItemAnchor (0,[1]))
         [ Para [Str "one"], ListItemBlock
           [ ListItem (ItemAnchor (0,[1,1])) [Para [Str "one-one"]]
@@ -169,20 +169,20 @@ testsBlocks = testGroup "blocks"
               , "</item></list></item></list>"
               ]
   , testCase "simple block quote" $
-    blocks2xml [QuotationBlock [Para [Str "one"]]]
+    blocks2xml defaultMeta [QuotationBlock [Para [Str "one"]]]
     @?=
     "<quote><p>one</p></quote>"
   , testCase "simple figure" $
-    blocks2xml [Figure (FigureAnchor (2,1)) "image.png" [Str "description"]]
+    blocks2xml defaultMeta [Figure (FigureAnchor (2,1)) "image.png" [Str "description"]]
     @?=
     LT.append "<figure xml:id=\"figure-2-1\"><graphic url=\"image.png\" />"
               "<head>description</head></figure>"
   , testCase "empty table" $
-    blocks2xml [Table (TableAnchor (2,1)) [Str "description"] []]
+    blocks2xml defaultMeta [Table (TableAnchor (2,1)) [Str "description"] []]
     @?=
     "<table xml:id=\"table-2-1\"><head>description</head></table>"
   , testCase "simple table" $
-    blocks2xml [Table (TableAnchor (2,1)) [Str "description"]
+    blocks2xml defaultMeta [Table (TableAnchor (2,1)) [Str "description"]
       [[SingleCell [Str "top-left"], SingleCell [Str "top-right"]]
       ,[SingleCell [Str "bottom-left"], SingleCell [Str "bottom-right"]]]]
     @?=
@@ -192,7 +192,7 @@ testsBlocks = testGroup "blocks"
               , "<row><cell>bottom-left</cell><cell>bottom-right</cell></row>"
               , "</table>"]
   , testCase "table with multi-column cells" $
-    blocks2xml [Table (TableAnchor (3,4)) [Str "description"]
+    blocks2xml defaultMeta [Table (TableAnchor (3,4)) [Str "description"]
       [[SingleCell [Str "single", Space, Str "column"], MultiCell 2 [Str "two"]]
       ,[MultiCell 3 [Str "three", Space, Str "columns"]]
       ,[SingleCell [Str "1"], SingleCell [Str "2"], SingleCell [Str "3"]]]]
@@ -204,11 +204,11 @@ testsBlocks = testGroup "blocks"
               , "<row><cell>1</cell><cell>2</cell><cell>3</cell></row>"
               , "</table>"]
   , testCase "empty simpletable" $
-    blocks2xml [SimpleTable []]
+    blocks2xml defaultMeta [SimpleTable []]
     @?=
     "<table></table>"
   , testCase "simple simpletable" $
-    blocks2xml [SimpleTable
+    blocks2xml defaultMeta [SimpleTable
       [[SingleCell [Str "one"], SingleCell [Str "one"]]
       ,[SingleCell [Str "two"], SingleCell [Str "two"]]]]
     @?=
@@ -217,7 +217,7 @@ testsBlocks = testGroup "blocks"
               , "<row><cell>two</cell><cell>two</cell></row>"
               , "</table>"]
   , testCase "igt simpletable with translation line" $
-    blocks2xml [SimpleTable
+    blocks2xml defaultMeta [SimpleTable
       [ [SingleCell [Str "one"], SingleCell [Str "one"]]
       , [SingleCell [Str "two"], SingleCell [Str "two"]]
       , [MultiCell 2 [Str "translation", Space, Str "line"]]]]
@@ -228,7 +228,7 @@ testsBlocks = testGroup "blocks"
               , "<row><cell cols=\"2\">translation line</cell></row>"
               , "</table>"]
   , testCase "misaligned igt simpletable with translation line" $
-    blocks2xml [SimpleTable
+    blocks2xml defaultMeta [SimpleTable
       [ [SingleCell [Str "one"]]
       , replicate 3 (SingleCell [Str "two"])
       , [MultiCell 3 [Str "translation", Space, Str "line"]]]]
@@ -243,41 +243,41 @@ testsBlocks = testGroup "blocks"
 testsInlines :: Test
 testsInlines = testGroup "inlines"
   [ testCase "basic text" $
-    inlines2xml [Str "hello", Space, Str "world"]
+    inlines2xml defaultMeta [Str "hello", Space, Str "world"]
     @?=
     "hello world"
   , testCase "emphasis" $
-    inlines2xml [Str "hello", Space, FontStyle Emph [Str "world"]]
+    inlines2xml defaultMeta [Str "hello", Space, FontStyle Emph [Str "world"]]
     @?=
     "hello <emph>world</emph>"
   , testCase "simple math with subscript and superscript" $
-    inlines2xml [Math MathDisplay [Str "c",
+    inlines2xml defaultMeta [Math MathDisplay [Str "c",
       FontStyle Sub [Str "1"], FontStyle Sup [Str "2"]]]
     @?=
     LT.append "<formula>c<hi style=\"vertical-align: sub; font-size: smaller;\">1</hi>"
               "<hi style=\"vertical-align: super; font-size: smaller;\">2</hi></formula>"
   , testCase "link to external resource" $
-    inlines2xml [Pointer "external" (Just (ExternalResource
+    inlines2xml defaultMeta [Pointer "external" (Just (ExternalResource
       [Str "some", Space, Str "description"] "http://example.com/" "" ""))]
     @?=
     "<ref target=\"http://example.com/\">some description</ref>"
   , testCase "link to internal figure" $
-    inlines2xml [Str "Figure", Space, Pointer "internallabel"
+    inlines2xml defaultMeta [Str "Figure", Space, Pointer "internallabel"
       (Just (InternalResource (FigureAnchor (2,1))))]
     @?=
     "Figure <ref target=\"#figure-2-1\">2.1</ref>"
   , testCase "empty footnote" $
-    inlines2xml [Note (NoteAnchor (2,8)) []]
+    inlines2xml defaultMeta [Note (NoteAnchor (2,8)) []]
     @?=
     LT.append "<note xml:id=\"note-2-8\" type=\"footnote\" place=\"bottom\" n=\"2.8\">"
               "</note>"
   , testCase "simple footnote" $
-    inlines2xml [Note (NoteAnchor (1,2)) [Para [Str "hello"]]]
+    inlines2xml defaultMeta [Note (NoteAnchor (1,2)) [Para [Str "hello"]]]
     @?=
     LT.append "<note xml:id=\"note-1-2\" type=\"footnote\" place=\"bottom\" n=\"1.2\">"
               "<p>hello</p></note>"
   , testCase "multi-paragraph footnote" $
-    inlines2xml [Note (NoteAnchor (1,2)) [Para [Str "one"], Para [Str "two"]]]
+    inlines2xml defaultMeta [Note (NoteAnchor (1,2)) [Para [Str "one"], Para [Str "two"]]]
     @?=
     LT.append "<note xml:id=\"note-1-2\" type=\"footnote\" place=\"bottom\" n=\"1.2\">"
               "<p>one</p><p>two</p></note>"
