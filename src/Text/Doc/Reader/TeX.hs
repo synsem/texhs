@@ -464,7 +464,7 @@ cite = do
   -- if there is only one optional arg, treat it as postnote:
   let (pre, post) = if null post' then ([], pre') else (pre', post')
       mcite = MultiCite citemode [] [] [SingleCite pre post keys]
-  return (Citation mcite Nothing)
+  return (Citation mcite)
   where
     citationParsers :: [Parser (CiteMode, ([Inline], [Inline], [CiteKey]))]
     citationParsers = map

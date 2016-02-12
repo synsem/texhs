@@ -236,7 +236,7 @@ inline (Str xs) = return $ string xs
 inline (FontStyle s xs) = style s <$> inlines xs
 inline (Math _ xs) = el "formula" <$> inlines xs
 inline Space = return $ text " "
-inline (Citation cit _) = do
+inline (Citation cit) = do
   db <- asks metaCiteDB
   el "seg" ! attr "type" "citation-group" <$>
     inlines (fmtMultiCite db cit)

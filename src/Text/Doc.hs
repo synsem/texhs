@@ -27,7 +27,7 @@ module Text.Doc
 import Text.Bib (BibDB)
 import Text.Doc.Types (Doc)
 import Text.Doc.Reader.TeX (tex2doc)
-import Text.Doc.Filter.Bib (docBibFilter, distributeMeta)
+import Text.Doc.Filter.Bib (docBibFilter)
 import Text.Doc.Writer.Html (doc2html)
 import Text.Doc.Writer.Xml (doc2xml)
 import Text.TeX.Parser.Types (TeX)
@@ -37,6 +37,6 @@ import Text.TeX.Parser.Types (TeX)
 -- and resolve citations against a bibliographic database.
 tex2docWithBib :: Maybe BibDB -> String -> TeX -> Doc
 tex2docWithBib Nothing name input =
-  distributeMeta (tex2doc name input)
+  tex2doc name input
 tex2docWithBib (Just db) name input =
-  distributeMeta (docBibFilter db (tex2doc name input))
+  docBibFilter db (tex2doc name input)

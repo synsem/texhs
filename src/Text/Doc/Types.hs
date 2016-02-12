@@ -597,7 +597,7 @@ data Inline
   | FontStyle Style [Inline]
   | Math MathType [Inline]
   | Space
-  | Citation MultiCite (Maybe CiteDB)
+  | Citation MultiCite
   | Pointer Label (Maybe Anchor)
   | Note InternalAnchor [Block]
   deriving (Eq, Show)
@@ -714,7 +714,7 @@ plain (Str xs) = xs
 plain (FontStyle _ is) = concatMap plain is
 plain (Math _ is) = concatMap plain is
 plain Space = " "
-plain (Citation (MultiCite _ _ _ xs) _) = T.unpack (plainCites xs)
+plain (Citation (MultiCite _ _ _ xs)) = T.unpack (plainCites xs)
 plain (Pointer label _) = T.unpack (T.concat ["<", label, ">"])
 plain Note{} = ""
 

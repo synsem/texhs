@@ -191,13 +191,13 @@ testsCites = testGroup "citations"
       [Command "cite" [OblArg []]]
     @?=
     Right [Citation (MultiCite CiteBare [] []
-      [SingleCite [] [] []]) Nothing]
+      [SingleCite [] [] []])]
   , testCase "simple citation" $
     runParser (inlines <* eof)
       [Command "cite" [OblArg [Plain "one"]]]
     @?=
     Right [Citation (MultiCite CiteBare [] []
-      [SingleCite [] [] ["one"]]) Nothing]
+      [SingleCite [] [] ["one"]])]
   , testCase "simple citation with postnote" $
     runParser (inlines <* eof)
       [Command "cite" [ OptArg [Plain "post"]
@@ -205,7 +205,7 @@ testsCites = testGroup "citations"
                       , OblArg [Plain "one"]]]
     @?=
     Right [Citation (MultiCite CiteBare [] []
-      [SingleCite [] [Str "post"] ["one"]]) Nothing]
+      [SingleCite [] [Str "post"] ["one"]])]
   , testCase "simple citation with prenote and postnote" $
     runParser (inlines <* eof)
       [Command "cite" [ OptArg [Plain "pre"]
@@ -213,14 +213,14 @@ testsCites = testGroup "citations"
                       , OblArg [Plain "one"]]]
     @?=
     Right [Citation (MultiCite CiteBare [] []
-      [SingleCite [Str "pre"] [Str "post"] ["one"]]) Nothing]
+      [SingleCite [Str "pre"] [Str "post"] ["one"]])]
   , testCase "citekey with space and underscore" $
     runParser (inlines <* eof)
       [Command "cite" [OblArg
         [Plain "a", SubScript [Plain "b"], Plain "2", White, Plain "c"]]]
     @?=
     Right [Citation (MultiCite CiteBare [] []
-      [SingleCite [] [] ["a_b2 c"]]) Nothing]
+      [SingleCite [] [] ["a_b2 c"]])]
   , testCase "nocitekey with space and underscore" $
     runParser (inlines <* eof)
       [Command "nocite" [OblArg
@@ -232,19 +232,19 @@ testsCites = testGroup "citations"
       [Command "cite" [OblArg [Plain "one,", White, Plain "two"]]]
     @?=
     Right [Citation (MultiCite CiteBare [] []
-      [SingleCite [] [] ["one", "two"]]) Nothing]
+      [SingleCite [] [] ["one", "two"]])]
   , testCase "simple textcite" $
     runParser (inlines <* eof)
       [Command "textcite" [OblArg [Plain "one"]]]
     @?=
     Right [Citation (MultiCite CiteText [] []
-      [SingleCite [] [] ["one"]]) Nothing]
+      [SingleCite [] [] ["one"]])]
   , testCase "simple parencite" $
     runParser (inlines <* eof)
       [Command "parencite" [OblArg [Plain "one"]]]
     @?=
     Right [Citation (MultiCite CiteParen [] []
-      [SingleCite [] [] ["one"]]) Nothing]
+      [SingleCite [] [] ["one"]])]
   , testCase "nocite disappears" $
     runParser (inlines <* eof)
       [Command "nocite" [OblArg [Plain "one"]]]

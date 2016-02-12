@@ -257,7 +257,7 @@ inline (Math _ xs) =
   H.span ! A.class_ "math" <$>
   inlines xs
 inline Space = return $ toHtml ' '
-inline (Citation cit _) = do
+inline (Citation cit) = do
   db <- asks metaCiteDB
   H.span ! A.class_ "citation-group" <$>
     inlines (fmtMultiCite db cit)
