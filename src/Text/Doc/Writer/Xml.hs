@@ -30,15 +30,15 @@ import Data.Monoid
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
-import Text.Blaze.Internal
-  ( Markup, customLeaf, customParent, textTag
-  , Attribute, AttributeValue, (!), (!?), attribute, textValue, stringValue
-  , string, text, preEscapedText)
+import Text.Blaze
+  ( Markup, string, text, preEscapedText
+  , (!), (!?), textValue, stringValue)
 import Text.Blaze.Renderer.Text (renderMarkup)
 
 import Text.Bib.Writer
 import Text.Doc.Types
 import Text.Doc.Section
+import Text.Doc.Writer.Core
 
 
 ---------- main: Doc to XML conversion
@@ -269,45 +269,3 @@ style Normal = el "hi" ! attr "style" "font-style: normal;"
 style Emph = el "emph"
 style Sub = el "hi" ! attr "style" "vertical-align: sub; font-size: smaller;"
 style Sup = el "hi" ! attr "style" "vertical-align: super; font-size: smaller;"
-
-
----------- Helper functions for creating XML Markup
-
--- Create element with content from tag name.
-el :: Text -> Markup -> Markup
-el = customParent . textTag
-
--- Create self-closing empty element from tag name.
-leaf :: Text -> Markup
-leaf = flip customLeaf True . textTag
-
--- Create attribute name, expecting an attribute value.
-attr :: Text -> AttributeValue -> Attribute
-attr n = attribute (textTag n) (textTag (" " <> n <> "=\""))
-
-
----------- Helper functions for Reader Meta Html
-
-infixl 5 <+>
-infixr 5 $<>
-infixl 5 <>$
-
--- Lifted mappend.
-(<+>) :: (Applicative f, Monoid a) => f a -> f a -> f a
-(<+>) = liftA2 mappend
-
--- Lifted mappend, apply pure to left value.
-($<>) :: (Functor f, Monoid a) => a -> f a -> f a
-($<>) = fmap . mappend
-
--- Lifted mappend, apply pure to right value.
-(<>$) :: (Functor f, Monoid a) => f a -> a -> f a
-(<>$) = flip (fmap . flip mappend)
-
--- Lifted mempty.
-memptyR :: Reader Meta Markup
-memptyR = pure mempty
-
--- Lifted mconcat.
-mconcatR :: [Reader Meta Markup] -> Reader Meta Markup
-mconcatR = foldr (<+>) memptyR
