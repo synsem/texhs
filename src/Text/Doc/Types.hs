@@ -60,6 +60,7 @@ module Text.Doc.Types
   , internalAnchorDescriptionAsText
   , internalAnchorLocalNum
   , registerAnchorLabel
+  , extractAnchor
     -- * Content types
     -- ** Blocks
   , Content
@@ -97,9 +98,11 @@ module Text.Doc.Types
   , fmtWrap
   ) where
 
+import Control.Applicative
 import Data.List (dropWhileEnd, intersperse, intercalate)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
+import Data.Maybe (fromMaybe)
 import Data.Ord (comparing)
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -327,6 +330,13 @@ registerAnchorLabel label meta =
   let anchor = metaAnchorCurrent meta
       newMap = M.insert label anchor (metaAnchorMap meta)
   in meta { metaAnchorMap = newMap }
+
+-- | Extract the target anchor from 'Pointer' arguments.
+extractAnchor :: Map Label InternalAnchor -> Label -> Maybe Anchor -> Anchor
+extractAnchor db label protoAnchor =
+  let undefinedAnchor = ExternalResource [Str "???"] "" "" ""
+  in fromMaybe undefinedAnchor $ protoAnchor <|>
+     (InternalResource <$> M.lookup label db)
 
 ---------- Citations
 

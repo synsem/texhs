@@ -161,11 +161,11 @@ testsDoc = testGroup "documents"
 testsBlocks :: Test
 testsBlocks = testGroup "blocks"
   [ testCase "single paragraph" $
-    blocks2html [Para [Str "hello", Space, FontStyle Emph [Str "world"]]]
+    blocks2html defaultMeta [Para [Str "hello", Space, FontStyle Emph [Str "world"]]]
     @?=
     "<p>hello <em>world</em></p>"
   , testCase "simple unordered list" $
-    blocks2html [List UnorderedList
+    blocks2html defaultMeta [List UnorderedList
       [ [Para [Str "one",Space,Str "one"]]
       , [Para [Str "two",Space]]
       , [Para [Str "three"]]]]
@@ -173,25 +173,25 @@ testsBlocks = testGroup "blocks"
     LT.append "<ul><li><p>one one</p></li><li><p>two </p></li>"
               "<li><p>three</p></li></ul>"
   , testCase "simple ordered list" $
-    blocks2html [List OrderedList
+    blocks2html defaultMeta [List OrderedList
       [ [Para [Str "one"]]
       , [Para [Str "two"]]]]
     @?=
     LT.append "<ol><li><p>one</p></li>"
               "<li><p>two</p></li></ol>"
   , testCase "empty item list" $
-    blocks2html [ListItemBlock []]
+    blocks2html defaultMeta [ListItemBlock []]
     @?=
     "<ol class=\"numbered-item-list\"></ol>"
   , testCase "item list with single item" $
-    blocks2html [ListItemBlock [ListItem (ItemAnchor (0,[1]))
+    blocks2html defaultMeta [ListItemBlock [ListItem (ItemAnchor (0,[1]))
       [Para [Str "hello", Space, Str "world"]]]]
     @?=
     LT.concat [ "<ol class=\"numbered-item-list\">"
               , "<li id=\"item-0-1\" class=\"numbered-item\" value=\"1\">"
               , "<p>hello world</p></li></ol>"]
   , testCase "item list with multiple nested sublists" $
-    blocks2html [ListItemBlock
+    blocks2html defaultMeta [ListItemBlock
       [ ListItem (ItemAnchor (0,[1]))
         [ Para [Str "one"], ListItemBlock
           [ ListItem (ItemAnchor (0,[1,1])) [Para [Str "one-one"]]
@@ -229,21 +229,21 @@ testsBlocks = testGroup "blocks"
               , "</li></ol></li></ol>"
               ]
   , testCase "simple block quote" $
-    blocks2html [QuotationBlock [Para [Str "one"]]]
+    blocks2html defaultMeta [QuotationBlock [Para [Str "one"]]]
     @?=
     "<blockquote><p>one</p></blockquote>"
   , testCase "simple figure" $
-    blocks2html [Figure (FigureAnchor (2,1)) "image.png" [Str "description"]]
+    blocks2html defaultMeta [Figure (FigureAnchor (2,1)) "image.png" [Str "description"]]
     @?=
     LT.append "<figure id=\"figure-2-1\"><img src=\"image.png\">"
               "<figcaption>Figure 2.1: description</figcaption></figure>"
   , testCase "empty table" $
-    blocks2html [Table (TableAnchor (2,1)) [Str "description"] []]
+    blocks2html defaultMeta [Table (TableAnchor (2,1)) [Str "description"] []]
     @?=
     LT.append "<table id=\"table-2-1\"><caption>Table 2.1: description</caption>"
               "<tbody></tbody></table>"
   , testCase "simple table" $
-    blocks2html [Table (TableAnchor (2,1)) [Str "description"]
+    blocks2html defaultMeta [Table (TableAnchor (2,1)) [Str "description"]
       [[SingleCell [Str "top-left"], SingleCell [Str "top-right"]]
       ,[SingleCell [Str "bottom-left"], SingleCell [Str "bottom-right"]]]]
     @?=
@@ -254,7 +254,7 @@ testsBlocks = testGroup "blocks"
               , "<tr><td>bottom-left</td><td>bottom-right</td></tr>"
               , "</tbody></table>"]
   , testCase "table with multi-column cells" $
-    blocks2html [Table (TableAnchor (3,4)) [Str "description"]
+    blocks2html defaultMeta [Table (TableAnchor (3,4)) [Str "description"]
       [[SingleCell [Str "single", Space, Str "column"], MultiCell 2 [Str "two"]]
       ,[MultiCell 3 [Str "three", Space, Str "columns"]]
       ,[SingleCell [Str "1"], SingleCell [Str "2"], SingleCell [Str "3"]]]]
@@ -267,11 +267,11 @@ testsBlocks = testGroup "blocks"
               , "<tr><td>1</td><td>2</td><td>3</td></tr>"
               , "</tbody></table>"]
   , testCase "empty simpletable" $
-    blocks2html [SimpleTable []]
+    blocks2html defaultMeta [SimpleTable []]
     @?=
     "<table><tbody></tbody></table>"
   , testCase "simple simpletable" $
-    blocks2html [SimpleTable
+    blocks2html defaultMeta [SimpleTable
       [[SingleCell [Str "one"], SingleCell [Str "one"]]
       ,[SingleCell [Str "two"], SingleCell [Str "two"]]]]
     @?=
@@ -280,7 +280,7 @@ testsBlocks = testGroup "blocks"
               , "<tr><td>two</td><td>two</td></tr>"
               , "</tbody></table>"]
   , testCase "igt simpletable with translation line" $
-    blocks2html [SimpleTable
+    blocks2html defaultMeta [SimpleTable
       [ [SingleCell [Str "one"], SingleCell [Str "one"]]
       , [SingleCell [Str "two"], SingleCell [Str "two"]]
       , [MultiCell 2 [Str "translation", Space, Str "line"]]]]
@@ -291,7 +291,7 @@ testsBlocks = testGroup "blocks"
               , "<tr><td colspan=\"2\">translation line</td></tr>"
               , "</tbody></table>"]
   , testCase "misaligned igt simpletable with translation line" $
-    blocks2html [SimpleTable
+    blocks2html defaultMeta [SimpleTable
       [ [SingleCell [Str "one"]]
       , replicate 3 (SingleCell [Str "two"])
       , [MultiCell 3 [Str "translation", Space, Str "line"]]]]
@@ -306,34 +306,34 @@ testsBlocks = testGroup "blocks"
 testsInlines :: Test
 testsInlines = testGroup "inlines"
   [ testCase "basic text" $
-    inlines2html [Str "hello", Space, Str "world"]
+    inlines2html defaultMeta [Str "hello", Space, Str "world"]
     @?=
     "hello world"
   , testCase "emphasis" $
-    inlines2html [Str "hello", Space, FontStyle Emph [Str "world"]]
+    inlines2html defaultMeta [Str "hello", Space, FontStyle Emph [Str "world"]]
     @?=
     "hello <em>world</em>"
   , testCase "simple math with subscript and superscript" $
-    inlines2html [Math MathDisplay [Str "c",
+    inlines2html defaultMeta [Math MathDisplay [Str "c",
       FontStyle Sub [Str "1"], FontStyle Sup [Str "2"]]]
     @?=
     "<span class=\"math\">c<sub>1</sub><sup>2</sup></span>"
   , testCase "link to external resource" $
-    inlines2html [Pointer "external" (Just (ExternalResource
+    inlines2html defaultMeta [Pointer "external" (Just (ExternalResource
       [Str "some", Space, Str "description"] "http://example.com/" "" ""))]
     @?=
     "<a href=\"http://example.com/\">some description</a>"
   , testCase "link to internal figure" $
-    inlines2html [Str "Figure", Space, Pointer "internallabel"
+    inlines2html defaultMeta [Str "Figure", Space, Pointer "internallabel"
       (Just (InternalResource (FigureAnchor (2,1))))]
     @?=
     "Figure <a href=\"#figure-2-1\">2.1</a>"
   , testCase "empty footnote (only mark)" $
-    inlines2html [Note (NoteAnchor (2,8)) []]
+    inlines2html defaultMeta [Note (NoteAnchor (2,8)) []]
     @?=
     "<a id=\"note-2-8-ref\" class=\"note-ref\" href=\"#note-2-8\"><sup>2.8</sup></a>"
   , testCase "simple footnote (only mark)" $
-    inlines2html [Note (NoteAnchor (1,2)) [Para [Str "hello"]]]
+    inlines2html defaultMeta [Note (NoteAnchor (1,2)) [Para [Str "hello"]]]
     @?=
     "<a id=\"note-1-2-ref\" class=\"note-ref\" href=\"#note-1-2\"><sup>1.2</sup></a>"
   ]

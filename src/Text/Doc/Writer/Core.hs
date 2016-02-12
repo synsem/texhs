@@ -24,9 +24,11 @@ module Text.Doc.Writer.Core
  , (<>$)
  , memptyR
  , mconcatR
+ , foldMapR
+ , unlessR
  ) where
 
-import Control.Applicative (liftA2)
+import Control.Applicative
 import Data.Monoid
 import Data.Text (Text)
 import Text.Blaze (Markup, Attribute, AttributeValue, textTag)
@@ -75,3 +77,12 @@ memptyR = pure mempty
 -- | Lifted mconcat.
 mconcatR :: (Applicative f, Monoid a) => [f a] -> f a
 mconcatR = foldr (<+>) memptyR
+
+-- | Specialized foldMap.
+foldMapR :: (Applicative f, Monoid b) => (a -> f b) -> [a] -> f b
+foldMapR f = mconcatR . map f
+
+-- | Conditional insertion of a monoid value.
+unlessR :: (Applicative f, Monoid a) => Bool -> f a -> f a
+unlessR True = const memptyR
+unlessR False = id

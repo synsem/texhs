@@ -21,7 +21,6 @@ module Text.Doc.Writer.Xml
  , inlines2xml
  ) where
 
-import Control.Applicative
 import Control.Monad.Trans.Reader (Reader, runReader, asks)
 import Data.List (sort)
 import qualified Data.Map.Strict as M
@@ -91,10 +90,9 @@ fileDesc doc = el "fileDesc" <$>
   ((el "titleStmt" <$>
      (el "title" ! attr "type" "full" <$>
        ((el "title" ! attr "type" "main" <$> inlines (docTitle doc)) <+>
-        if null (docSubTitle doc)
-        then memptyR
-        else el "title" ! attr "type" "sub" <$> inlines (docSubTitle doc))) <+>
-     mconcatR (map (fmap (el "author") . inlines) (docAuthors doc))) <>$
+        unlessR (null (docSubTitle doc))
+          (el "title" ! attr "type" "sub" <$> inlines (docSubTitle doc)))) <+>
+     foldMapR (fmap (el "author") . inlines) (docAuthors doc)) <>$
    el "publicationStmt" (el "p" (text "Unknown")) <>$
    el "sourceDesc" (el "p" (text "Born digital.")))
 
@@ -104,15 +102,13 @@ fileDesc doc = el "fileDesc" <$>
 bibliography :: SectionDoc -> Reader Meta Markup
 bibliography doc =
   let citeEntries = sort (M.elems (metaCiteDB (docMeta doc)))
-  in if null citeEntries
-     then memptyR
-     else
-       el "div" !
-       attr "xml:id" "bibliography" !
-       attr "type" "bibliography" <$>
-         (el "head" (text "Bibliography") $<>
-         -- note: the contained @listBibl@ gets no separate @head@ element
-         (el "listBibl" <$> mconcatR (map writeBibEntry citeEntries)))
+  in unlessR (null citeEntries)
+       (el "div" !
+        attr "xml:id" "bibliography" !
+        attr "type" "bibliography" <$>
+          (el "head" (text "Bibliography") $<>
+          -- note: the contained @listBibl@ gets no separate @head@ element
+          (el "listBibl" <$> foldMapR writeBibEntry citeEntries)))
 
 -- Create a single entry in the bibliography.
 writeBibEntry :: CiteEntry -> Reader Meta Markup
@@ -139,10 +135,9 @@ titlePage :: SectionDoc -> Reader Meta Markup
 titlePage doc = el "titlePage" <$>
   (el "docTitle" <$>
     (el "titlePart" ! attr "type" "main" <$> inlines (docTitle doc)) <+>
-    (if null (docSubTitle doc)
-     then memptyR
-     else el "titlePart" ! attr "type" "sub" <$> inlines (docSubTitle doc))) <+>
-  (el "byline" <$> mconcatR (map (fmap (el "docAuthor") . inlines) (docAuthors doc)))
+    unlessR (null (docSubTitle doc))
+      (el "titlePart" ! attr "type" "sub" <$> inlines (docSubTitle doc))) <+>
+  (el "byline" <$> foldMapR (fmap (el "docAuthor") . inlines) (docAuthors doc))
 
 
 ---------- back matter
@@ -160,15 +155,15 @@ body (SectionDoc _ docbody) = el "body" <$> sections docbody
 
 -- Convert 'Section' elements to XML.
 sections :: [Section] -> Reader Meta Markup
-sections = mconcatR . map section
+sections = foldMapR section
 
 -- Convert 'Block' elements to XML.
 blocks :: [Block] -> Reader Meta Markup
-blocks = mconcatR . map block
+blocks = foldMapR block
 
 -- Convert 'Inline' elements to XML.
 inlines :: [Inline] -> Reader Meta Markup
-inlines = mconcatR . map inline
+inlines = foldMapR inline
 
 -- Convert a single 'Section' element to XML.
 section :: Section -> Reader Meta Markup
@@ -201,10 +196,10 @@ block (Para xs) = el "p" <$> inlines xs
 block (Header _ _ xs) = el "head" <$> inlines xs
 block (List ltype xss) =
   el "list" ! attr "type" (textValue (showListType ltype)) <$>
-  mconcatR (map (fmap (el "item") . blocks) xss)
+  foldMapR (fmap (el "item") . blocks) xss
 block (ListItemBlock xs) =
   el "list" ! attr "type" "numbered-item-list" <$>
-  mconcatR (map listitem xs)
+  foldMapR listitem xs
 block (QuotationBlock xs) =
   el "quote" <$> blocks xs
 block (Figure anchor imgloc imgdesc) =
@@ -214,10 +209,10 @@ block (Figure anchor imgloc imgdesc) =
 block (Table anchor tdesc tdata) =
   el "table" ! attr "xml:id" (textValue (internalAnchorID anchor)) <$>
   (el "head" <$> inlines tdesc) <+>
-  mconcatR (map (fmap (el "row") . mconcatR . map tableCell) tdata)
+  foldMapR (fmap (el "row") . foldMapR tableCell) tdata
 block (SimpleTable tdata) =
   el "table" <$>
-  mconcatR (map (fmap (el "row") . mconcatR . map tableCell) tdata)
+  foldMapR (fmap (el "row") . foldMapR tableCell) tdata
 
 -- Convert a single 'TableCell' element to XML.
 tableCell :: TableCell -> Reader Meta Markup
@@ -247,9 +242,7 @@ inline (Citation cit _) = do
     inlines (fmtMultiCite db cit)
 inline (Pointer label protoAnchor) = do
   db <- asks metaAnchorMap
-  let undefinedAnchor = ExternalResource [Str "???"] "" "" ""
-      anchor = fromMaybe undefinedAnchor $ protoAnchor <|>
-               (InternalResource <$> M.lookup label db)
+  let anchor = extractAnchor db label protoAnchor
   el "ref" !
     attr "target" (textValue (anchorTarget anchor)) !?
     ( not (T.null (anchorType anchor))
