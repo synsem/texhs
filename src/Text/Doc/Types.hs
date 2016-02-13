@@ -61,6 +61,10 @@ module Text.Doc.Types
   , internalAnchorLocalNum
   , registerAnchorLabel
   , extractAnchor
+    -- ** Multifile
+  , FileID
+  , AnchorFileMap
+  , filenameFromID
     -- * Content types
     -- ** Blocks
   , Content
@@ -90,7 +94,8 @@ module Text.Doc.Types
   , normalizeInlines
   , stripInlines
     -- ** Generic formatting
-  , mkLink
+  , mkExternalLink
+  , mkInternalLink
   , fmtEmph
   , fmtSepBy
   , fmtSepEndBy
@@ -106,6 +111,7 @@ import Data.Maybe (fromMaybe)
 import Data.Ord (comparing)
 import Data.Text (Text)
 import qualified Data.Text as T
+import Text.Printf (printf)
 
 import Text.TeX.Parser.Types (MathType(..))
 
@@ -130,6 +136,7 @@ data Meta = Meta
   , metaCiteCount :: Int
   , metaAnchorCurrent :: InternalAnchor
   , metaAnchorMap :: Map Label InternalAnchor
+  , metaAnchorFileMap :: AnchorFileMap
   , metaNoteMap :: Map (Int, Int) [Block]
   , metaPhantomSectionCount :: Int
   , metaBookRegion :: BookRegion
@@ -152,6 +159,7 @@ defaultMeta = Meta
   , metaCiteCount = 0
   , metaAnchorCurrent = DocumentAnchor
   , metaAnchorMap = M.empty
+  , metaAnchorFileMap = M.empty
   , metaNoteMap = M.empty
   , metaPhantomSectionCount = 0
   , metaBookRegion = Frontmatter
@@ -170,12 +178,13 @@ class HasMeta d where
 instance HasMeta Doc where
   docMeta (Doc meta _) = meta
 
----------- Cross-references
+---------- Anchors: Cross-references and external links
 
 -- | An anchor is a location in a document
 -- that can be the target of a 'Pointer'.
 data Anchor
-  = InternalResource InternalAnchor
+  = InternalResourceAuto InternalAnchor
+  | InternalResource [Inline] InternalAnchor LinkTitle LinkType
   | ExternalResource [Inline] Location LinkTitle LinkType
   deriving (Eq, Show)
 
@@ -222,15 +231,17 @@ internalAnchorIDRef anchor = T.append (internalAnchorID anchor) "-ref"
 -- | Generate target location string for an anchor.
 --
 -- This can be used for @href@ attributes in HTML hyperlinks.
-anchorTarget :: Anchor -> Text
-anchorTarget (InternalResource res) = internalAnchorTarget res
-anchorTarget (ExternalResource _ loc _ _) = loc
+anchorTarget :: AnchorFileMap -> Anchor -> Text
+anchorTarget db (InternalResourceAuto res) = internalAnchorTarget db res
+anchorTarget db (InternalResource _ res _ _) = internalAnchorTarget db res
+anchorTarget _ (ExternalResource _ loc _ _) = loc
 
 -- | Generate link title string for an anchor.
 --
 -- This can be used for @title@ attributes in HTML hyperlinks.
 anchorTitle :: Anchor -> Text
-anchorTitle (InternalResource _) = ""
+anchorTitle (InternalResourceAuto _) = ""
+anchorTitle (InternalResource _ _ t _) = t
 anchorTitle (ExternalResource _ _ t _) = t
 
 -- | Generate link type string for an anchor.
@@ -238,25 +249,31 @@ anchorTitle (ExternalResource _ _ t _) = t
 -- This can be used for @class@ attributes in HTML hyperlinks
 -- or for @type@ attributes in XML cross-references.
 anchorType :: Anchor -> Text
-anchorType (InternalResource _) = ""
+anchorType (InternalResourceAuto _) = ""
+anchorType (InternalResource _ _ _ t) = t
 anchorType (ExternalResource _ _ _ t) = t
 
 -- | Generate target location string for an internal anchor.
 --
 -- This can be used for @href@ attributes in HTML hyperlinks.
-internalAnchorTarget :: InternalAnchor -> Text
-internalAnchorTarget = T.cons '#' . internalAnchorID
+internalAnchorTarget :: AnchorFileMap -> InternalAnchor -> Text
+internalAnchorTarget db anchor =
+  maybe id (T.append . T.pack . filenameFromID) (M.lookup anchor db)
+  (T.cons '#' (internalAnchorID anchor))
 
 -- | Generate target location string for a reference to an internal anchor.
 --
 -- This is mainly used for footnote back-references: The footnote text
 -- (main anchor) contains a back-reference to the footnote mark.
-internalAnchorTargetRef :: InternalAnchor -> Text
-internalAnchorTargetRef = T.cons '#' . internalAnchorIDRef
+internalAnchorTargetRef :: AnchorFileMap -> InternalAnchor -> Text
+internalAnchorTargetRef db anchor =
+  maybe id (T.append . T.pack . filenameFromID) (M.lookup anchor db)
+  (T.cons '#' (internalAnchorIDRef anchor))
 
 -- | Generate description text for an anchor.
 anchorDescription :: Anchor -> [Inline]
-anchorDescription (InternalResource i) = internalAnchorDescription i
+anchorDescription (InternalResourceAuto i) = internalAnchorDescription i
+anchorDescription (InternalResource l _ _ _) = l
 anchorDescription (ExternalResource l _ _ _) = l
 
 -- | Generate description text for an internal anchor.
@@ -336,7 +353,29 @@ extractAnchor :: Map Label InternalAnchor -> Label -> Maybe Anchor -> Anchor
 extractAnchor db label protoAnchor =
   let undefinedAnchor = ExternalResource [Str "???"] "" "" ""
   in fromMaybe undefinedAnchor $ protoAnchor <|>
-     (InternalResource <$> M.lookup label db)
+     (InternalResourceAuto <$> M.lookup label db)
+
+
+---------- Multifile support
+
+-- | A FileID identifies a physical file of a multifile document.
+type FileID = Int
+
+-- | A mapping from internal anchors to the physical file
+-- in which they are contained.
+--
+-- This map is only used for multifile documents.
+-- If the document is contained in a single file,
+-- this map is empty.
+type AnchorFileMap = Map InternalAnchor FileID
+
+-- | Return the filename associated with a FileID.
+--
+-- Note: We assume an \"xhtml\" file extension.
+-- Example filename: \"section-001.xhtml\".
+filenameFromID :: FileID -> FilePath
+filenameFromID = printf "section-%03d.xhtml"
+
 
 ---------- Citations
 
@@ -742,10 +781,15 @@ stripInlines = dropWhile isSpace . dropWhileEnd isSpace
 
 -------------------- Generic formatting helpers
 
--- | Create a 'Pointer' from a given description, target and link title.
-mkLink :: [Inline] -> Location -> LinkTitle -> LinkType -> [Inline]
-mkLink description target linkTitle linkType =
+-- | Create a 'Pointer' to an external resource.
+mkExternalLink :: [Inline] -> Location -> LinkTitle -> LinkType -> [Inline]
+mkExternalLink description target linkTitle linkType =
   [Pointer "" (Just (ExternalResource description target linkTitle linkType))]
+
+-- | Create a 'Pointer' to an internal resource.
+mkInternalLink :: [Inline] -> InternalAnchor -> LinkTitle -> LinkType -> [Inline]
+mkInternalLink description anchor linkTitle linkType =
+  [Pointer "" (Just (InternalResource description anchor linkTitle linkType))]
 
 -- | Apply emphasis iff content is not null.
 fmtEmph :: [Inline] -> [Inline]

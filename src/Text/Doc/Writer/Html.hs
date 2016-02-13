@@ -104,11 +104,13 @@ toc doc =
 
 -- Create a toc entry for a single section (and its subsections).
 tocEntry :: Section -> Reader Meta Html
-tocEntry (Section _ anchor title _ subsecs) = li <$>
-  ((a ! href (textValue (internalAnchorTarget anchor)) <$>
-    (sectionNumberPrefix anchor <+> inlines title)) <+>
-  unlessR (null subsecs)
-    (ul <$> foldMapR tocEntry subsecs))
+tocEntry (Section _ anchor title _ subsecs) = do
+  db <- asks metaAnchorFileMap
+  li <$>
+    ((a ! href (textValue (internalAnchorTarget db anchor)) <$>
+      (sectionNumberPrefix anchor <+> inlines title)) <+>
+    unlessR (null subsecs)
+      (ul <$> foldMapR tocEntry subsecs))
 
 -- Create a section number.
 --
@@ -146,19 +148,20 @@ footnotesForChapter notes chapnum =
 footnote :: (InternalAnchor, [Block]) -> Reader Meta Html
 footnote (anchor, fntext) =
   li ! A.id (textValue (internalAnchorID anchor)) <$>
-    blocks fntext <>$
+    blocks fntext <+>
     backreference anchor
 
 -- Create a backreference to an anchor.
 --
 -- For example, insert a backreference into a footnote text
 -- in order to refer back to the corresponding footnote mark.
-backreference :: InternalAnchor -> Html
-backreference anchor =
+backreference :: InternalAnchor -> Reader Meta Html
+backreference anchor = do
   let backrefText = "^"
-  in p $ a ! A.class_ "note-backref" !
-         href (textValue (internalAnchorTargetRef anchor)) $
-         backrefText
+  db <- asks metaAnchorFileMap
+  return $ p $ a ! A.class_ "note-backref" !
+     href (textValue (internalAnchorTargetRef db anchor)) $
+     backrefText
 
 ----- bibliography
 
@@ -262,18 +265,20 @@ inline (Citation cit) = do
   H.span ! A.class_ "citation-group" <$>
     inlines (fmtMultiCite db cit)
 inline (Pointer label protoAnchor) = do
-  db <- asks metaAnchorMap
-  let anchor = extractAnchor db label protoAnchor
-  a ! href (textValue (anchorTarget anchor))
+  anchorDB <- asks metaAnchorMap
+  fileDB <- asks metaAnchorFileMap
+  let anchor = extractAnchor anchorDB label protoAnchor
+  a ! href (textValue (anchorTarget fileDB anchor))
     !? ( not (T.null (anchorType anchor))
        , A.class_ (textValue (anchorType anchor)))
     !? ( not (T.null (anchorTitle anchor))
        , A.title (textValue (anchorTitle anchor))) <$>
     inlines (anchorDescription anchor)
-inline (Note anchor _) =
+inline (Note anchor _) = do
+  db <- asks metaAnchorFileMap
   a ! A.id (textValue (internalAnchorIDRef anchor))
     ! A.class_ "note-ref"
-    ! href (textValue (internalAnchorTarget anchor)) <$>
+    ! href (textValue (internalAnchorTarget db anchor)) <$>
     (H.sup <$> inlines (internalAnchorDescription anchor))
 
 -- Map header level to 'Html' combinator.

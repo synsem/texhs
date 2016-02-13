@@ -124,18 +124,18 @@ testsFormatCite = testGroup "citation formatting"
         title01 = mkCiteLinkTitle (citeEntry01 0 "")
     in fmtMultiCite citedb cit
        @?=
-       [ Pointer "" (Just (ExternalResource [Str "Last"] "#bib-0" title01 "citation"))
+       [ Pointer "" (Just (InternalResource [Str "Last"] (BibAnchor 0) title01 "citation"))
        , Space
-       , Pointer "" (Just (ExternalResource [Str "2000"] "#bib-0" title01 "citation")) ]
+       , Pointer "" (Just (InternalResource [Str "2000"] (BibAnchor 0) title01 "citation")) ]
   , testCase "bare citation of a single citekey with postnote" $
     let citedb = M.fromList [("one", citeEntry01 0 "")]
         cit = MultiCite CiteBare [] [] [SingleCite [] [Str "19"] ["one"]]
         title01 = mkCiteLinkTitle (citeEntry01 0 "")
     in fmtMultiCite citedb cit
        @?=
-       [ Pointer "" (Just (ExternalResource [Str "Last"] "#bib-0" title01 "citation"))
+       [ Pointer "" (Just (InternalResource [Str "Last"] (BibAnchor 0) title01 "citation"))
        , Space
-       , Pointer "" (Just (ExternalResource [Str "2000"] "#bib-0" title01 "citation"))
+       , Pointer "" (Just (InternalResource [Str "2000"] (BibAnchor 0) title01 "citation"))
        , Str ",", Space, Str "19" ]
   , testCase "paren citation of a single citekey without notes" $
     let citedb = M.fromList [("one", citeEntry01 0 "")]
@@ -144,9 +144,9 @@ testsFormatCite = testGroup "citation formatting"
     in fmtMultiCite citedb cit
        @?=
        [ Str "("
-       , Pointer "" (Just (ExternalResource [Str "Last"] "#bib-0" title01 "citation"))
+       , Pointer "" (Just (InternalResource [Str "Last"] (BibAnchor 0) title01 "citation"))
        , Space
-       , Pointer "" (Just (ExternalResource [Str "2000"] "#bib-0" title01 "citation"))
+       , Pointer "" (Just (InternalResource [Str "2000"] (BibAnchor 0) title01 "citation"))
        , Str ")" ]
   , testCase "paren citation of a single citekey with postnote" $
     let citedb = M.fromList [("one", citeEntry01 0 "")]
@@ -155,9 +155,9 @@ testsFormatCite = testGroup "citation formatting"
     in fmtMultiCite citedb cit
        @?=
        [ Str "("
-       , Pointer "" (Just (ExternalResource [Str "Last"] "#bib-0" title01 "citation"))
+       , Pointer "" (Just (InternalResource [Str "Last"] (BibAnchor 0) title01 "citation"))
        , Space
-       , Pointer "" (Just (ExternalResource [Str "2000"] "#bib-0" title01 "citation"))
+       , Pointer "" (Just (InternalResource [Str "2000"] (BibAnchor 0) title01 "citation"))
        , Str ",", Space, Str "19", Str ")" ]
   , testCase "text citation of a single citekey without notes" $
     let citedb = M.fromList [("one", citeEntry01 0 "")]
@@ -165,9 +165,9 @@ testsFormatCite = testGroup "citation formatting"
         title01 = mkCiteLinkTitle (citeEntry01 0 "")
     in fmtMultiCite citedb cit
        @?=
-       [ Pointer "" (Just (ExternalResource [Str "Last"] "#bib-0" title01 "citation"))
+       [ Pointer "" (Just (InternalResource [Str "Last"] (BibAnchor 0) title01 "citation"))
        , Space, Str "("
-       , Pointer "" (Just (ExternalResource [Str "2000"] "#bib-0" title01 "citation"))
+       , Pointer "" (Just (InternalResource [Str "2000"] (BibAnchor 0) title01 "citation"))
        , Str ")" ]
   , testCase "text citation of a single citekey with postnote" $
     let citedb = M.fromList [("one", citeEntry01 0 "")]
@@ -175,9 +175,9 @@ testsFormatCite = testGroup "citation formatting"
         title01 = mkCiteLinkTitle (citeEntry01 0 "")
     in fmtMultiCite citedb cit
        @?=
-       [ Pointer "" (Just (ExternalResource [Str "Last"] "#bib-0" title01 "citation"))
+       [ Pointer "" (Just (InternalResource [Str "Last"] (BibAnchor 0) title01 "citation"))
        , Space, Str "("
-       , Pointer "" (Just (ExternalResource [Str "2000"] "#bib-0" title01 "citation"))
+       , Pointer "" (Just (InternalResource [Str "2000"] (BibAnchor 0) title01 "citation"))
        , Str ",", Space, Str "19", Str ")" ]
   , testCase "bare citation of two citekeys with prenote" $
     let cit = MultiCite CiteBare [] [] [SingleCite [Str "see"] [] ["four", "seven"]]
@@ -186,13 +186,13 @@ testsFormatCite = testGroup "citation formatting"
     in fmtMultiCite citeDB01 cit
        @?=
        [ Str "see", Space
-       , Pointer "" (Just (ExternalResource [Str "Last1"] "#bib-12" title04 "citation"))
+       , Pointer "" (Just (InternalResource [Str "Last1"] (BibAnchor 12) title04 "citation"))
        , Space
-       , Pointer "" (Just (ExternalResource [Str "2000"] "#bib-12" title04 "citation"))
+       , Pointer "" (Just (InternalResource [Str "2000"] (BibAnchor 12) title04 "citation"))
        , Str ";", Space
-       , Pointer "" (Just (ExternalResource [Str "Last"] "#bib-7" title07 "citation"))
+       , Pointer "" (Just (InternalResource [Str "Last"] (BibAnchor 7) title07 "citation"))
        , Space
-       , Pointer "" (Just (ExternalResource [Str "2000", Str "a"] "#bib-7" title07 "citation"))
+       , Pointer "" (Just (InternalResource [Str "2000", Str "a"] (BibAnchor 7) title07 "citation"))
        ]
   , testCase "conflate adjacent citations by same author" $
     let cit = MultiCite CiteText [] [] [SingleCite [Str "see"] [Str "88"] ["seven", "three"]]
@@ -200,11 +200,11 @@ testsFormatCite = testGroup "citation formatting"
         title07 = mkCiteLinkTitle (citeEntry07 7 "a")
     in fmtMultiCite citeDB01 cit
        @?=
-       [ Pointer "" (Just (ExternalResource [Str "Last"] "#bib-7" title07 "citation"))
+       [ Pointer "" (Just (InternalResource [Str "Last"] (BibAnchor 7) title07 "citation"))
        , Space, Str "(", Str "see", Space
-       , Pointer "" (Just (ExternalResource [Str "2000", Str "a"] "#bib-7" title07 "citation"))
+       , Pointer "" (Just (InternalResource [Str "2000", Str "a"] (BibAnchor 7) title07 "citation"))
        , Str ",", Space
-       , Pointer "" (Just (ExternalResource [Str "1999"] "#bib-3" title03 "citation"))
+       , Pointer "" (Just (InternalResource [Str "1999"] (BibAnchor 3) title03 "citation"))
        , Str ",", Space, Str "88", Str ")"
        ]
   , testCase "conflate adjacent citations by same authorgroup" $
@@ -217,15 +217,15 @@ testsFormatCite = testGroup "citation formatting"
     in fmtMultiCite citeDB01 cit
        @?=
        [ Str "("
-       , Pointer "" (Just (ExternalResource authors06 "#bib-14" title06 "citation"))
+       , Pointer "" (Just (InternalResource authors06 (BibAnchor 14) title06 "citation"))
        , Space
-       , Pointer "" (Just (ExternalResource [Str "2000"] "#bib-14" title06 "citation"))
+       , Pointer "" (Just (InternalResource [Str "2000"] (BibAnchor 14) title06 "citation"))
        , Str ",", Space
-       , Pointer "" (Just (ExternalResource [Str "1999"] "#bib-15" title08 "citation"))
+       , Pointer "" (Just (InternalResource [Str "1999"] (BibAnchor 15) title08 "citation"))
        , Str ";", Space
-       , Pointer "" (Just (ExternalResource [Str "Last"] "#bib-7" title07 "citation"))
+       , Pointer "" (Just (InternalResource [Str "Last"] (BibAnchor 7) title07 "citation"))
        , Space
-       , Pointer "" (Just (ExternalResource [Str "2000", Str "a"] "#bib-7" title07 "citation"))
+       , Pointer "" (Just (InternalResource [Str "2000", Str "a"] (BibAnchor 7) title07 "citation"))
        , Str ")"
        ]
   , testCase "multicite with two singlecites and several notes" $
@@ -237,13 +237,13 @@ testsFormatCite = testGroup "citation formatting"
     in fmtMultiCite citeDB01 cit
        @?=
        [ Str "aa", Space
-       , Pointer "" (Just (ExternalResource [Str "Last"] "#bib-3" title03 "citation"))
+       , Pointer "" (Just (InternalResource [Str "Last"] (BibAnchor 3) title03 "citation"))
        , Space, Str "(", Str "cc", Space
-       , Pointer "" (Just (ExternalResource [Str "1999"] "#bib-3" title03 "citation"))
+       , Pointer "" (Just (InternalResource [Str "1999"] (BibAnchor 3) title03 "citation"))
        , Str ",", Space, Str "dd", Str ")", Str ",", Space, Str "and", Space
-       , Pointer "" (Just (ExternalResource [Str "Last"] "#bib-7" title07 "citation"))
+       , Pointer "" (Just (InternalResource [Str "Last"] (BibAnchor 7) title07 "citation"))
        , Space, Str "(", Str "ee", Space
-       , Pointer "" (Just (ExternalResource [Str "2000", Str "a"] "#bib-7" title07 "citation"))
+       , Pointer "" (Just (InternalResource [Str "2000", Str "a"] (BibAnchor 7) title07 "citation"))
        , Str ",", Space, Str "ff", Str ")", Str ",", Space, Str "bb"
        ]
   , testCase "multicite with three singlecites and no notes" $
@@ -257,17 +257,17 @@ testsFormatCite = testGroup "citation formatting"
     in fmtMultiCite citeDB01 cit
        @?=
        [ Str "("
-       , Pointer "" (Just (ExternalResource [Str "Last"] "#bib-3" title03 "citation"))
+       , Pointer "" (Just (InternalResource [Str "Last"] (BibAnchor 3) title03 "citation"))
        , Space
-       , Pointer "" (Just (ExternalResource [Str "1999"] "#bib-3" title03 "citation"))
+       , Pointer "" (Just (InternalResource [Str "1999"] (BibAnchor 3) title03 "citation"))
        , Str ";", Space
-       , Pointer "" (Just (ExternalResource [Str "Last1"] "#bib-12" title04 "citation"))
+       , Pointer "" (Just (InternalResource [Str "Last1"] (BibAnchor 12) title04 "citation"))
        , Space
-       , Pointer "" (Just (ExternalResource [Str "2000"] "#bib-12" title04 "citation"))
+       , Pointer "" (Just (InternalResource [Str "2000"] (BibAnchor 12) title04 "citation"))
        , Str ";", Space
-       , Pointer "" (Just (ExternalResource [Str "Last"] "#bib-7" title07 "citation"))
+       , Pointer "" (Just (InternalResource [Str "Last"] (BibAnchor 7) title07 "citation"))
        , Space
-       , Pointer "" (Just (ExternalResource [Str "2000", Str "a"] "#bib-7" title07 "citation"))
+       , Pointer "" (Just (InternalResource [Str "2000", Str "a"] (BibAnchor 7) title07 "citation"))
        , Str ")"
        ]
   , testCase "cite author of a single citekey without notes" $
@@ -276,7 +276,7 @@ testsFormatCite = testGroup "citation formatting"
         title01 = mkCiteLinkTitle (citeEntry01 0 "")
     in fmtMultiCite citedb cit
        @?=
-       [Pointer "" (Just (ExternalResource [Str "Last"] "#bib-0" title01 "citation"))]
+       [Pointer "" (Just (InternalResource [Str "Last"] (BibAnchor 0) title01 "citation"))]
   , testCase "cite author of a single citekey with prenote and postnote" $
     let citedb = M.fromList [("one", citeEntry01 0 "")]
         cit = MultiCite CiteAuthor [] [] [SingleCite [Str "see"] [Str "sometime"] ["one"]]
@@ -284,7 +284,7 @@ testsFormatCite = testGroup "citation formatting"
     in fmtMultiCite citedb cit
        @?=
        [ Str "see", Space
-       , Pointer "" (Just (ExternalResource [Str "Last"] "#bib-0" title01 "citation"))
+       , Pointer "" (Just (InternalResource [Str "Last"] (BibAnchor 0) title01 "citation"))
        , Str ",", Space, Str "sometime" ]
   , testCase "cite year of a single citekey without notes" $
     let citedb = M.fromList [("one", citeEntry01 0 "")]
@@ -292,7 +292,7 @@ testsFormatCite = testGroup "citation formatting"
         title01 = mkCiteLinkTitle (citeEntry01 0 "")
     in fmtMultiCite citedb cit
        @?=
-       [Pointer "" (Just (ExternalResource [Str "2000"] "#bib-0" title01 "citation"))]
+       [Pointer "" (Just (InternalResource [Str "2000"] (BibAnchor 0) title01 "citation"))]
   , testCase "cite year of a single citekey with (inner) prenote" $
     let citedb = M.fromList [("one", citeEntry01 0 "")]
         cit = MultiCite CiteYear [] [] [SingleCite [Str "written", Space, Str "in"] [] ["one"]]
@@ -300,7 +300,7 @@ testsFormatCite = testGroup "citation formatting"
     in fmtMultiCite citedb cit
        @?=
        [ Str "written", Space, Str "in", Space
-       , Pointer "" (Just (ExternalResource [Str "2000"] "#bib-0" title01 "citation")) ]
+       , Pointer "" (Just (InternalResource [Str "2000"] (BibAnchor 0) title01 "citation")) ]
   ]
 
 testsFormatBib :: Test

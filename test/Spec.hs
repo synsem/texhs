@@ -13,7 +13,9 @@ import Test.Framework (Test, defaultMain)
 
 import qualified Text.BibSpec
 import qualified Text.Bib.WriterSpec
+import qualified Text.Doc.TypesSpec
 import qualified Text.Doc.Reader.TeXSpec
+import qualified Text.Doc.Filter.MultiFileSpec
 import qualified Text.Doc.Writer.HtmlSpec
 import qualified Text.Doc.Writer.XmlSpec
 import qualified Text.TeX.LexerSpec
@@ -28,7 +30,9 @@ tests :: [Test]
 tests =
   [ Text.BibSpec.tests
   , Text.Bib.WriterSpec.tests
+  , Text.Doc.TypesSpec.tests
   , Text.Doc.Reader.TeXSpec.tests
+  , Text.Doc.Filter.MultiFileSpec.tests
   , Text.Doc.Writer.HtmlSpec.tests
   , Text.Doc.Writer.XmlSpec.tests
   , Text.TeX.LexerSpec.tests

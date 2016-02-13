@@ -241,10 +241,11 @@ inline (Citation cit) = do
   el "seg" ! attr "type" "citation-group" <$>
     inlines (fmtMultiCite db cit)
 inline (Pointer label protoAnchor) = do
-  db <- asks metaAnchorMap
-  let anchor = extractAnchor db label protoAnchor
+  anchorDB <- asks metaAnchorMap
+  fileDB <- asks metaAnchorFileMap
+  let anchor = extractAnchor anchorDB label protoAnchor
   el "ref" !
-    attr "target" (textValue (anchorTarget anchor)) !?
+    attr "target" (textValue (anchorTarget fileDB anchor)) !?
     ( not (T.null (anchorType anchor))
     , attr "type" (textValue (anchorType anchor))) <$>
     inlines (anchorDescription anchor)

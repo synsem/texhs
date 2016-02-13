@@ -325,7 +325,7 @@ testsInlines = testGroup "inlines"
     "<a href=\"http://example.com/\">some description</a>"
   , testCase "link to internal figure" $
     inlines2html defaultMeta [Str "Figure", Space, Pointer "internallabel"
-      (Just (InternalResource (FigureAnchor (2,1))))]
+      (Just (InternalResourceAuto (FigureAnchor (2,1))))]
     @?=
     "Figure <a href=\"#figure-2-1\">2.1</a>"
   , testCase "empty footnote (only mark)" $

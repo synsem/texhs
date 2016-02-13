@@ -219,17 +219,17 @@ fmtCiteGroup CiteBare pre post entries@(e:_) =
       pre
       [Space]
       (fmtSepBy
-        (mkLink
+        (mkInternalLink
           (fmtCiteAgents (citeAgents e))
-          (internalAnchorTarget (citeAnchor e))
+          (citeAnchor e)
           (T.pack (concatMap plain (citeFull e)))
           "citation")
         [Space]
         (intercalate
           [Str ",", Space]
-          (map (\ i -> mkLink
+          (map (\ i -> mkInternalLink
              (citeYear i)
-             (internalAnchorTarget (citeAnchor i))
+             (citeAnchor i)
              (T.pack (concatMap plain (citeFull i)))
              "citation")
            entries))))
@@ -239,9 +239,9 @@ fmtCiteGroup CiteParen pre post entries =
   fmtCiteGroup CiteBare pre post entries
 fmtCiteGroup CiteText pre post entries@(e:_) =
   fmtSepBy
-    (mkLink
+    (mkInternalLink
       (fmtCiteAgents (citeAgents e))
-      (internalAnchorTarget (citeAnchor e))
+      (citeAnchor e)
       (T.pack (concatMap plain (citeFull e)))
       "citation")
     [Space]
@@ -253,9 +253,9 @@ fmtCiteGroup CiteText pre post entries@(e:_) =
           [Space]
           (intercalate
             [Str ",", Space]
-            (map (\ i -> mkLink
+            (map (\ i -> mkInternalLink
                 (citeYear i)
-                (internalAnchorTarget (citeAnchor i))
+                (citeAnchor i)
                 (T.pack (concatMap plain (citeFull i)))
                 "citation")
               entries)))
@@ -268,9 +268,9 @@ fmtCiteGroup CiteAuthor pre post (e:_) =
     (fmtSepBy
       pre
       [Space]
-      (mkLink
+      (mkInternalLink
         (fmtCiteAgents (citeAgents e))
-        (internalAnchorTarget (citeAnchor e))
+        (citeAnchor e)
         (T.pack (concatMap plain (citeFull e)))
         "citation"))
     [Str ",", Space]
@@ -283,9 +283,9 @@ fmtCiteGroup CiteYear pre post entries@(_:_) =
       [Space]
       (intercalate
         [Str ",", Space]
-        (map (\ i -> mkLink
+        (map (\ i -> mkInternalLink
           (citeYear i)
-          (internalAnchorTarget (citeAnchor i))
+          (citeAnchor i)
           (T.pack (concatMap plain (citeFull i)))
           "citation")
          entries)))

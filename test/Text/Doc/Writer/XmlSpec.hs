@@ -263,7 +263,7 @@ testsInlines = testGroup "inlines"
     "<ref target=\"http://example.com/\">some description</ref>"
   , testCase "link to internal figure" $
     inlines2xml defaultMeta [Str "Figure", Space, Pointer "internallabel"
-      (Just (InternalResource (FigureAnchor (2,1))))]
+      (Just (InternalResourceAuto (FigureAnchor (2,1))))]
     @?=
     "Figure <ref target=\"#figure-2-1\">2.1</ref>"
   , testCase "empty footnote" $
