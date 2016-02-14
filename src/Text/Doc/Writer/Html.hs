@@ -29,14 +29,13 @@ import qualified Data.Map.Strict as M
 import Data.Monoid
 import Data.Text.Lazy (Text)
 import qualified Data.Text as T
-import Text.Blaze.Html5
-  ( (!), (!?), Html, toHtml, text, textValue, docTypeHtml
-  , ul, ol, li, p, a)
-import Text.Blaze.Html5.Attributes
-  (name, charset, content, href)
+import Text.Blaze ((!), (!?), string, text, stringValue, textValue)
+import Text.Blaze.Html (Html)
 import Text.Blaze.Html.Renderer.Text (renderHtml)
-import qualified Text.Blaze.Html5 as H
-import qualified Text.Blaze.Html5.Attributes as A
+import qualified Text.Blaze.XHtml5 as H
+import qualified Text.Blaze.XHtml5.Attributes as A
+import qualified Text.Blaze.XHtml1.Strict as H1
+import qualified Text.Blaze.XHtml1.Strict.Attributes as A1
 
 import Text.Bib.Writer
 import Text.Doc.Types
@@ -52,8 +51,9 @@ doc2html = renderHtml . convertDoc . doc2secdoc
 
 -- Convert a 'SectionDoc' to HTML Markup.
 convertDoc :: SectionDoc -> Html
-convertDoc doc = docTypeHtml $
-  runReader (mkHead doc <+> mkBody doc) (docMeta doc)
+convertDoc doc = runReader
+  (docTypeHtml <*> (mkHead doc <+> mkBody doc))
+  (docMeta doc)
 
 -- | Convert 'Section' elements to an HTML fragment.
 sections2html :: Meta -> [Section] -> Text
@@ -83,16 +83,16 @@ convert2html render meta docdata =
 -- Create @<head>@ element.
 mkHead :: SectionDoc -> Reader Meta Html
 mkHead doc = H.head <$>
-  (((H.meta ! charset "utf-8") $<>
-    (H.title <$> inlines (docTitle doc))) <>$
-   (H.meta ! name "viewport" ! content "width=device-width, initial-scale=1.0") <>$
-   (H.meta ! name "generator" ! content "texhs"))
+  (elMetaCharset <+>
+   (H.title <$> inlines (docTitle doc)) <>$
+   (H.meta ! A.name "viewport" ! A.content "width=device-width, initial-scale=1.0") <>$
+   (H.meta ! A.name "generator" ! A.content "texhs"))
 
 ----- header
 
 -- Create @<header>@ element.
 header :: SectionDoc -> Reader Meta Html
-header doc = H.header <$>
+header doc = H.header `orDivClass` "header" <*>
   ((heading 1 ! A.class_ "title" <$> inlines (docTitle doc)) <+>
   unlessR (null (docSubTitle doc))
     (heading 1 ! A.class_ "subtitle" <$> inlines (docSubTitle doc)) <+>
@@ -103,10 +103,10 @@ header doc = H.header <$>
 -- Create a table of contents.
 toc :: SectionDoc -> Reader Meta Html
 toc (SectionDoc meta secs) =
-  let noteEntry = li $ a ! href "#footnotes" $ "Footnotes"
-      biblEntry = li $ a ! href "#bibliography" $ "Bibliography"
+  let noteEntry = H.li $ H.a ! A.href "#footnotes" $ "Footnotes"
+      biblEntry = H.li $ H.a ! A.href "#bibliography" $ "Bibliography"
   in unlessR (null secs)
-     (H.nav ! A.id "toc" <$> (ul <$>
+     (H.nav `orDivClass` "nav" <!> A.id "toc" <*> (H.ul <$>
        (foldMapR tocEntry secs <>$
         unlessR (M.null (metaNoteMap meta)) noteEntry <>
         unlessR (M.null (metaCiteDB meta)) biblEntry)))
@@ -115,11 +115,11 @@ toc (SectionDoc meta secs) =
 tocEntry :: Section -> Reader Meta Html
 tocEntry (Section _ anchor title _ subsecs) = do
   db <- asks metaAnchorFileMap
-  li <$>
-    ((a ! href (textValue (internalAnchorTarget db anchor)) <$>
+  H.li <$>
+    ((H.a ! A.href (textValue (internalAnchorTarget db anchor)) <$>
       (sectionNumberPrefix anchor <+> inlines title)) <+>
     unlessR (null subsecs)
-      (ul <$> foldMapR tocEntry subsecs))
+      (H.ul <$> foldMapR tocEntry subsecs))
 
 -- Create a section number.
 --
@@ -128,7 +128,7 @@ tocEntry (Section _ anchor title _ subsecs) = do
 sectionNumberPrefix :: InternalAnchor -> Reader Meta Html
 sectionNumberPrefix anchor@(SectionAnchor _) =
   unlessR (isPhantomSection anchor)
-    (inlines (internalAnchorDescription anchor) <>$ toHtml ' ')
+    (inlines (internalAnchorDescription anchor) <>$ text " ")
 sectionNumberPrefix _ = memptyR
 
 ----- footnotes
@@ -140,7 +140,7 @@ footnotes (SectionDoc meta _) =
       keys = M.keys notes             -- 'M.keys' returns sorted list
       chapters = (nub . map fst) keys -- only chapters with notes
   in unlessR (null keys)
-       (H.section ! A.id "footnotes" <$>
+       (elSection <!> A.id "footnotes" <*>
          (heading 2 "Footnotes" $<>
          foldMapR (footnotesForChapter notes) chapters))
 
@@ -149,16 +149,16 @@ footnotesForChapter :: Map (Int, Int) [Block] -> Int -> Reader Meta Html
 footnotesForChapter notes chapnum =
   let chap = T.pack (show chapnum)
       headerID = textValue (T.append "footnotes-chap-" chap)
-      headerTitle = toHtml (T.append "Chapter " chap)
+      headerTitle = text (T.append "Chapter " chap)
       fndata = filter ((chapnum==) . fst . fst) (M.assocs notes)
-  in H.section ! A.id headerID <$>
+  in elSection <!> A.id headerID <*>
        (heading 3 headerTitle $<>
-       (ol <$> foldMapR (footnote . first NoteAnchor) fndata))
+       (H.ol <$> foldMapR (footnote . first NoteAnchor) fndata))
 
 -- Create a single footnote.
 footnote :: (InternalAnchor, [Block]) -> Reader Meta Html
 footnote (anchor, fntext) =
-  li ! A.id (textValue (internalAnchorID anchor)) <$>
+  H.li ! A.id (textValue (internalAnchorID anchor)) <$>
     blocks fntext <+>
     backreference anchor
 
@@ -170,8 +170,8 @@ backreference :: InternalAnchor -> Reader Meta Html
 backreference anchor = do
   let backrefText = "^"
   db <- asks metaAnchorFileMap
-  return $ p $ a ! A.class_ "note-backref" !
-     href (textValue (internalAnchorTargetRef db anchor)) $
+  return $ H.p $ H.a ! A.class_ "note-backref" !
+     A.href (textValue (internalAnchorTargetRef db anchor)) $
      backrefText
 
 ----- bibliography
@@ -181,14 +181,14 @@ bibliography :: SectionDoc -> Reader Meta Html
 bibliography (SectionDoc meta _) =
   let citeEntries = sort (M.elems (metaCiteDB meta))
   in unlessR (null citeEntries)
-       (H.section ! A.id "bibliography" <$>
+       (elSection <!> A.id "bibliography" <*>
          (heading 2 "Bibliography" $<>
-         (ol ! A.id "biblist" <$> foldMapR writeBibEntry citeEntries)))
+         (H.ol ! A.id "biblist" <$> foldMapR writeBibEntry citeEntries)))
 
 -- Create a single entry in the bibliography.
 writeBibEntry :: CiteEntry -> Reader Meta Html
 writeBibEntry (CiteEntry anchor _ _ formatted) =
-  li ! A.id (textValue (internalAnchorID anchor)) <$>
+  H.li ! A.id (textValue (internalAnchorID anchor)) <$>
   inlines formatted
 
 
@@ -200,7 +200,7 @@ mkBody doc@(SectionDoc _ docbody) =
   H.body <$>
     (header doc <+>
      toc doc <+>
-     (H.main <$>
+     (H.main `orDivClass` "main" <*>
        (sections docbody <+>
         footnotes doc <+>
         bibliography doc)))
@@ -220,7 +220,7 @@ inlines = foldMapR inline
 -- Convert a single 'Section' element to HTML.
 section :: Section -> Reader Meta Html
 section (Section hlevel hanchor htitle secbody subsecs) =
-  H.section ! A.id (textValue (internalAnchorID hanchor)) <$>
+  elSection <!> A.id (textValue (internalAnchorID hanchor)) <*>
   ((heading hlevel <$>
       sectionNumberPrefix hanchor <+> inlines htitle) <+>
     blocks secbody <+>
@@ -231,26 +231,27 @@ section (Section hlevel hanchor htitle secbody subsecs) =
 -- Note: SectionDoc documents should not contain Header elements,
 -- all header information is collected in Section elements.
 block :: Block -> Reader Meta Html
-block (Para xs) = p <$> inlines xs
+block (Para xs) = H.p <$> inlines xs
 block (Header level anchor htitle) =
   heading level ! A.id (textValue (internalAnchorID anchor)) <$>
   (sectionNumberPrefix anchor <+> inlines htitle)
 block (List UnorderedList xss) =
-  ul <$> foldMapR (fmap li . blocks) xss
+  H.ul <$> foldMapR (fmap H.li . blocks) xss
 block (List OrderedList xss) =
-  ol <$> foldMapR (fmap li . blocks) xss
+  H.ol <$> foldMapR (fmap H.li . blocks) xss
 block (ListItemBlock xs) =
-  ol ! A.class_ "numbered-item-list" <$>
+  H.ol ! A.class_ "numbered-item-list" <$>
   foldMapR listitem xs
 block (QuotationBlock xs) = H.blockquote <$> blocks xs
 block (Figure anchor imgloc imgdesc) =
-  H.figure ! A.id (textValue (internalAnchorID anchor)) <$>
+  H.figure `orDivClass` "figure" <!>
+  A.id (textValue (internalAnchorID anchor)) <*>
     (H.img ! A.src (textValue imgloc) $<>
-     H.figcaption <$>
+    (elFigcaption <*>
        ((text "Figure " $<>
          inlines (internalAnchorDescription anchor)) <+>
         (text ": " $<>
-         inlines imgdesc)))
+         inlines imgdesc))))
 block (Table anchor tdesc tdata) =
   H.table ! A.id (textValue (internalAnchorID anchor)) <$>
     ((H.caption <$>
@@ -270,24 +271,24 @@ tableCell :: TableCell -> Reader Meta Html
 tableCell (SingleCell xs) =
   H.td <$> inlines xs
 tableCell (MultiCell i xs) =
-  H.td ! A.colspan (H.stringValue (show i)) <$> inlines xs
+  H.td ! A.colspan (stringValue (show i)) <$> inlines xs
 
 -- Convert a single 'ListItem' element to HTML.
 listitem :: ListItem -> Reader Meta Html
 listitem (ListItem anchor xs) =
-  li ! A.id (textValue (internalAnchorID anchor))
-     ! A.class_ "numbered-item"
-     ! A.value (H.stringValue (show (internalAnchorLocalNum anchor))) <$>
+  H.li ! A.id (textValue (internalAnchorID anchor)) !
+    A.class_ "numbered-item" !
+    A.value (stringValue (show (internalAnchorLocalNum anchor))) <$>
     blocks xs
 
 -- Convert a single 'Inline' element to HTML.
 inline :: Inline -> Reader Meta Html
-inline (Str xs) = return $ toHtml xs
+inline (Str xs) = return $ string xs
 inline (FontStyle s xs) = style s <$> inlines xs
 inline (Math _ xs) =
   H.span ! A.class_ "math" <$>
   inlines xs
-inline Space = return $ toHtml ' '
+inline Space = return $ text " "
 inline (Citation cit) = do
   db <- asks metaCiteDB
   H.span ! A.class_ "citation-group" <$>
@@ -296,17 +297,17 @@ inline (Pointer label protoAnchor) = do
   anchorDB <- asks metaAnchorMap
   fileDB <- asks metaAnchorFileMap
   let anchor = extractAnchor anchorDB label protoAnchor
-  a ! href (textValue (anchorTarget fileDB anchor))
-    !? ( not (T.null (anchorType anchor))
-       , A.class_ (textValue (anchorType anchor)))
-    !? ( not (T.null (anchorTitle anchor))
-       , A.title (textValue (anchorTitle anchor))) <$>
+  H.a ! A.href (textValue (anchorTarget fileDB anchor)) !?
+    ( not (T.null (anchorType anchor))
+    , A.class_ (textValue (anchorType anchor))) !?
+    ( not (T.null (anchorTitle anchor))
+    , A.title (textValue (anchorTitle anchor))) <$>
     inlines (anchorDescription anchor)
 inline (Note anchor _) = do
   db <- asks metaAnchorFileMap
-  a ! A.id (textValue (internalAnchorIDRef anchor))
-    ! A.class_ "note-ref"
-    ! href (textValue (internalAnchorTarget db anchor)) <$>
+  H.a ! A.id (textValue (internalAnchorIDRef anchor)) !
+    A.class_ "note-ref" !
+    A.href (textValue (internalAnchorTarget db anchor)) <$>
     (H.sup <$> inlines (internalAnchorDescription anchor))
 
 -- Map header level to 'Html' combinator.
@@ -325,3 +326,47 @@ style Normal = H.span ! A.style "font-style: normal;"
 style Emph = H.em
 style Sub = H.sub
 style Sup = H.sup
+
+
+---------- Adapt for configured HTML version
+
+-- Document type declaration for the configured HTML version.
+--
+-- Inserts doctype declaration and the @<html>@ element.
+docTypeHtml :: Reader Meta (Html -> Html)
+docTypeHtml =
+  elFallback H.docTypeHtml H1.docTypeHtml <!>
+  attr "xmlns" "http://www.w3.org/1999/xhtml"
+
+-- Insert @<meta>@ element for @charset@ property.
+elMetaCharset :: Reader Meta Html
+elMetaCharset =
+  (H.meta ! A.charset "utf-8") `elFallback`
+  (H1.meta ! A1.httpEquiv "Content-Type" !
+    A1.content "text/html; charset=utf-8")
+
+-- Combinator for a @<section>@-like element.
+elSection :: Reader Meta (Html -> Html)
+elSection = H.section `orDivClass` "section"
+
+-- Combinator for a @<figcaption>@-like element.
+elFigcaption :: Reader Meta (Html -> Html)
+elFigcaption = H.figcaption `elFallback` (H1.p ! A1.class_ "caption")
+
+-- Combinator for an XHTML5 element with a @<div>@ fallback.
+-- The second argument is a CSS class name for the @<div>@ element.
+--
+-- If not rendering XHTML5, a @<div>@ element with the provided
+-- fallback class name is inserted instead of the XHTML5 element.
+orDivClass :: (Html -> Html) -> H1.AttributeValue -> Reader Meta (Html -> Html)
+orDivClass xhtml5 fallbackClass =
+  xhtml5 `elFallback` (H1.div ! A1.class_ fallbackClass)
+
+-- Provide XHTML5 and XHTML1 versions of a value (e.g. an element)
+-- to generate a conditional renderer for it.
+elFallback :: a -> a -> Reader Meta a
+elFallback xhtml5 xhtml1 = do
+  htmlVersion <- asks metaWriterHtmlVersion
+  case htmlVersion of
+    XHTML5 -> return xhtml5
+    XHTML1 -> return xhtml1

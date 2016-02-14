@@ -39,7 +39,8 @@ testsDoc = testGroup "documents"
   [ testCase "empty document" $
     doc2html (Doc defaultMeta [])
     @?=
-    LT.concat [ "<!DOCTYPE HTML>\n<html><head>"
+    LT.concat [ "<!DOCTYPE HTML>\n"
+              , "<html xmlns=\"http://www.w3.org/1999/xhtml\"><head>"
               , metaCharset
               , "<title></title>"
               , metaViewport
@@ -49,80 +50,52 @@ testsDoc = testGroup "documents"
               , "<h2 class=\"author\"></h2></header><main>"
               , "</main></body></html>"]
   , testCase "simple document" $
-    doc2html (Doc
-      defaultMeta { metaTitle = [Str "No", Space, Str "title"]
-                  , metaSubTitle = [Str "No", Space, Str "subtitle"]
-                  , metaAuthors = [[Str "Nobody"]]
-                  , metaDate = [Str "2015-12-31"] }
-      [ Header 2
-          (SectionAnchor (SectionInfo Mainmatter
-            (SectionRegular (0,1,0,0,0,0,0))))
-          [Str "one"]
-      , Para [Str "hello", Space, FontStyle Emph [Str "world"]]])
+    doc2html docExample01
     @?=
-    LT.concat [ "<!DOCTYPE HTML>\n<html><head>"
+    LT.concat [ "<!DOCTYPE HTML>\n"
+              , "<html xmlns=\"http://www.w3.org/1999/xhtml\"><head>"
               , metaCharset
-              , "<title>No title</title>"
+              , "<title>Some title</title>"
               , metaViewport
               , metaGenerator
               , "</head><body><header>"
-              , "<h1 class=\"title\">No title</h1>"
-              , "<h1 class=\"subtitle\">No subtitle</h1>"
-              , "<h2 class=\"author\">Nobody</h2></header>"
+              , "<h1 class=\"title\">Some title</h1>"
+              , "<h1 class=\"subtitle\">Some subtitle</h1>"
+              , "<h2 class=\"author\">Some Name</h2></header>"
               , "<nav id=\"toc\"><ul><li><a href=\"#sec-1\">1 one</a></li></ul></nav>"
               , "<main><section id=\"sec-1\"><h2>1 one</h2>"
               , "<p>hello <em>world</em></p>"
               , "</section></main></body></html>"]
-  , testCase "document with chapters and footnotes" $
-    doc2html (Doc
-      defaultMeta { metaTitle = [Str "No", Space, Str "title"]
-                  , metaAuthors = [[Str "Nobody"]]
-                  , metaNoteMap = M.fromList
-                    [((1,1), [Para [Str "Footnote", Space, Str "one"]])
-                    ,((3,1), [Para [Str "Footnote", Space, Str "two"]])
-                    ,((3,2), [Para [Str "Footnote", Space, Str "three"]])
-                    ,((3,3), [Para [Str "Footnote", Space, Str "four"]])]}
-      [ Header 2
-          (SectionAnchor (SectionInfo Mainmatter
-            (SectionRegular (0,1,0,0,0,0,0))))
-          [Str "one"]
-      , Para [ Str "One"
-             , Note (NoteAnchor (1,1)) [Para [Str "Footnote", Space, Str "one"]]
-             , Str "."]
-      , Header 2
-          (SectionAnchor (SectionInfo Mainmatter
-            (SectionRegular (0,2,0,0,0,0,0))))
-          [Str "two"]
-      , Para [ Str "No", Space, Str "footnotes", Space, Str "in", Space
-             , Str "Chapter", Space, Str "two."]
-      , Header 3
-          (SectionAnchor (SectionInfo Mainmatter
-            (SectionRegular (0,2,1,0,0,0,0))))
-          [Str "two-sub1"]
-      , Header 3
-          (SectionAnchor (SectionInfo Mainmatter
-            (SectionRegular (0,2,2,0,0,0,0))))
-          [Str "two-sub2"]
-      , Header 2
-          (SectionAnchor (SectionInfo Mainmatter
-            (SectionRegular (0,3,0,0,0,0,0))))
-          [Str "three"]
-      , Para [ Str "Hello"
-             , Note (NoteAnchor (3,1)) [Para [Str "Footnote", Space, Str "two"]]
-             , Space, Str "world"
-             , Note (NoteAnchor (3,2)) [Para [Str "Footnote", Space, Str "three"]]
-             , Str "."]
-      , Para [ Str "Hello"
-             , Note (NoteAnchor (3,3)) [Para [Str "Footnote", Space, Str "four"]], Str "."]])
+  , testCase "simple document: XHTML1 version" $
+    doc2html (toXhtml1 docExample01)
     @?=
-    LT.concat [ "<!DOCTYPE HTML>\n<html><head>"
+    LT.concat [ doctypeXhtml1
+              , "<html xmlns=\"http://www.w3.org/1999/xhtml\"><head>"
+              , metaCharsetXhtml1
+              , "<title>Some title</title>"
+              , metaViewport
+              , metaGenerator
+              , "</head><body><div class=\"header\">"
+              , "<h1 class=\"title\">Some title</h1>"
+              , "<h1 class=\"subtitle\">Some subtitle</h1>"
+              , "<h2 class=\"author\">Some Name</h2></div>"
+              , "<div class=\"nav\" id=\"toc\"><ul>"
+              , "<li><a href=\"#sec-1\">1 one</a></li></ul></div>"
+              , "<div class=\"main\"><div class=\"section\" id=\"sec-1\"><h2>1 one</h2>"
+              , "<p>hello <em>world</em></p>"
+              , "</div></div></body></html>"]
+  , testCase "document with chapters and footnotes" $
+    doc2html docExample02
+    @?=
+    LT.concat [ "<!DOCTYPE HTML>\n"
+              , "<html xmlns=\"http://www.w3.org/1999/xhtml\"><head>"
               , metaCharset
-              , "<title>No title</title>"
+              , "<title>Some title</title>"
               , metaViewport
               , metaGenerator
               , "</head><body><header>"
-              , "<h1 class=\"title\">No title</h1>"
-              , "<h2 class=\"author\">Nobody</h2></header>"
+              , "<h1 class=\"title\">Some title</h1>"
+              , "<h2 class=\"author\">Some Name</h2></header>"
                 -- nav
               , "<nav id=\"toc\"><ul>"
               , "<li><a href=\"#sec-1\">1 one</a></li>"
@@ -162,6 +135,57 @@ testsDoc = testGroup "documents"
               , "<li id=\"note-3-3\"><p>Footnote four</p>"
               , "<p><a class=\"note-backref\" href=\"#note-3-3-ref\">^</a></p></li>"
               , "</ol></section></section></main></body></html>"]
+  , testCase "document with chapters and footnotes: XHTML1 version" $
+    doc2html (toXhtml1 docExample02)
+    @?=
+    LT.concat [ doctypeXhtml1
+              , "<html xmlns=\"http://www.w3.org/1999/xhtml\"><head>"
+              , metaCharsetXhtml1
+              , "<title>Some title</title>"
+              , metaViewport
+              , metaGenerator
+              , "</head><body><div class=\"header\">"
+              , "<h1 class=\"title\">Some title</h1>"
+              , "<h2 class=\"author\">Some Name</h2></div>"
+                -- nav
+              , "<div class=\"nav\" id=\"toc\"><ul>"
+              , "<li><a href=\"#sec-1\">1 one</a></li>"
+              , "<li><a href=\"#sec-2\">2 two</a><ul>"
+              , "<li><a href=\"#sec-2-1\">2.1 two-sub1</a></li>"
+              , "<li><a href=\"#sec-2-2\">2.2 two-sub2</a></li></ul></li>"
+              , "<li><a href=\"#sec-3\">3 three</a></li>"
+              , "<li><a href=\"#footnotes\">Footnotes</a></li></ul></div>"
+                -- content
+              , "<div class=\"main\">"
+              , "<div class=\"section\" id=\"sec-1\"><h2>1 one</h2>"
+              , "<p>One"
+              , "<a id=\"note-1-1-ref\" class=\"note-ref\" href=\"#note-1-1\"><sup>1.1</sup></a>"
+              , ".</p></div>"
+              , "<div class=\"section\" id=\"sec-2\"><h2>2 two</h2>"
+              , "<p>No footnotes in Chapter two.</p>"
+              , "<div class=\"section\" id=\"sec-2-1\"><h3>2.1 two-sub1</h3></div>"
+              , "<div class=\"section\" id=\"sec-2-2\"><h3>2.2 two-sub2</h3></div></div>"
+              , "<div class=\"section\" id=\"sec-3\"><h2>3 three</h2>"
+              , "<p>Hello"
+              , "<a id=\"note-3-1-ref\" class=\"note-ref\" href=\"#note-3-1\"><sup>3.1</sup></a>"
+              , " world"
+              , "<a id=\"note-3-2-ref\" class=\"note-ref\" href=\"#note-3-2\"><sup>3.2</sup></a>"
+              , ".</p><p>Hello"
+              , "<a id=\"note-3-3-ref\" class=\"note-ref\" href=\"#note-3-3\"><sup>3.3</sup></a>"
+              , ".</p></div>"
+                -- footnotes
+              , "<div class=\"section\" id=\"footnotes\"><h2>Footnotes</h2>"
+              , "<div class=\"section\" id=\"footnotes-chap-1\"><h3>Chapter 1</h3><ol>"
+              , "<li id=\"note-1-1\"><p>Footnote one</p>"
+              , "<p><a class=\"note-backref\" href=\"#note-1-1-ref\">^</a></p></li>"
+              , "</ol></div><div class=\"section\" id=\"footnotes-chap-3\"><h3>Chapter 3</h3><ol>"
+              , "<li id=\"note-3-1\"><p>Footnote two</p>"
+              , "<p><a class=\"note-backref\" href=\"#note-3-1-ref\">^</a></p></li>"
+              , "<li id=\"note-3-2\"><p>Footnote three</p>"
+              , "<p><a class=\"note-backref\" href=\"#note-3-2-ref\">^</a></p></li>"
+              , "<li id=\"note-3-3\"><p>Footnote four</p>"
+              , "<p><a class=\"note-backref\" href=\"#note-3-3-ref\">^</a></p></li>"
+              , "</ol></div></div></div></body></html>"]
   ]
 
 testsBlocks :: Test
@@ -241,8 +265,14 @@ testsBlocks = testGroup "blocks"
   , testCase "simple figure" $
     blocks2html defaultMeta [Figure (FigureAnchor (2,1)) "image.png" [Str "description"]]
     @?=
-    LT.append "<figure id=\"figure-2-1\"><img src=\"image.png\">"
+    LT.append "<figure id=\"figure-2-1\"><img src=\"image.png\" />"
               "<figcaption>Figure 2.1: description</figcaption></figure>"
+  , testCase "simple figure: XHTML1 version" $
+    blocks2html (defaultMeta { metaWriterHtmlVersion = XHTML1 })
+    [Figure (FigureAnchor (2,1)) "image.png" [Str "description"]]
+    @?=
+    LT.append "<div class=\"figure\" id=\"figure-2-1\"><img src=\"image.png\" />"
+              "<p class=\"caption\">Figure 2.1: description</p></div>"
   , testCase "empty table" $
     blocks2html defaultMeta [Table (TableAnchor (2,1)) [Str "description"] []]
     @?=
@@ -334,6 +364,13 @@ testsInlines = testGroup "inlines"
       (Just (InternalResourceAuto (FigureAnchor (2,1))))]
     @?=
     "Figure <a href=\"#figure-2-1\">2.1</a>"
+  , testCase "link to internal figure in multifile document" $
+    inlines2html (defaultMeta {
+        metaAnchorFileMap = M.fromList [(FigureAnchor (2,1), 12)] })
+      [Str "Figure", Space, Pointer "internallabel"
+        (Just (InternalResourceAuto (FigureAnchor (2,1))))]
+    @?=
+    "Figure <a href=\"section-012.xhtml#figure-2-1\">2.1</a>"
   , testCase "empty footnote (only mark)" $
     inlines2html defaultMeta [Note (NoteAnchor (2,8)) []]
     @?=
@@ -345,13 +382,89 @@ testsInlines = testGroup "inlines"
   ]
 
 
+-------------------- helper
+
+updateMeta :: (Meta -> Meta) -> Doc -> Doc
+updateMeta f (Doc meta body) = Doc (f meta) body
+
+toXhtml1 :: Doc -> Doc
+toXhtml1 = updateMeta (\m -> m { metaWriterHtmlVersion = XHTML1 })
+
+
+-------------------- example documents
+
+docExample01 :: Doc
+docExample01 = Doc
+  defaultMeta { metaTitle = [Str "Some", Space, Str "title"]
+              , metaSubTitle = [Str "Some", Space, Str "subtitle"]
+              , metaAuthors = [[Str "Some Name"]]
+              , metaDate = [Str "2015-12-31"] }
+  [ Header 2
+      (SectionAnchor (SectionInfo Mainmatter
+        (SectionRegular (0,1,0,0,0,0,0))))
+      [Str "one"]
+  , Para [Str "hello", Space, FontStyle Emph [Str "world"]]]
+
+docExample02 :: Doc
+docExample02 = Doc
+  defaultMeta { metaTitle = [Str "Some", Space, Str "title"]
+              , metaAuthors = [[Str "Some Name"]]
+              , metaNoteMap = M.fromList
+                [((1,1), [Para [Str "Footnote", Space, Str "one"]])
+                ,((3,1), [Para [Str "Footnote", Space, Str "two"]])
+                ,((3,2), [Para [Str "Footnote", Space, Str "three"]])
+                ,((3,3), [Para [Str "Footnote", Space, Str "four"]])]}
+  [ Header 2
+      (SectionAnchor (SectionInfo Mainmatter
+        (SectionRegular (0,1,0,0,0,0,0))))
+      [Str "one"]
+  , Para [ Str "One"
+         , Note (NoteAnchor (1,1)) [Para [Str "Footnote", Space, Str "one"]]
+         , Str "."]
+  , Header 2
+      (SectionAnchor (SectionInfo Mainmatter
+        (SectionRegular (0,2,0,0,0,0,0))))
+      [Str "two"]
+  , Para [ Str "No", Space, Str "footnotes", Space, Str "in", Space
+         , Str "Chapter", Space, Str "two."]
+  , Header 3
+      (SectionAnchor (SectionInfo Mainmatter
+        (SectionRegular (0,2,1,0,0,0,0))))
+      [Str "two-sub1"]
+  , Header 3
+      (SectionAnchor (SectionInfo Mainmatter
+        (SectionRegular (0,2,2,0,0,0,0))))
+      [Str "two-sub2"]
+  , Header 2
+      (SectionAnchor (SectionInfo Mainmatter
+        (SectionRegular (0,3,0,0,0,0,0))))
+      [Str "three"]
+  , Para [ Str "Hello"
+         , Note (NoteAnchor (3,1)) [Para [Str "Footnote", Space, Str "two"]]
+         , Space, Str "world"
+         , Note (NoteAnchor (3,2)) [Para [Str "Footnote", Space, Str "three"]]
+         , Str "."]
+  , Para [ Str "Hello"
+         , Note (NoteAnchor (3,3)) [Para [Str "Footnote", Space, Str "four"]]
+         , Str "."]]
+
+
 -------------------- boilerplate constants
 
+doctypeXhtml1 :: Text
+doctypeXhtml1 = LT.unlines
+  [ "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\""
+  , "    \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">"]
+
+metaCharsetXhtml1 :: Text
+metaCharsetXhtml1 =
+  "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" />"
+
 metaCharset :: Text
-metaCharset = "<meta charset=\"utf-8\">"
+metaCharset = "<meta charset=\"utf-8\" />"
 
 metaViewport :: Text
-metaViewport = "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
+metaViewport = "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />"
 
 metaGenerator :: Text
-metaGenerator = "<meta name=\"generator\" content=\"texhs\">"
+metaGenerator = "<meta name=\"generator\" content=\"texhs\" />"

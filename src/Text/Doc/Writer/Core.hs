@@ -18,6 +18,7 @@ module Text.Doc.Writer.Core
    el
  , leaf
  , attr
+ , (<!>)
    -- * Lifted monoid functions
  , (<+>)
  , ($<>)
@@ -31,8 +32,8 @@ module Text.Doc.Writer.Core
 import Control.Applicative
 import Data.Monoid
 import Data.Text (Text)
-import Text.Blaze (Markup, Attribute, AttributeValue, textTag)
-import Text.Blaze.Internal (customLeaf, customParent, attribute)
+import Text.Blaze (Markup, Attribute, AttributeValue, textTag, (!))
+import Text.Blaze.Internal (Attributable, customLeaf, customParent, attribute)
 
 
 ---------- Generate XML Markup
@@ -48,6 +49,12 @@ leaf = flip customLeaf True . textTag
 -- | Create attribute from name and value.
 attr :: Text -> AttributeValue -> Attribute
 attr n = attribute (textTag n) (textTag (" " <> n <> "=\""))
+
+infixl 5 <!>
+
+-- | Lifted attribute setter.
+(<!>) :: (Functor f, Attributable h) => f h -> Attribute -> f h
+(<!>) = flip (fmap . flip (!))
 
 
 ---------- Lifted monoid functions

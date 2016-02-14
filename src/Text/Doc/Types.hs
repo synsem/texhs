@@ -65,6 +65,8 @@ module Text.Doc.Types
   , FileID
   , AnchorFileMap
   , filenameFromID
+    -- ** Writer options
+  , HtmlVersion(..)
     -- * Content types
     -- ** Blocks
   , Content
@@ -145,6 +147,7 @@ data Meta = Meta
   , metaTableCurrent :: (Int, Int)
   , metaNoteCurrent :: (Int, Int)
   , metaItemCurrent :: (Int, [Int])
+  , metaWriterHtmlVersion :: HtmlVersion
   } deriving (Eq, Show)
 
 -- | Default (empty) meta information of a document.
@@ -168,6 +171,7 @@ defaultMeta = Meta
   , metaTableCurrent = (0, 0)
   , metaNoteCurrent = (0, 0)
   , metaItemCurrent = (0, [0])
+  , metaWriterHtmlVersion = XHTML5
   }
 
 -- | A class for document types that hold meta information.
@@ -375,6 +379,13 @@ type AnchorFileMap = Map InternalAnchor FileID
 -- Example filename: \"section-001.xhtml\".
 filenameFromID :: FileID -> FilePath
 filenameFromID = printf "section-%03d.xhtml"
+
+
+---------- Writer options
+
+-- | HTML version to be used by HTML Writer.
+data HtmlVersion = XHTML5 | XHTML1
+  deriving (Eq, Show)
 
 
 ---------- Citations
