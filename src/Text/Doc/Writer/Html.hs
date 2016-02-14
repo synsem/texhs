@@ -16,6 +16,7 @@
 module Text.Doc.Writer.Html
  ( -- * Doc to HTML Conversion
    doc2html
+ , sections2html
  , blocks2html
  , inlines2html
  ) where
@@ -30,7 +31,7 @@ import Data.Text.Lazy (Text)
 import qualified Data.Text as T
 import Text.Blaze.Html5
   ( (!), (!?), Html, toHtml, text, textValue, docTypeHtml
-  , h1, h2, ul, ol, li, p, a)
+  , ul, ol, li, p, a)
 import Text.Blaze.Html5.Attributes
   (name, charset, content, href)
 import Text.Blaze.Html.Renderer.Text (renderHtml)
@@ -47,14 +48,23 @@ import Text.Doc.Writer.Core
 
 -- | Convert a 'Doc' document to HTML.
 doc2html :: Doc -> Text
-doc2html = renderHtml . convertDoc
+doc2html = renderHtml . convertDoc . doc2secdoc
 
--- Convert 'Doc' to 'Html' type.
-convertDoc :: Doc -> Html
+-- Convert a 'SectionDoc' to HTML Markup.
+convertDoc :: SectionDoc -> Html
 convertDoc doc = docTypeHtml $
   runReader (mkHead doc <+> mkBody doc) (docMeta doc)
 
+-- | Convert 'Section' elements to an HTML fragment.
+sections2html :: Meta -> [Section] -> Text
+sections2html = convert2html sections
+
 -- | Convert 'Block' elements to an HTML fragment.
+--
+-- Note: This function does not convert blocks to sections
+-- and thus will not create section elements for headers.
+-- For a proper rendering of headers, use 'blocks2sections'
+-- and 'sections2html' instead.
 blocks2html :: Meta -> [Block] -> Text
 blocks2html = convert2html blocks
 
@@ -71,7 +81,7 @@ convert2html render meta docdata =
 ---------- meta
 
 -- Create @<head>@ element.
-mkHead :: Doc -> Reader Meta Html
+mkHead :: SectionDoc -> Reader Meta Html
 mkHead doc = H.head <$>
   (((H.meta ! charset "utf-8") $<>
     (H.title <$> inlines (docTitle doc))) <>$
@@ -81,20 +91,19 @@ mkHead doc = H.head <$>
 ----- header
 
 -- Create @<header>@ element.
-header :: Doc -> Reader Meta Html
+header :: SectionDoc -> Reader Meta Html
 header doc = H.header <$>
-  ((h1 ! A.class_ "title" <$> inlines (docTitle doc)) <+>
+  ((heading 1 ! A.class_ "title" <$> inlines (docTitle doc)) <+>
   unlessR (null (docSubTitle doc))
-    (h1 ! A.class_ "subtitle" <$> inlines (docSubTitle doc)) <+>
-  (h2 ! A.class_ "author" <$> foldMapR inlines (docAuthors doc)))
+    (heading 1 ! A.class_ "subtitle" <$> inlines (docSubTitle doc)) <+>
+  (heading 2 ! A.class_ "author" <$> foldMapR inlines (docAuthors doc)))
 
 ----- toc
 
 -- Create a table of contents.
-toc :: Doc -> Reader Meta Html
-toc doc =
-  let (SectionDoc meta secs) = doc2secdoc doc
-      noteEntry = li $ a ! href "#footnotes" $ "Footnotes"
+toc :: SectionDoc -> Reader Meta Html
+toc (SectionDoc meta secs) =
+  let noteEntry = li $ a ! href "#footnotes" $ "Footnotes"
       biblEntry = li $ a ! href "#bibliography" $ "Bibliography"
   in unlessR (null secs)
      (H.nav ! A.id "toc" <$> (ul <$>
@@ -125,14 +134,15 @@ sectionNumberPrefix _ = memptyR
 ----- footnotes
 
 -- Create section for footnotes.
-footnotes :: Doc -> Reader Meta Html
-footnotes (Doc meta _) =
+footnotes :: SectionDoc -> Reader Meta Html
+footnotes (SectionDoc meta _) =
   let notes = metaNoteMap meta
       keys = M.keys notes             -- 'M.keys' returns sorted list
       chapters = (nub . map fst) keys -- only chapters with notes
   in unlessR (null keys)
-       ((h1 ! A.id "footnotes" $ "Footnotes") $<>
-        foldMapR (footnotesForChapter notes) chapters)
+       (H.section ! A.id "footnotes" <$>
+         (heading 2 "Footnotes" $<>
+         foldMapR (footnotesForChapter notes) chapters))
 
 -- Create footnotes for a given chapter number.
 footnotesForChapter :: Map (Int, Int) [Block] -> Int -> Reader Meta Html
@@ -141,8 +151,9 @@ footnotesForChapter notes chapnum =
       headerID = textValue (T.append "footnotes-chap-" chap)
       headerTitle = toHtml (T.append "Chapter " chap)
       fndata = filter ((chapnum==) . fst . fst) (M.assocs notes)
-  in (h2 ! A.id headerID $ headerTitle) $<>
-     (ol <$> foldMapR (footnote . first NoteAnchor) fndata)
+  in H.section ! A.id headerID <$>
+       (heading 3 headerTitle $<>
+       (ol <$> foldMapR (footnote . first NoteAnchor) fndata))
 
 -- Create a single footnote.
 footnote :: (InternalAnchor, [Block]) -> Reader Meta Html
@@ -166,12 +177,13 @@ backreference anchor = do
 ----- bibliography
 
 -- Create section for bibliography.
-bibliography :: Doc -> Reader Meta Html
-bibliography (Doc meta _) =
+bibliography :: SectionDoc -> Reader Meta Html
+bibliography (SectionDoc meta _) =
   let citeEntries = sort (M.elems (metaCiteDB meta))
   in unlessR (null citeEntries)
-       ((h1 ! A.id "bibliography" $ "Bibliography") $<>
-        (ol ! A.id "biblist" <$> foldMapR writeBibEntry citeEntries))
+       (H.section ! A.id "bibliography" <$>
+         (heading 2 "Bibliography" $<>
+         (ol ! A.id "biblist" <$> foldMapR writeBibEntry citeEntries)))
 
 -- Create a single entry in the bibliography.
 writeBibEntry :: CiteEntry -> Reader Meta Html
@@ -183,15 +195,19 @@ writeBibEntry (CiteEntry anchor _ _ formatted) =
 ---------- content
 
 -- Create @<body>@ element.
-mkBody :: Doc -> Reader Meta Html
-mkBody doc@(Doc _ docbody) =
+mkBody :: SectionDoc -> Reader Meta Html
+mkBody doc@(SectionDoc _ docbody) =
   H.body <$>
     (header doc <+>
      toc doc <+>
      (H.main <$>
-       (blocks docbody <+>
+       (sections docbody <+>
         footnotes doc <+>
         bibliography doc)))
+
+-- Convert 'Section' elements to HTML.
+sections :: [Section] -> Reader Meta Html
+sections = foldMapR section
 
 -- Convert 'Block' elements to HTML.
 blocks :: [Block] -> Reader Meta Html
@@ -201,12 +217,24 @@ blocks = foldMapR block
 inlines :: [Inline] -> Reader Meta Html
 inlines = foldMapR inline
 
+-- Convert a single 'Section' element to HTML.
+section :: Section -> Reader Meta Html
+section (Section hlevel hanchor htitle secbody subsecs) =
+  H.section ! A.id (textValue (internalAnchorID hanchor)) <$>
+  ((heading hlevel <$>
+      sectionNumberPrefix hanchor <+> inlines htitle) <+>
+    blocks secbody <+>
+    sections subsecs)
+
 -- Convert a single 'Block' element to HTML.
+--
+-- Note: SectionDoc documents should not contain Header elements,
+-- all header information is collected in Section elements.
 block :: Block -> Reader Meta Html
 block (Para xs) = p <$> inlines xs
-block (Header level anchor xs) =
+block (Header level anchor htitle) =
   heading level ! A.id (textValue (internalAnchorID anchor)) <$>
-  (sectionNumberPrefix anchor <+> inlines xs)
+  (sectionNumberPrefix anchor <+> inlines htitle)
 block (List UnorderedList xss) =
   ul <$> foldMapR (fmap li . blocks) xss
 block (List OrderedList xss) =

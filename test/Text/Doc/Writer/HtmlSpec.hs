@@ -54,7 +54,11 @@ testsDoc = testGroup "documents"
                   , metaSubTitle = [Str "No", Space, Str "subtitle"]
                   , metaAuthors = [[Str "Nobody"]]
                   , metaDate = [Str "2015-12-31"] }
-      [Para [Str "hello", Space, FontStyle Emph [Str "world"]]])
+      [ Header 2
+          (SectionAnchor (SectionInfo Mainmatter
+            (SectionRegular (0,1,0,0,0,0,0))))
+          [Str "one"]
+      , Para [Str "hello", Space, FontStyle Emph [Str "world"]]])
     @?=
     LT.concat [ "<!DOCTYPE HTML>\n<html><head>"
               , metaCharset
@@ -64,9 +68,11 @@ testsDoc = testGroup "documents"
               , "</head><body><header>"
               , "<h1 class=\"title\">No title</h1>"
               , "<h1 class=\"subtitle\">No subtitle</h1>"
-              , "<h2 class=\"author\">Nobody</h2></header><main>"
+              , "<h2 class=\"author\">Nobody</h2></header>"
+              , "<nav id=\"toc\"><ul><li><a href=\"#sec-1\">1 one</a></li></ul></nav>"
+              , "<main><section id=\"sec-1\"><h2>1 one</h2>"
               , "<p>hello <em>world</em></p>"
-              , "</main></body></html>"]
+              , "</section></main></body></html>"]
   , testCase "document with chapters and footnotes" $
     doc2html (Doc
       defaultMeta { metaTitle = [Str "No", Space, Str "title"]
@@ -127,35 +133,35 @@ testsDoc = testGroup "documents"
               , "<li><a href=\"#footnotes\">Footnotes</a></li></ul></nav>"
                 -- content
               , "<main>"
-              , "<h2 id=\"sec-1\">1 one</h2>"
+              , "<section id=\"sec-1\"><h2>1 one</h2>"
               , "<p>One"
               , "<a id=\"note-1-1-ref\" class=\"note-ref\" href=\"#note-1-1\"><sup>1.1</sup></a>"
-              , ".</p>"
-              , "<h2 id=\"sec-2\">2 two</h2>"
+              , ".</p></section>"
+              , "<section id=\"sec-2\"><h2>2 two</h2>"
               , "<p>No footnotes in Chapter two.</p>"
-              , "<h3 id=\"sec-2-1\">2.1 two-sub1</h3>"
-              , "<h3 id=\"sec-2-2\">2.2 two-sub2</h3>"
-              , "<h2 id=\"sec-3\">3 three</h2>"
+              , "<section id=\"sec-2-1\"><h3>2.1 two-sub1</h3></section>"
+              , "<section id=\"sec-2-2\"><h3>2.2 two-sub2</h3></section></section>"
+              , "<section id=\"sec-3\"><h2>3 three</h2>"
               , "<p>Hello"
               , "<a id=\"note-3-1-ref\" class=\"note-ref\" href=\"#note-3-1\"><sup>3.1</sup></a>"
               , " world"
               , "<a id=\"note-3-2-ref\" class=\"note-ref\" href=\"#note-3-2\"><sup>3.2</sup></a>"
               , ".</p><p>Hello"
               , "<a id=\"note-3-3-ref\" class=\"note-ref\" href=\"#note-3-3\"><sup>3.3</sup></a>"
-              , ".</p>"
+              , ".</p></section>"
                 -- footnotes
-              , "<h1 id=\"footnotes\">Footnotes</h1>"
-              , "<h2 id=\"footnotes-chap-1\">Chapter 1</h2><ol>"
+              , "<section id=\"footnotes\"><h2>Footnotes</h2>"
+              , "<section id=\"footnotes-chap-1\"><h3>Chapter 1</h3><ol>"
               , "<li id=\"note-1-1\"><p>Footnote one</p>"
               , "<p><a class=\"note-backref\" href=\"#note-1-1-ref\">^</a></p></li>"
-              , "</ol><h2 id=\"footnotes-chap-3\">Chapter 3</h2><ol>"
+              , "</ol></section><section id=\"footnotes-chap-3\"><h3>Chapter 3</h3><ol>"
               , "<li id=\"note-3-1\"><p>Footnote two</p>"
               , "<p><a class=\"note-backref\" href=\"#note-3-1-ref\">^</a></p></li>"
               , "<li id=\"note-3-2\"><p>Footnote three</p>"
               , "<p><a class=\"note-backref\" href=\"#note-3-2-ref\">^</a></p></li>"
               , "<li id=\"note-3-3\"><p>Footnote four</p>"
               , "<p><a class=\"note-backref\" href=\"#note-3-3-ref\">^</a></p></li>"
-              , "</ol></main></body></html>"]
+              , "</ol></section></section></main></body></html>"]
   ]
 
 testsBlocks :: Test
