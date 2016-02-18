@@ -73,6 +73,7 @@ module Text.Doc.Types
   , Block(..)
   , Level
   , ListType(..)
+  , AnchorListType(..)
   , ListItem(..)
   , TableRow
   , TableCell(..)
@@ -606,12 +607,17 @@ type Level = Int
 data ListType = UnorderedList | OrderedList
   deriving (Eq, Show)
 
--- | A list item with a globally unique number.
---
--- These elements of a 'ListItemBlock' are list items
--- with the special property that they have a unique
--- number based on a global counter. They can be used
--- to model @gb4e@-style linguistic examples.
+-- | Type of an anchor list.
+data AnchorListType
+  -- | A list of items with the special property that
+  -- they have a unique number based on a global counter.
+  -- They can be used to model @gb4e@-style linguistic examples.
+  = ItemList
+  -- | A list of notes.
+  | NoteList
+  deriving (Eq, Show)
+
+-- | A list item with an internal anchor.
 data ListItem = ListItem InternalAnchor [Block]
   deriving (Eq, Show)
 
@@ -634,7 +640,8 @@ data Block
   = Para [Inline]
   | Header Level InternalAnchor [Inline]
   | List ListType [[Block]]
-  | ListItemBlock [ListItem]
+  | AnchorList AnchorListType [ListItem]
+  | BibList [CiteEntry]
   | QuotationBlock [Block]
   | Figure InternalAnchor Location [Inline]
   | Table InternalAnchor [Inline] [TableRow]

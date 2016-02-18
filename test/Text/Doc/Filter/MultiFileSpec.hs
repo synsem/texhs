@@ -149,7 +149,7 @@ testsAnchorFileMap = testGroup "anchor file map"
             [Para [Str ".a."]] [])
       , (2, ContentFile $ Section 3 (mkSecAnc 0 1 1 0) [Str "aa"]
             [ Figure (FigureAnchor (0, 1)) "" []
-            , ListItemBlock [ListItem (ItemAnchor (0, [1])) []]] [])
+            , AnchorList ItemList [ListItem (ItemAnchor (0, [1])) []]] [])
       , (3, ContentFile $ Section 3 (mkSecAnc 0 1 2 0) [Str "ab"]
             [Para [Str ".ab."]] [])
       , (4, ContentFile $ Section 2 (mkSecAnc 0 2 0 0) [Str "b"]

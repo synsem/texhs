@@ -99,8 +99,10 @@ extractAnchorsFromBlock (Header _ anchor is) =
   anchor : extractAnchorsFromInlines is
 extractAnchorsFromBlock (List _ bss) =
   concatMap extractAnchorsFromBlocks bss
-extractAnchorsFromBlock (ListItemBlock ls) =
+extractAnchorsFromBlock (AnchorList _ ls) =
   concatMap extractAnchorsFromListItem ls
+extractAnchorsFromBlock (BibList es) =
+  map citeAnchor es
 extractAnchorsFromBlock (QuotationBlock bs) =
   extractAnchorsFromBlocks bs
 extractAnchorsFromBlock (Figure anchor _ is) =

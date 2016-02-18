@@ -239,9 +239,15 @@ block (List UnorderedList xss) =
   H.ul <$> foldMapR (fmap H.li . blocks) xss
 block (List OrderedList xss) =
   H.ol <$> foldMapR (fmap H.li . blocks) xss
-block (ListItemBlock xs) =
+block (AnchorList ItemList xs) =
   H.ol ! A.class_ "numbered-item-list" <$>
-  foldMapR listitem xs
+  foldMapR itemlistitem xs
+block (AnchorList NoteList xs) =
+  H.ol ! A.class_ "notes" <$>
+  foldMapR notelistitem xs
+block (BibList citeEntries) =
+  H.ol ! A.class_ "biblist" <$>
+  foldMapR writeBibEntry citeEntries
 block (QuotationBlock xs) = H.blockquote <$> blocks xs
 block (Figure anchor imgloc imgdesc) =
   H.figure `orDivClass` "figure" <!>
@@ -273,13 +279,17 @@ tableCell (SingleCell xs) =
 tableCell (MultiCell i xs) =
   H.td ! A.colspan (stringValue (show i)) <$> inlines xs
 
--- Convert a single 'ListItem' element to HTML.
-listitem :: ListItem -> Reader Meta Html
-listitem (ListItem anchor xs) =
+-- Convert a single 'ItemList' item to HTML.
+itemlistitem :: ListItem -> Reader Meta Html
+itemlistitem (ListItem anchor xs) =
   H.li ! A.id (textValue (internalAnchorID anchor)) !
     A.class_ "numbered-item" !
     A.value (stringValue (show (internalAnchorLocalNum anchor))) <$>
     blocks xs
+
+-- Convert a single 'NoteList' item to HTML.
+notelistitem :: ListItem -> Reader Meta Html
+notelistitem (ListItem anchor fntext) = footnote (anchor, fntext)
 
 -- Convert a single 'Inline' element to HTML.
 inline :: Inline -> Reader Meta Html

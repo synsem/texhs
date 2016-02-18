@@ -242,7 +242,7 @@ itemblock = lexemeBlock $ choice
 -- Parse the body of an @exe@ or @xlist@ group.
 itemblockInner :: Parser Block
 itemblockInner = skipPars *>
-  (ListItemBlock <$> many (lexemeBlock exItem))
+  (AnchorList ItemList <$> many (lexemeBlock exItem))
 
 -- Parse an @ex@ command (in an @exe@ or @xlist@ group)
 -- as an item in a 'ListItemBlock'.

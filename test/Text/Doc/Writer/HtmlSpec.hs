@@ -210,26 +210,26 @@ testsBlocks = testGroup "blocks"
     LT.append "<ol><li><p>one</p></li>"
               "<li><p>two</p></li></ol>"
   , testCase "empty item list" $
-    blocks2html defaultMeta [ListItemBlock []]
+    blocks2html defaultMeta [AnchorList ItemList []]
     @?=
     "<ol class=\"numbered-item-list\"></ol>"
   , testCase "item list with single item" $
-    blocks2html defaultMeta [ListItemBlock [ListItem (ItemAnchor (0,[1]))
+    blocks2html defaultMeta [AnchorList ItemList [ListItem (ItemAnchor (0,[1]))
       [Para [Str "hello", Space, Str "world"]]]]
     @?=
     LT.concat [ "<ol class=\"numbered-item-list\">"
               , "<li id=\"item-0-1\" class=\"numbered-item\" value=\"1\">"
               , "<p>hello world</p></li></ol>"]
   , testCase "item list with multiple nested sublists" $
-    blocks2html defaultMeta [ListItemBlock
+    blocks2html defaultMeta [AnchorList ItemList
       [ ListItem (ItemAnchor (0,[1]))
-        [ Para [Str "one"], ListItemBlock
+        [ Para [Str "one"], AnchorList ItemList
           [ ListItem (ItemAnchor (0,[1,1])) [Para [Str "one-one"]]
           , ListItem (ItemAnchor (0,[2,1])) [Para [Str "one-two"]]]]
       , ListItem (ItemAnchor (0,[2]))
-        [ Para [Str "two"], ListItemBlock
+        [ Para [Str "two"], AnchorList ItemList
           [ ListItem (ItemAnchor (0,[1,2]))
-            [ Para [Str "two-one"], ListItemBlock
+            [ Para [Str "two-one"], AnchorList ItemList
               [ ListItem (ItemAnchor (0,[1,1,2])) [Para [Str "two-one-one"]]
               , ListItem (ItemAnchor (0,[2,1,2])) [Para [Str "two-one-two"]]]]
           , ListItem (ItemAnchor (0,[2,2])) [Para [Str "two-two"]]]]]]
@@ -258,6 +258,18 @@ testsBlocks = testGroup "blocks"
               , "<p>two-two</p>"
               , "</li></ol></li></ol>"
               ]
+  , testCase "simple note list" $
+    blocks2html defaultMeta [AnchorList NoteList
+      [ ListItem (NoteAnchor (2,4)) [Para [Str "hello"]]]]
+    @?=
+    LT.append
+      "<ol class=\"notes\"><li id=\"note-2-4\"><p>hello</p>"
+      "<p><a class=\"note-backref\" href=\"#note-2-4-ref\">^</a></p></li></ol>"
+  , testCase "simple bib list" $
+    blocks2html defaultMeta [BibList [ CiteEntry (BibAnchor 24)
+      [[Str "Somebody"]] [Str "1999"] [Str "Full", Space, Str "entry."]]]
+    @?=
+    "<ol class=\"biblist\"><li id=\"bib-24\">Full entry.</li></ol>"
   , testCase "simple block quote" $
     blocks2html defaultMeta [QuotationBlock [Para [Str "one"]]]
     @?=

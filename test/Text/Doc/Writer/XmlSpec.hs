@@ -120,26 +120,26 @@ testsBlocks = testGroup "blocks"
     LT.append "<list type=\"ordered\"><item><p>one</p></item>"
               "<item><p>two</p></item></list>"
   , testCase "empty item list" $
-    blocks2xml defaultMeta [ListItemBlock []]
+    blocks2xml defaultMeta [AnchorList ItemList []]
     @?=
     "<list type=\"numbered-item-list\"></list>"
   , testCase "item list with single item" $
-    blocks2xml defaultMeta [ListItemBlock [ListItem (ItemAnchor (0,[1]))
+    blocks2xml defaultMeta [AnchorList ItemList [ListItem (ItemAnchor (0,[1]))
       [Para [Str "hello", Space, Str "world"]]]]
     @?=
     LT.concat [ "<list type=\"numbered-item-list\">"
               , "<item xml:id=\"item-0-1\" type=\"numbered-item\" n=\"1\">"
               , "<p>hello world</p></item></list>"]
   , testCase "item list with multiple nested sublists" $
-    blocks2xml defaultMeta [ListItemBlock
+    blocks2xml defaultMeta [AnchorList ItemList
       [ ListItem (ItemAnchor (0,[1]))
-        [ Para [Str "one"], ListItemBlock
+        [ Para [Str "one"], AnchorList ItemList
           [ ListItem (ItemAnchor (0,[1,1])) [Para [Str "one-one"]]
           , ListItem (ItemAnchor (0,[2,1])) [Para [Str "one-two"]]]]
       , ListItem (ItemAnchor (0,[2]))
-        [ Para [Str "two"], ListItemBlock
+        [ Para [Str "two"], AnchorList ItemList
           [ ListItem (ItemAnchor (0,[1,2]))
-            [ Para [Str "two-one"], ListItemBlock
+            [ Para [Str "two-one"], AnchorList ItemList
               [ ListItem (ItemAnchor (0,[1,1,2])) [Para [Str "two-one-one"]]
               , ListItem (ItemAnchor (0,[2,1,2])) [Para [Str "two-one-two"]]]]
           , ListItem (ItemAnchor (0,[2,2])) [Para [Str "two-two"]]]]]]
@@ -168,6 +168,16 @@ testsBlocks = testGroup "blocks"
               , "<p>two-two</p>"
               , "</item></list></item></list>"
               ]
+  , testCase "simple note list" $
+    blocks2xml defaultMeta [AnchorList NoteList
+      [ ListItem (NoteAnchor (2,4)) [Para [Str "hello"]]]]
+    @?=
+    "<list type=\"notes\"><item n=\"2.4\"><p>hello</p></item></list>"
+  , testCase "simple bib list" $
+    blocks2xml defaultMeta [BibList [ CiteEntry (BibAnchor 24)
+      [[Str "Somebody"]] [Str "1999"] [Str "Full", Space, Str "entry."]]]
+    @?=
+    "<listBibl><bibl xml:id=\"bib-24\">Full entry.</bibl></listBibl>"
   , testCase "simple block quote" $
     blocks2xml defaultMeta [QuotationBlock [Para [Str "one"]]]
     @?=

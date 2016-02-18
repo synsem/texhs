@@ -197,9 +197,15 @@ block (Header _ _ xs) = el "head" <$> inlines xs
 block (List ltype xss) =
   el "list" ! attr "type" (textValue (showListType ltype)) <$>
   foldMapR (fmap (el "item") . blocks) xss
-block (ListItemBlock xs) =
+block (AnchorList ItemList xs) =
   el "list" ! attr "type" "numbered-item-list" <$>
-  foldMapR listitem xs
+  foldMapR itemlistitem xs
+block (AnchorList NoteList xs) =
+  el "list" ! attr "type" "notes" <$>
+  foldMapR notelistitem xs
+block (BibList citeEntries) =
+  el "listBibl" <$>
+  foldMapR writeBibEntry citeEntries
 block (QuotationBlock xs) =
   el "quote" <$> blocks xs
 block (Figure anchor imgloc imgdesc) =
@@ -221,13 +227,24 @@ tableCell (SingleCell xs) =
 tableCell (MultiCell i xs) =
   el "cell" ! attr "cols" (stringValue (show i)) <$> inlines xs
 
--- Convert a single 'ListItem' element to XML.
-listitem :: ListItem -> Reader Meta Markup
-listitem (ListItem anchor xs) =
-  el "item"
-    ! attr "xml:id" (textValue (internalAnchorID anchor))
-    ! attr "type" "numbered-item"
-    ! attr "n" (stringValue (show (internalAnchorLocalNum anchor))) <$>
+-- Convert a single 'ItemList' item to XML.
+itemlistitem :: ListItem -> Reader Meta Markup
+itemlistitem (ListItem anchor xs) =
+  el "item" !
+    attr "xml:id" (textValue (internalAnchorID anchor)) !
+    attr "type" "numbered-item" !
+    attr "n" (stringValue (show (internalAnchorLocalNum anchor))) <$>
+  blocks xs
+
+-- Convert a single 'NoteList' item to XML.
+--
+-- Note: This should only be used (if at all) for secondary lists
+-- of notes. The items do not get an @xml:id@ attribute from the
+-- anchor; these identifiers are reserved for 'Note' inlines.
+notelistitem :: ListItem -> Reader Meta Markup
+notelistitem (ListItem anchor xs) =
+  el "item" !
+    attr "n" (stringValue (internalAnchorDescriptionAsText anchor)) <$>
   blocks xs
 
 -- Convert a single 'Inline' element to XML.

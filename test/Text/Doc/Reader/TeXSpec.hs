@@ -438,19 +438,19 @@ testsListItems = testGroup "list item blocks"
   [ testCase "empty item list" $
     runParser block [Group "exe" [] []]
     @?=
-    Right (ListItemBlock [])
+    Right (AnchorList ItemList [])
   , testCase "item list with single item" $
     runParser block [Group "exe" []
       [ Command "ex" [], Plain "hello", White, Plain "world" ]]
     @?=
-    Right (ListItemBlock
+    Right (AnchorList ItemList
       [ListItem (ItemAnchor (0,[1]))
         [Para [Str "hello", Space, Str "world"]]])
   , testCase "item list with single multi-paragraph item" $
     runParser block [Group "exe" []
       [ Command "ex" [], Par, Plain "hello", Par, White, Plain "world" ]]
     @?=
-    Right (ListItemBlock
+    Right (AnchorList ItemList
       [ListItem (ItemAnchor (0,[1]))
         [Para [Str "hello"], Para [Str "world"]]])
   , testCase "item list with two items" $
@@ -458,7 +458,7 @@ testsListItems = testGroup "list item blocks"
       [ Command "ex" [], Plain "one"
       , Command "ex" [], Plain "two"]]
     @?=
-    Right (ListItemBlock
+    Right (AnchorList ItemList
       [ ListItem (ItemAnchor (0,[1])) [Para [Str "one"]]
       , ListItem (ItemAnchor (0,[2])) [Para [Str "two"]]])
   , testCase "item list with two items in sublist" $
@@ -467,9 +467,9 @@ testsListItems = testGroup "list item blocks"
         [ Command "ex" [], Plain "sub-one"
         , Command "ex" [], Plain "sub-two"]]]
     @?=
-    Right (ListItemBlock
+    Right (AnchorList ItemList
       [ ListItem (ItemAnchor (0,[1]))
-        [ ListItemBlock
+        [ AnchorList ItemList
           [ ListItem (ItemAnchor (0,[1,1])) [Para [Str "sub-one"]]
           , ListItem (ItemAnchor (0,[2,1])) [Para [Str "sub-two"]]]]])
   , testCase "item list with multiple nested sublists" $
@@ -483,15 +483,15 @@ testsListItems = testGroup "list item blocks"
           , Command "ex" [], Plain "two-one-two"]
         , Command "ex" [], Plain "two-two"]]]
     @?=
-    Right [ListItemBlock
+    Right [AnchorList ItemList
       [ ListItem (ItemAnchor (0,[1]))
-        [ Para [Str "one"], ListItemBlock
+        [ Para [Str "one"], AnchorList ItemList
           [ ListItem (ItemAnchor (0,[1,1])) [Para [Str "one-one"]]
           , ListItem (ItemAnchor (0,[2,1])) [Para [Str "one-two"]]]]
       , ListItem (ItemAnchor (0,[2]))
-        [ Para [Str "two"], ListItemBlock
+        [ Para [Str "two"], AnchorList ItemList
           [ ListItem (ItemAnchor (0,[1,2]))
-            [ Para [Str "two-one"], ListItemBlock
+            [ Para [Str "two-one"], AnchorList ItemList
               [ ListItem (ItemAnchor (0,[1,1,2])) [Para [Str "two-one-one"]]
               , ListItem (ItemAnchor (0,[2,1,2])) [Para [Str "two-one-two"]]]]
           , ListItem (ItemAnchor (0,[2,2])) [Para [Str "two-two"]]]]]]
