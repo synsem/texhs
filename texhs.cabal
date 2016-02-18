@@ -54,6 +54,7 @@ library
                        Text.Doc.Section
                        Text.Doc.Reader.TeX
                        Text.Doc.Filter.Bib
+                       Text.Doc.Filter.DeriveSection
                        Text.Doc.Filter.MultiFile
                        Text.Doc.Writer.Core
                        Text.Doc.Writer.Html

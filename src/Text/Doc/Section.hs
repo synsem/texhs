@@ -19,6 +19,7 @@ module Text.Doc.Section
     -- * Conversion
   , doc2secdoc
   , blocks2sections
+  , splitRegions
   ) where
 
 import Text.Doc.Types
@@ -64,3 +65,25 @@ blocks2sections (_:bls) = blocks2sections bls -- drop leading non-headers
 isHeaderNotWithin :: Level -> Block -> Bool
 isHeaderNotWithin n (Header m _ _) = m <= n
 isHeaderNotWithin _ _ = False
+
+-- | Split a list of sections into three book regions:
+-- Frontmatter, Mainmatter, and Backmatter.
+--
+-- This function only looks at top-level sections and assumes that
+-- all Frontmatter sections precede any Mainmatter sections and
+-- that all Mainmatter sections precede any Backmatter sections.
+splitRegions :: [Section] -> ([Section], [Section], [Section])
+splitRegions xs =
+  let (frontMatter, ys) = span isFrontmatter xs
+      (mainMatter, backMatter) = span isMainmatter ys
+  in (frontMatter, mainMatter, backMatter)
+
+-- Test whether the section is part of the frontmatter.
+isFrontmatter :: Section -> Bool
+isFrontmatter (Section _ (SectionAnchor (SectionInfo Frontmatter _)) _ _ _) = True
+isFrontmatter _ = False
+
+-- Test whether the section is part of the mainmatter.
+isMainmatter :: Section -> Bool
+isMainmatter (Section _ (SectionAnchor (SectionInfo Mainmatter _)) _ _ _) = True
+isMainmatter _ = False

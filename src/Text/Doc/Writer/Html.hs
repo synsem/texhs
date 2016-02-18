@@ -21,12 +21,7 @@ module Text.Doc.Writer.Html
  , inlines2html
  ) where
 
-import Control.Arrow (first)
 import Control.Monad.Trans.Reader (Reader, runReader, asks)
-import Data.List (nub, sort)
-import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as M
-import Data.Monoid
 import Data.Text.Lazy (Text)
 import qualified Data.Text as T
 import Text.Blaze ((!), (!?), string, text, stringValue, textValue)
@@ -38,8 +33,9 @@ import qualified Text.Blaze.XHtml1.Strict as H1
 import qualified Text.Blaze.XHtml1.Strict.Attributes as A1
 
 import Text.Bib.Writer
-import Text.Doc.Types
+import Text.Doc.Filter.DeriveSection
 import Text.Doc.Section
+import Text.Doc.Types
 import Text.Doc.Writer.Core
 
 
@@ -51,9 +47,10 @@ doc2html = renderHtml . convertDoc . doc2secdoc
 
 -- Convert a 'SectionDoc' to HTML Markup.
 convertDoc :: SectionDoc -> Html
-convertDoc doc = runReader
-  (docTypeHtml <*> (mkHead doc <+> mkBody doc))
-  (docMeta doc)
+convertDoc rawDoc =
+  let doc = addBibliography (addNotes rawDoc)
+      renderDoc = docTypeHtml <*> (mkHead <+> mkBody doc)
+  in runReader renderDoc (docMeta doc)
 
 -- | Convert 'Section' elements to an HTML fragment.
 sections2html :: Meta -> [Section] -> Text
@@ -81,45 +78,48 @@ convert2html render meta docdata =
 ---------- meta
 
 -- Create @<head>@ element.
-mkHead :: SectionDoc -> Reader Meta Html
-mkHead doc = H.head <$>
-  (elMetaCharset <+>
-   (H.title <$> inlines (docTitle doc)) <>$
-   (H.meta ! A.name "viewport" ! A.content "width=device-width, initial-scale=1.0") <>$
-   (H.meta ! A.name "generator" ! A.content "texhs"))
+mkHead :: Reader Meta Html
+mkHead = do
+  title <- asks metaTitle
+  H.head <$>
+    (elMetaCharset <+>
+     (H.title <$> inlines title) <>$
+     (H.meta ! A.name "viewport" ! A.content "width=device-width, initial-scale=1.0") <>$
+     (H.meta ! A.name "generator" ! A.content "texhs"))
 
 ----- header
 
 -- Create @<header>@ element.
-header :: SectionDoc -> Reader Meta Html
-header doc = H.header `orDivClass` "header" <*>
-  ((heading 1 ! A.class_ "title" <$> inlines (docTitle doc)) <+>
-  unlessR (null (docSubTitle doc))
-    (heading 1 ! A.class_ "subtitle" <$> inlines (docSubTitle doc)) <+>
-  (heading 2 ! A.class_ "author" <$> foldMapR inlines (docAuthors doc)))
+header :: Reader Meta Html
+header = do
+  title <- asks metaTitle
+  subtitle <- asks metaSubTitle
+  authors <- asks metaAuthors
+  H.header `orDivClass` "header" <*>
+    ((heading 1 ! A.class_ "title" <$> inlines title) <+>
+    unlessR (null subtitle)
+      (heading 1 ! A.class_ "subtitle" <$> inlines subtitle) <+>
+    (heading 2 ! A.class_ "author" <$> foldMapR inlines authors))
 
 ----- toc
 
 -- Create a table of contents.
-toc :: SectionDoc -> Reader Meta Html
-toc (SectionDoc meta secs) =
-  let noteEntry = H.li $ H.a ! A.href "#footnotes" $ "Footnotes"
-      biblEntry = H.li $ H.a ! A.href "#bibliography" $ "Bibliography"
-  in unlessR (null secs)
-     (H.nav `orDivClass` "nav" <!> A.id "toc" <*> (H.ul <$>
-       (foldMapR tocEntry secs <>$
-        unlessR (M.null (metaNoteMap meta)) noteEntry <>
-        unlessR (M.null (metaCiteDB meta)) biblEntry)))
+toc :: [Section] -> Reader Meta Html
+toc secs =
+  let items = mkNavList secs
+  in unlessR (null items)
+     (H.nav `orDivClass` "nav" <!> A.id "toc" <*>
+       (H.ul <$> foldMapR navitem items))
 
 -- Create a toc entry for a single section (and its subsections).
-tocEntry :: Section -> Reader Meta Html
-tocEntry (Section _ anchor title _ subsecs) = do
+navitem :: NavListItem -> Reader Meta Html
+navitem (NavListItem anchor title subitems) = do
   db <- asks metaAnchorFileMap
   H.li <$>
     ((H.a ! A.href (textValue (internalAnchorTarget db anchor)) <$>
       (sectionNumberPrefix anchor <+> inlines title)) <+>
-    unlessR (null subsecs)
-      (H.ul <$> foldMapR tocEntry subsecs))
+    unlessR (null subitems)
+      (H.ul <$> foldMapR navitem subitems))
 
 -- Create a section number.
 --
@@ -131,79 +131,15 @@ sectionNumberPrefix anchor@(SectionAnchor _) =
     (inlines (internalAnchorDescription anchor) <>$ text " ")
 sectionNumberPrefix _ = memptyR
 
------ footnotes
-
--- Create section for footnotes.
-footnotes :: SectionDoc -> Reader Meta Html
-footnotes (SectionDoc meta _) =
-  let notes = metaNoteMap meta
-      keys = M.keys notes             -- 'M.keys' returns sorted list
-      chapters = (nub . map fst) keys -- only chapters with notes
-  in unlessR (null keys)
-       (elSection <!> A.id "footnotes" <*>
-         (heading 2 "Footnotes" $<>
-         foldMapR (footnotesForChapter notes) chapters))
-
--- Create footnotes for a given chapter number.
-footnotesForChapter :: Map (Int, Int) [Block] -> Int -> Reader Meta Html
-footnotesForChapter notes chapnum =
-  let chap = T.pack (show chapnum)
-      headerID = textValue (T.append "footnotes-chap-" chap)
-      headerTitle = text (T.append "Chapter " chap)
-      fndata = filter ((chapnum==) . fst . fst) (M.assocs notes)
-  in elSection <!> A.id headerID <*>
-       (heading 3 headerTitle $<>
-       (H.ol <$> foldMapR (footnote . first NoteAnchor) fndata))
-
--- Create a single footnote.
-footnote :: (InternalAnchor, [Block]) -> Reader Meta Html
-footnote (anchor, fntext) =
-  H.li ! A.id (textValue (internalAnchorID anchor)) <$>
-    blocks fntext <+>
-    backreference anchor
-
--- Create a backreference to an anchor.
---
--- For example, insert a backreference into a footnote text
--- in order to refer back to the corresponding footnote mark.
-backreference :: InternalAnchor -> Reader Meta Html
-backreference anchor = do
-  let backrefText = "^"
-  db <- asks metaAnchorFileMap
-  return $ H.p $ H.a ! A.class_ "note-backref" !
-     A.href (textValue (internalAnchorTargetRef db anchor)) $
-     backrefText
-
------ bibliography
-
--- Create section for bibliography.
-bibliography :: SectionDoc -> Reader Meta Html
-bibliography (SectionDoc meta _) =
-  let citeEntries = sort (M.elems (metaCiteDB meta))
-  in unlessR (null citeEntries)
-       (elSection <!> A.id "bibliography" <*>
-         (heading 2 "Bibliography" $<>
-         (H.ol ! A.id "biblist" <$> foldMapR writeBibEntry citeEntries)))
-
--- Create a single entry in the bibliography.
-writeBibEntry :: CiteEntry -> Reader Meta Html
-writeBibEntry (CiteEntry anchor _ _ formatted) =
-  H.li ! A.id (textValue (internalAnchorID anchor)) <$>
-  inlines formatted
-
 
 ---------- content
 
 -- Create @<body>@ element.
 mkBody :: SectionDoc -> Reader Meta Html
-mkBody doc@(SectionDoc _ docbody) =
+mkBody (SectionDoc _ secs) =
   H.body <$>
-    (header doc <+>
-     toc doc <+>
-     (H.main `orDivClass` "main" <*>
-       (sections docbody <+>
-        footnotes doc <+>
-        bibliography doc)))
+    (header <+> toc secs <+>
+    (H.main `orDivClass` "main" <*> sections secs))
 
 -- Convert 'Section' elements to HTML.
 sections :: [Section] -> Reader Meta Html
@@ -247,7 +183,7 @@ block (AnchorList NoteList xs) =
   foldMapR notelistitem xs
 block (BibList citeEntries) =
   H.ol ! A.class_ "biblist" <$>
-  foldMapR writeBibEntry citeEntries
+  foldMapR biblistitem citeEntries
 block (QuotationBlock xs) = H.blockquote <$> blocks xs
 block (Figure anchor imgloc imgdesc) =
   H.figure `orDivClass` "figure" <!>
@@ -287,9 +223,29 @@ itemlistitem (ListItem anchor xs) =
     A.value (stringValue (show (internalAnchorLocalNum anchor))) <$>
     blocks xs
 
--- Convert a single 'NoteList' item to HTML.
+-- Convert a single 'NoteList' item (aka footnote) to HTML.
 notelistitem :: ListItem -> Reader Meta Html
-notelistitem (ListItem anchor fntext) = footnote (anchor, fntext)
+notelistitem (ListItem anchor fntext) =
+  H.li ! A.id (textValue (internalAnchorID anchor)) <$>
+    blocks fntext <+> backreference anchor
+
+-- Create a backreference to an anchor.
+--
+-- For example, insert a backreference into a footnote text
+-- in order to refer back to the corresponding footnote mark.
+backreference :: InternalAnchor -> Reader Meta Html
+backreference anchor = do
+  let backrefText = "^"
+  db <- asks metaAnchorFileMap
+  return $ H.p $ H.a ! A.class_ "note-backref" !
+     A.href (textValue (internalAnchorTargetRef db anchor)) $
+     backrefText
+
+-- Create a single entry in the bibliography.
+biblistitem :: CiteEntry -> Reader Meta Html
+biblistitem (CiteEntry anchor _ _ formatted) =
+  H.li ! A.id (textValue (internalAnchorID anchor)) <$>
+  inlines formatted
 
 -- Convert a single 'Inline' element to HTML.
 inline :: Inline -> Reader Meta Html

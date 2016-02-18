@@ -22,21 +22,17 @@ module Text.Doc.Writer.Xml
  ) where
 
 import Control.Monad.Trans.Reader (Reader, runReader, asks)
-import Data.List (sort)
-import qualified Data.Map.Strict as M
 import Data.Maybe (fromMaybe)
-import Data.Monoid
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
-import Text.Blaze
-  ( Markup, string, text, preEscapedText
-  , (!), (!?), textValue, stringValue)
+import Text.Blaze (Markup, string, text, (!), (!?), textValue, stringValue)
 import Text.Blaze.Renderer.Text (renderMarkup)
 
 import Text.Bib.Writer
-import Text.Doc.Types
+import Text.Doc.Filter.DeriveSection
 import Text.Doc.Section
+import Text.Doc.Types
 import Text.Doc.Writer.Core
 
 
@@ -48,10 +44,11 @@ doc2xml = renderMarkup . convertDoc . doc2secdoc
 
 -- Convert 'SectionDoc' to XML 'Markup'.
 convertDoc :: SectionDoc -> Markup
-convertDoc doc =
-  (preEscapedText "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" <>) $
-  el "TEI" ! attr "xmlns" "http://www.tei-c.org/ns/1.0" $
-  runReader (header doc <+> content doc) (docMeta doc)
+convertDoc rawDoc =
+  let doc = addBibliography rawDoc
+  in withXmlDeclaration $
+     el "TEI" ! attr "xmlns" "http://www.tei-c.org/ns/1.0" $
+     runReader (header <+> content doc) (docMeta doc)
 
 -- | Convert 'Section' elements to an XML fragment.
 sections2xml :: Meta -> [Section] -> LT.Text
@@ -78,80 +75,68 @@ convert2xml render meta docdata =
 
 ---------- meta
 
------ header
-
 -- Create TEI header.
-header :: SectionDoc -> Reader Meta Markup
-header doc = el "teiHeader" <$> fileDesc doc
+header :: Reader Meta Markup
+header = el "teiHeader" <$> fileDesc
 
 -- Create @<fileDesc>@ element for TEI header.
-fileDesc :: SectionDoc -> Reader Meta Markup
-fileDesc doc = el "fileDesc" <$>
-  ((el "titleStmt" <$>
-     (el "title" ! attr "type" "full" <$>
-       ((el "title" ! attr "type" "main" <$> inlines (docTitle doc)) <+>
-        unlessR (null (docSubTitle doc))
-          (el "title" ! attr "type" "sub" <$> inlines (docSubTitle doc)))) <+>
-     foldMapR (fmap (el "author") . inlines) (docAuthors doc)) <>$
-   el "publicationStmt" (el "p" (text "Unknown")) <>$
-   el "sourceDesc" (el "p" (text "Born digital.")))
-
------ bibliography
-
--- Create section for bibliography.
-bibliography :: SectionDoc -> Reader Meta Markup
-bibliography doc =
-  let citeEntries = sort (M.elems (metaCiteDB (docMeta doc)))
-  in unlessR (null citeEntries)
-       (el "div" !
-        attr "xml:id" "bibliography" !
-        attr "type" "bibliography" <$>
-          (el "head" (text "Bibliography") $<>
-          -- note: the contained @listBibl@ gets no separate @head@ element
-          (el "listBibl" <$> foldMapR writeBibEntry citeEntries)))
-
--- Create a single entry in the bibliography.
-writeBibEntry :: CiteEntry -> Reader Meta Markup
-writeBibEntry (CiteEntry anchor _ _ formatted) =
-  el "bibl" ! attr "xml:id" (textValue (internalAnchorID anchor)) <$>
-  inlines formatted
+fileDesc :: Reader Meta Markup
+fileDesc = do
+  title <- asks metaTitle
+  subtitle <- asks metaSubTitle
+  authors <- asks metaAuthors
+  el "fileDesc" <$>
+    ((el "titleStmt" <$>
+       (el "title" ! attr "type" "full" <$>
+         ((el "title" ! attr "type" "main" <$> inlines title) <+>
+          unlessR (null subtitle)
+            (el "title" ! attr "type" "sub" <$> inlines subtitle))) <+>
+       foldMapR (fmap (el "author") . inlines) authors) <>$
+     el "publicationStmt" (el "p" (text "Unknown")) <>$
+     el "sourceDesc" (el "p" (text "Born digital.")))
 
 
 ---------- content
 
 -- Create main content as TEI @<text>@ element.
 content :: SectionDoc -> Reader Meta Markup
-content doc = el "text" <$> front doc <+> body doc <+> back doc
+content (SectionDoc _ secs) =
+  let (frontSecs, mainSecs, backSecs) = splitRegions secs
+  in el "text" <$> front frontSecs <+> body mainSecs <+> back backSecs
 
 
 ---------- front matter
 
 -- Create front matter as TEI @<front>@ element.
-front :: SectionDoc -> Reader Meta Markup
-front doc = el "front" <$> titlePage doc
+front :: [Section] -> Reader Meta Markup
+front secs = el "front" <$> titlePage <+> sections secs
 
 -- Create title page for TEI front matter.
-titlePage :: SectionDoc -> Reader Meta Markup
-titlePage doc = el "titlePage" <$>
-  (el "docTitle" <$>
-    (el "titlePart" ! attr "type" "main" <$> inlines (docTitle doc)) <+>
-    unlessR (null (docSubTitle doc))
-      (el "titlePart" ! attr "type" "sub" <$> inlines (docSubTitle doc))) <+>
-  (el "byline" <$> foldMapR (fmap (el "docAuthor") . inlines) (docAuthors doc))
+titlePage :: Reader Meta Markup
+titlePage = do
+  title <- asks metaTitle
+  subtitle <- asks metaSubTitle
+  authors <- asks metaAuthors
+  el "titlePage" <$>
+    (el "docTitle" <$>
+      (el "titlePart" ! attr "type" "main" <$> inlines title) <+>
+      unlessR (null subtitle)
+        (el "titlePart" ! attr "type" "sub" <$> inlines subtitle)) <+>
+    (el "byline" <$> foldMapR (fmap (el "docAuthor") . inlines) authors)
 
 
 ---------- back matter
 
 -- Create back matter as TEI @<back>@ element.
-back :: SectionDoc -> Reader Meta Markup
-back doc = el "back" <$> bibliography doc
+back :: [Section] -> Reader Meta Markup
+back secs = el "back" <$> sections secs
 
 
 ---------- main matter
 
 -- Create main matter as TEI @<body>@ element.
-body :: SectionDoc -> Reader Meta Markup
-body (SectionDoc _ docbody) = el "body" <$> sections docbody
+body :: [Section] -> Reader Meta Markup
+body secs = el "body" <$> sections secs
 
 -- Convert 'Section' elements to XML.
 sections :: [Section] -> Reader Meta Markup
@@ -205,7 +190,7 @@ block (AnchorList NoteList xs) =
   foldMapR notelistitem xs
 block (BibList citeEntries) =
   el "listBibl" <$>
-  foldMapR writeBibEntry citeEntries
+  foldMapR biblistitem citeEntries
 block (QuotationBlock xs) =
   el "quote" <$> blocks xs
 block (Figure anchor imgloc imgdesc) =
@@ -246,6 +231,12 @@ notelistitem (ListItem anchor xs) =
   el "item" !
     attr "n" (stringValue (internalAnchorDescriptionAsText anchor)) <$>
   blocks xs
+
+-- Create a single entry in the bibliography.
+biblistitem :: CiteEntry -> Reader Meta Markup
+biblistitem (CiteEntry anchor _ _ formatted) =
+  el "bibl" ! attr "xml:id" (textValue (internalAnchorID anchor)) <$>
+  inlines formatted
 
 -- Convert a single 'Inline' element to XML.
 inline :: Inline -> Reader Meta Markup

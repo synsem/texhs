@@ -19,6 +19,7 @@ module Text.Doc.Writer.Core
  , leaf
  , attr
  , (<!>)
+ , withXmlDeclaration
    -- * Lifted monoid functions
  , (<+>)
  , ($<>)
@@ -32,7 +33,7 @@ module Text.Doc.Writer.Core
 import Control.Applicative
 import Data.Monoid
 import Data.Text (Text)
-import Text.Blaze (Markup, Attribute, AttributeValue, textTag, (!))
+import Text.Blaze (Markup, Attribute, AttributeValue, textTag, (!), preEscapedText)
 import Text.Blaze.Internal (Attributable, customLeaf, customParent, attribute)
 
 
@@ -55,6 +56,11 @@ infixl 5 <!>
 -- | Lifted attribute setter.
 (<!>) :: (Functor f, Attributable h) => f h -> Attribute -> f h
 (<!>) = flip (fmap . flip (!))
+
+-- | Prefix XML declaration.
+withXmlDeclaration :: Markup -> Markup
+withXmlDeclaration =
+  (preEscapedText "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" <>)
 
 
 ---------- Lifted monoid functions
