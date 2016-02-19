@@ -46,6 +46,7 @@ module Text.Doc.Types
   , Location
   , LinkTitle
   , LinkType
+  , NotePart(..)
   , Anchor(..)
   , anchorTarget
   , anchorTitle
@@ -53,12 +54,11 @@ module Text.Doc.Types
   , anchorDescription
   , InternalAnchor(..)
   , internalAnchorID
-  , internalAnchorIDRef
   , internalAnchorTarget
-  , internalAnchorTargetRef
   , internalAnchorDescription
   , internalAnchorDescriptionAsText
   , internalAnchorLocalNum
+  , internalAnchorSwitch
   , registerAnchorLabel
   , extractAnchor
     -- ** Multifile
@@ -201,10 +201,17 @@ data InternalAnchor
   | SectionAnchor SectionInfo  -- includes book region and section number
   | FigureAnchor (Int, Int)    -- chapter number and chapter-relative figure count
   | TableAnchor (Int, Int)     -- chapter number and chapter-relative table count
-  | NoteAnchor (Int, Int)      -- chapter number and chapter-relative note count
+  | NoteAnchor (Int, Int, NotePart) -- chapter number and chapter-relative note count
   | ItemAnchor (Int, [Int])    -- chapter number and chapter-relative item numbers
                                --   in reverse order, e.g. [1,3,2] --> \"2.3.1\"
   | BibAnchor Int              -- global appearance order
+  deriving (Eq, Ord, Show)
+
+-- | Notes may be split into two parts: The note mark and the note text.
+--
+-- This flag can be used to distinguish between the two parts. If a note
+-- is not separated into parts, this setting defaults to 'NoteMark'.
+data NotePart = NoteMark | NoteText
   deriving (Eq, Ord, Show)
 
 -- | Generate identifying string for an internal anchor.
@@ -219,19 +226,22 @@ internalAnchorID (FigureAnchor (ch, n)) =
   T.append "figure-" (hyphenSep [ch, n])
 internalAnchorID (TableAnchor (ch, n)) =
   T.append "table-" (hyphenSep [ch, n])
-internalAnchorID (NoteAnchor (ch, n)) =
+internalAnchorID (NoteAnchor (ch, n, NoteMark)) =
   T.append "note-" (hyphenSep [ch, n])
+internalAnchorID (NoteAnchor (ch, n, NoteText)) =
+  T.append "notetext-" (hyphenSep [ch, n])
 internalAnchorID (ItemAnchor (ch, ns)) =
   T.append "item-" (hyphenSep (ch:reverse ns))
 internalAnchorID (BibAnchor n) =
   T.append "bib-" (T.pack (show n))
 
--- | Generate identifying string for a reference to an anchor.
+-- | Switch between the two parts of a 'NoteAnchor'.
 --
--- This is mainly used for footnote back-references: The footnote text
--- (main anchor) contains a back-reference to the footnote mark.
-internalAnchorIDRef :: InternalAnchor -> Text
-internalAnchorIDRef anchor = T.append (internalAnchorID anchor) "-ref"
+-- (Identity function for all other anchors that do not have two parts.)
+internalAnchorSwitch :: InternalAnchor -> InternalAnchor
+internalAnchorSwitch (NoteAnchor (ch, n, NoteMark)) = NoteAnchor (ch, n, NoteText)
+internalAnchorSwitch (NoteAnchor (ch, n, NoteText)) = NoteAnchor (ch, n, NoteMark)
+internalAnchorSwitch otherAnchor = otherAnchor
 
 -- | Generate target location string for an anchor.
 --
@@ -266,15 +276,6 @@ internalAnchorTarget db anchor =
   maybe id (T.append . T.pack . filenameFromID) (M.lookup anchor db)
   (T.cons '#' (internalAnchorID anchor))
 
--- | Generate target location string for a reference to an internal anchor.
---
--- This is mainly used for footnote back-references: The footnote text
--- (main anchor) contains a back-reference to the footnote mark.
-internalAnchorTargetRef :: AnchorFileMap -> InternalAnchor -> Text
-internalAnchorTargetRef db anchor =
-  maybe id (T.append . T.pack . filenameFromID) (M.lookup anchor db)
-  (T.cons '#' (internalAnchorIDRef anchor))
-
 -- | Generate description text for an anchor.
 anchorDescription :: Anchor -> [Inline]
 anchorDescription (InternalResourceAuto i) = internalAnchorDescription i
@@ -296,7 +297,7 @@ internalAnchorDescriptionAsText (SectionAnchor secinfo) =
   (dotSep . snd . sectionInfoID) secinfo
 internalAnchorDescriptionAsText (FigureAnchor (ch, n)) = dotSep [ch, n]
 internalAnchorDescriptionAsText (TableAnchor (ch, n)) = dotSep [ch, n]
-internalAnchorDescriptionAsText (NoteAnchor (ch, n)) = dotSep [ch, n]
+internalAnchorDescriptionAsText (NoteAnchor (ch, n, _)) = dotSep [ch, n]
 internalAnchorDescriptionAsText (ItemAnchor (ch, ns)) = dotSep (ch:reverse ns)
 internalAnchorDescriptionAsText (BibAnchor n) = show n
 
@@ -309,7 +310,7 @@ internalAnchorLocalNum DocumentAnchor = 0 -- fallback
 internalAnchorLocalNum (SectionAnchor si) = (last . snd . sectionInfoID) si
 internalAnchorLocalNum (FigureAnchor (_, n)) = n
 internalAnchorLocalNum (TableAnchor (_, n)) = n
-internalAnchorLocalNum (NoteAnchor (_, n)) = n
+internalAnchorLocalNum (NoteAnchor (_, n, _)) = n
 internalAnchorLocalNum (ItemAnchor (_, n:_)) = n
 internalAnchorLocalNum (ItemAnchor (_, [])) = 0 -- fallback
 internalAnchorLocalNum (BibAnchor n) = n

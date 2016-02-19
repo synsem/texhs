@@ -237,8 +237,9 @@ backreference :: InternalAnchor -> Reader Meta Html
 backreference anchor = do
   let backrefText = "^"
   db <- asks metaAnchorFileMap
+  let target = internalAnchorTarget db (internalAnchorSwitch anchor)
   return $ H.p $ H.a ! A.class_ "note-backref" !
-     A.href (textValue (internalAnchorTargetRef db anchor)) $
+     A.href (textValue target) $
      backrefText
 
 -- Create a single entry in the bibliography.
@@ -271,9 +272,10 @@ inline (Pointer label protoAnchor) = do
     inlines (anchorDescription anchor)
 inline (Note anchor _) = do
   db <- asks metaAnchorFileMap
-  H.a ! A.id (textValue (internalAnchorIDRef anchor)) !
+  let target = internalAnchorTarget db (internalAnchorSwitch anchor)
+  H.a ! A.id (textValue (internalAnchorID anchor)) !
     A.class_ "note-ref" !
-    A.href (textValue (internalAnchorTarget db anchor)) <$>
+    A.href (textValue target) <$>
     (H.sup <$> inlines (internalAnchorDescription anchor))
 
 -- Map header level to 'Html' combinator.

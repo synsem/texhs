@@ -170,7 +170,7 @@ testsBlocks = testGroup "blocks"
               ]
   , testCase "simple note list" $
     blocks2xml defaultMeta [AnchorList NoteList
-      [ ListItem (NoteAnchor (2,4)) [Para [Str "hello"]]]]
+      [ ListItem (NoteAnchor (2,4,NoteText)) [Para [Str "hello"]]]]
     @?=
     "<list type=\"notes\"><item n=\"2.4\"><p>hello</p></item></list>"
   , testCase "simple bib list" $
@@ -277,17 +277,17 @@ testsInlines = testGroup "inlines"
     @?=
     "Figure <ref target=\"#figure-2-1\">2.1</ref>"
   , testCase "empty footnote" $
-    inlines2xml defaultMeta [Note (NoteAnchor (2,8)) []]
+    inlines2xml defaultMeta [Note (NoteAnchor (2,8,NoteMark)) []]
     @?=
     LT.append "<note xml:id=\"note-2-8\" type=\"footnote\" place=\"bottom\" n=\"2.8\">"
               "</note>"
   , testCase "simple footnote" $
-    inlines2xml defaultMeta [Note (NoteAnchor (1,2)) [Para [Str "hello"]]]
+    inlines2xml defaultMeta [Note (NoteAnchor (1,2,NoteMark)) [Para [Str "hello"]]]
     @?=
     LT.append "<note xml:id=\"note-1-2\" type=\"footnote\" place=\"bottom\" n=\"1.2\">"
               "<p>hello</p></note>"
   , testCase "multi-paragraph footnote" $
-    inlines2xml defaultMeta [Note (NoteAnchor (1,2)) [Para [Str "one"], Para [Str "two"]]]
+    inlines2xml defaultMeta [Note (NoteAnchor (1,2,NoteMark)) [Para [Str "one"], Para [Str "two"]]]
     @?=
     LT.append "<note xml:id=\"note-1-2\" type=\"footnote\" place=\"bottom\" n=\"1.2\">"
               "<p>one</p><p>two</p></note>"

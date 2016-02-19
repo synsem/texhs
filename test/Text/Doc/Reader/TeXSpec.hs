@@ -963,23 +963,23 @@ testsFootnotes = testGroup "footnotes"
   [ testCase "empty footnote" $
     runParser (inlines <* eof) [Command "footnote" []]
     @?=
-    Right [Note (NoteAnchor (0,1)) []]
+    Right [Note (NoteAnchor (0,1,NoteMark)) []]
   , testCase "simple footnote" $
     runParser (inlines <* eof) [Command "footnote" [OblArg [Plain "hello"]]]
     @?=
-    Right [Note (NoteAnchor (0,1)) [Para [Str "hello"]]]
+    Right [Note (NoteAnchor (0,1,NoteMark)) [Para [Str "hello"]]]
   , testCase "multi-paragraph footnote" $
     runParser (inlines <* eof)
       [Command "footnote" [OblArg [Plain "one", Par, Plain "two"]]]
     @?=
-    Right [Note (NoteAnchor (0,1)) [Para [Str "one"], Para [Str "two"]]]
+    Right [Note (NoteAnchor (0,1,NoteMark)) [Para [Str "one"], Para [Str "two"]]]
   , testCase "note counter is incremented within chapter" $
     runParser (block *> inline *> inline <* eof)
       [ Command "chapter" [OblArg [Plain "one"]]
       , Command "footnote" [OblArg [Plain "fn-one"]]
       , Command "footnote" [OblArg [Plain "fn-two"]]]
     @?=
-    Right (Note (NoteAnchor (1,2)) [Para [Str "fn-two"]])
+    Right (Note (NoteAnchor (1,2,NoteMark)) [Para [Str "fn-two"]])
   , testCase "note counter is reset at chapter boundaries" $
     runParser (block *> inline *> inline *> block *> inline <* eof)
       [ Command "chapter" [OblArg [Plain "one"]]
@@ -988,7 +988,7 @@ testsFootnotes = testGroup "footnotes"
       , Command "chapter" [OblArg [Plain "two"]]
       , Command "footnote" [OblArg [Plain "fn-2-1"]]]
     @?=
-    Right (Note (NoteAnchor (2,1)) [Para [Str "fn-2-1"]])
+    Right (Note (NoteAnchor (2,1,NoteMark)) [Para [Str "fn-2-1"]])
   ]
 
 testsCrossrefs :: Test

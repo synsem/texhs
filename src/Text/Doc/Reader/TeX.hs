@@ -508,11 +508,11 @@ note = do
 registerNote :: [Block] -> Parser InternalAnchor
 registerNote fntext = do
   meta <- getMeta
-  let newCnt = (+1) <$> metaNoteCurrent meta
+  let newCnt@(ch, n) = (+1) <$> metaNoteCurrent meta
       newMap = M.insert newCnt fntext (metaNoteMap meta)
   putMeta (meta { metaNoteCurrent = newCnt
                 , metaNoteMap = newMap })
-  return (NoteAnchor newCnt)
+  return (NoteAnchor (ch, n, NoteMark))
 
 -- | Parse @ref@ command.
 ref :: Parser Inline

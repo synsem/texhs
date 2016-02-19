@@ -131,5 +131,7 @@ mkChapterNotes :: Map (Int, Int) [Block] -> Int -> ProtoSection
 mkChapterNotes notes chapnum =
   let title = [Str "Chapter", Space, Str (show chapnum)]
       fndata = filter ((chapnum==) . fst . fst) (M.assocs notes)
-      noteList = [AnchorList NoteList $ map (uncurry ListItem . first NoteAnchor) fndata]
+      mkNoteTextAnchor (ch, n) = NoteAnchor (ch, n, NoteText)
+      mkListItem = uncurry ListItem . first mkNoteTextAnchor
+      noteList = [AnchorList NoteList $ map mkListItem fndata]
   in ProtoSection title noteList []

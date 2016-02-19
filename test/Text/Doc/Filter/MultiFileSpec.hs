@@ -156,7 +156,7 @@ testsAnchorFileMap = testGroup "anchor file map"
             [ Para [Str ".b."]
               -- note: pointer to anchor should not be extracted
             , Para [ Pointer "" (Just (InternalResource [] (BibAnchor 0) "" ""))
-                   , Note (NoteAnchor (0, 1)) []]
+                   , Note (NoteAnchor (0, 1, NoteMark)) []]
             , Para [Str ".b."]] [])
       , (5, ContentFile $ Section 2 (mkSecAnc 0 3 0 0) [Str "c"]
             [Para [Str ".c."]] [])
@@ -176,7 +176,7 @@ testsAnchorFileMap = testGroup "anchor file map"
       , (mkSecAnc 0 3 2 0, 7)
       , (FigureAnchor (0, 1), 2)
       , (ItemAnchor (0, [1]), 2)
-      , (NoteAnchor (0, 1), 4)
+      , (NoteAnchor (0, 1, NoteMark), 4)
       , (TableAnchor (0, 1), 6)
       ]
   ]

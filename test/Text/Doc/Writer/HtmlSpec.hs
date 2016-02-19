@@ -110,7 +110,7 @@ testsDoc = testGroup "documents"
               , "<main>"
               , "<section id=\"sec-1\"><h2>1 one</h2>"
               , "<p>One"
-              , "<a id=\"note-1-1-ref\" class=\"note-ref\" href=\"#note-1-1\"><sup>1.1</sup></a>"
+              , "<a id=\"note-1-1\" class=\"note-ref\" href=\"#notetext-1-1\"><sup>1.1</sup></a>"
               , ".</p></section>"
               , "<section id=\"sec-2\"><h2>2 two</h2>"
               , "<p>No footnotes in Chapter two.</p>"
@@ -118,24 +118,24 @@ testsDoc = testGroup "documents"
               , "<section id=\"sec-2-2\"><h3>2.2 two-sub2</h3></section></section>"
               , "<section id=\"sec-3\"><h2>3 three</h2>"
               , "<p>Hello"
-              , "<a id=\"note-3-1-ref\" class=\"note-ref\" href=\"#note-3-1\"><sup>3.1</sup></a>"
+              , "<a id=\"note-3-1\" class=\"note-ref\" href=\"#notetext-3-1\"><sup>3.1</sup></a>"
               , " world"
-              , "<a id=\"note-3-2-ref\" class=\"note-ref\" href=\"#note-3-2\"><sup>3.2</sup></a>"
+              , "<a id=\"note-3-2\" class=\"note-ref\" href=\"#notetext-3-2\"><sup>3.2</sup></a>"
               , ".</p><p>Hello"
-              , "<a id=\"note-3-3-ref\" class=\"note-ref\" href=\"#note-3-3\"><sup>3.3</sup></a>"
+              , "<a id=\"note-3-3\" class=\"note-ref\" href=\"#notetext-3-3\"><sup>3.3</sup></a>"
               , ".</p></section>"
                 -- footnotes
               , "<section id=\"sec-back-unnumbered-1\"><h2>Notes</h2>"
               , "<section id=\"sec-back-unnumbered-2\"><h3>Chapter 1</h3>"
-              , "<ol class=\"notes\"><li id=\"note-1-1\"><p>Footnote one</p>"
-              , "<p><a class=\"note-backref\" href=\"#note-1-1-ref\">^</a></p></li></ol></section>"
+              , "<ol class=\"notes\"><li id=\"notetext-1-1\"><p>Footnote one</p>"
+              , "<p><a class=\"note-backref\" href=\"#note-1-1\">^</a></p></li></ol></section>"
               , "<section id=\"sec-back-unnumbered-3\"><h3>Chapter 3</h3>"
-              , "<ol class=\"notes\"><li id=\"note-3-1\"><p>Footnote two</p>"
-              , "<p><a class=\"note-backref\" href=\"#note-3-1-ref\">^</a></p></li>"
-              , "<li id=\"note-3-2\"><p>Footnote three</p>"
-              , "<p><a class=\"note-backref\" href=\"#note-3-2-ref\">^</a></p></li>"
-              , "<li id=\"note-3-3\"><p>Footnote four</p>"
-              , "<p><a class=\"note-backref\" href=\"#note-3-3-ref\">^</a></p></li>"
+              , "<ol class=\"notes\"><li id=\"notetext-3-1\"><p>Footnote two</p>"
+              , "<p><a class=\"note-backref\" href=\"#note-3-1\">^</a></p></li>"
+              , "<li id=\"notetext-3-2\"><p>Footnote three</p>"
+              , "<p><a class=\"note-backref\" href=\"#note-3-2\">^</a></p></li>"
+              , "<li id=\"notetext-3-3\"><p>Footnote four</p>"
+              , "<p><a class=\"note-backref\" href=\"#note-3-3\">^</a></p></li>"
               , "</ol></section></section></main></body></html>"]
   , testCase "document with chapters and footnotes: XHTML1 version" $
     doc2html (toXhtml1 docExample02)
@@ -163,7 +163,7 @@ testsDoc = testGroup "documents"
               , "<div class=\"main\">"
               , "<div class=\"section\" id=\"sec-1\"><h2>1 one</h2>"
               , "<p>One"
-              , "<a id=\"note-1-1-ref\" class=\"note-ref\" href=\"#note-1-1\"><sup>1.1</sup></a>"
+              , "<a id=\"note-1-1\" class=\"note-ref\" href=\"#notetext-1-1\"><sup>1.1</sup></a>"
               , ".</p></div>"
               , "<div class=\"section\" id=\"sec-2\"><h2>2 two</h2>"
               , "<p>No footnotes in Chapter two.</p>"
@@ -171,24 +171,24 @@ testsDoc = testGroup "documents"
               , "<div class=\"section\" id=\"sec-2-2\"><h3>2.2 two-sub2</h3></div></div>"
               , "<div class=\"section\" id=\"sec-3\"><h2>3 three</h2>"
               , "<p>Hello"
-              , "<a id=\"note-3-1-ref\" class=\"note-ref\" href=\"#note-3-1\"><sup>3.1</sup></a>"
+              , "<a id=\"note-3-1\" class=\"note-ref\" href=\"#notetext-3-1\"><sup>3.1</sup></a>"
               , " world"
-              , "<a id=\"note-3-2-ref\" class=\"note-ref\" href=\"#note-3-2\"><sup>3.2</sup></a>"
+              , "<a id=\"note-3-2\" class=\"note-ref\" href=\"#notetext-3-2\"><sup>3.2</sup></a>"
               , ".</p><p>Hello"
-              , "<a id=\"note-3-3-ref\" class=\"note-ref\" href=\"#note-3-3\"><sup>3.3</sup></a>"
+              , "<a id=\"note-3-3\" class=\"note-ref\" href=\"#notetext-3-3\"><sup>3.3</sup></a>"
               , ".</p></div>"
                 -- footnotes
               , "<div class=\"section\" id=\"sec-back-unnumbered-1\"><h2>Notes</h2>"
               , "<div class=\"section\" id=\"sec-back-unnumbered-2\"><h3>Chapter 1</h3>"
-              , "<ol class=\"notes\"><li id=\"note-1-1\"><p>Footnote one</p>"
-              , "<p><a class=\"note-backref\" href=\"#note-1-1-ref\">^</a></p></li></ol></div>"
+              , "<ol class=\"notes\"><li id=\"notetext-1-1\"><p>Footnote one</p>"
+              , "<p><a class=\"note-backref\" href=\"#note-1-1\">^</a></p></li></ol></div>"
               , "<div class=\"section\" id=\"sec-back-unnumbered-3\"><h3>Chapter 3</h3>"
-              , "<ol class=\"notes\"><li id=\"note-3-1\"><p>Footnote two</p>"
-              , "<p><a class=\"note-backref\" href=\"#note-3-1-ref\">^</a></p></li>"
-              , "<li id=\"note-3-2\"><p>Footnote three</p>"
-              , "<p><a class=\"note-backref\" href=\"#note-3-2-ref\">^</a></p></li>"
-              , "<li id=\"note-3-3\"><p>Footnote four</p>"
-              , "<p><a class=\"note-backref\" href=\"#note-3-3-ref\">^</a></p></li>"
+              , "<ol class=\"notes\"><li id=\"notetext-3-1\"><p>Footnote two</p>"
+              , "<p><a class=\"note-backref\" href=\"#note-3-1\">^</a></p></li>"
+              , "<li id=\"notetext-3-2\"><p>Footnote three</p>"
+              , "<p><a class=\"note-backref\" href=\"#note-3-2\">^</a></p></li>"
+              , "<li id=\"notetext-3-3\"><p>Footnote four</p>"
+              , "<p><a class=\"note-backref\" href=\"#note-3-3\">^</a></p></li>"
               , "</ol></div></div></div></body></html>"]
   ]
 
@@ -264,11 +264,11 @@ testsBlocks = testGroup "blocks"
               ]
   , testCase "simple note list" $
     blocks2html defaultMeta [AnchorList NoteList
-      [ ListItem (NoteAnchor (2,4)) [Para [Str "hello"]]]]
+      [ ListItem (NoteAnchor (2,4,NoteText)) [Para [Str "hello"]]]]
     @?=
     LT.append
-      "<ol class=\"notes\"><li id=\"note-2-4\"><p>hello</p>"
-      "<p><a class=\"note-backref\" href=\"#note-2-4-ref\">^</a></p></li></ol>"
+      "<ol class=\"notes\"><li id=\"notetext-2-4\"><p>hello</p>"
+      "<p><a class=\"note-backref\" href=\"#note-2-4\">^</a></p></li></ol>"
   , testCase "simple bib list" $
     blocks2html defaultMeta [BibList [ CiteEntry (BibAnchor 24)
       [[Str "Somebody"]] [Str "1999"] [Str "Full", Space, Str "entry."]]]
@@ -388,13 +388,13 @@ testsInlines = testGroup "inlines"
     @?=
     "Figure <a href=\"section-012.xhtml#figure-2-1\">2.1</a>"
   , testCase "empty footnote (only mark)" $
-    inlines2html defaultMeta [Note (NoteAnchor (2,8)) []]
+    inlines2html defaultMeta [Note (NoteAnchor (2,8,NoteMark)) []]
     @?=
-    "<a id=\"note-2-8-ref\" class=\"note-ref\" href=\"#note-2-8\"><sup>2.8</sup></a>"
+    "<a id=\"note-2-8\" class=\"note-ref\" href=\"#notetext-2-8\"><sup>2.8</sup></a>"
   , testCase "simple footnote (only mark)" $
-    inlines2html defaultMeta [Note (NoteAnchor (1,2)) [Para [Str "hello"]]]
+    inlines2html defaultMeta [Note (NoteAnchor (1,2,NoteMark)) [Para [Str "hello"]]]
     @?=
-    "<a id=\"note-1-2-ref\" class=\"note-ref\" href=\"#note-1-2\"><sup>1.2</sup></a>"
+    "<a id=\"note-1-2\" class=\"note-ref\" href=\"#notetext-1-2\"><sup>1.2</sup></a>"
   ]
 
 
@@ -435,7 +435,7 @@ docExample02 = Doc
         (SectionRegular (0,1,0,0,0,0,0))))
       [Str "one"]
   , Para [ Str "One"
-         , Note (NoteAnchor (1,1)) [Para [Str "Footnote", Space, Str "one"]]
+         , Note (NoteAnchor (1,1,NoteMark)) [Para [Str "Footnote", Space, Str "one"]]
          , Str "."]
   , Header 2
       (SectionAnchor (SectionInfo Mainmatter
@@ -456,12 +456,12 @@ docExample02 = Doc
         (SectionRegular (0,3,0,0,0,0,0))))
       [Str "three"]
   , Para [ Str "Hello"
-         , Note (NoteAnchor (3,1)) [Para [Str "Footnote", Space, Str "two"]]
+         , Note (NoteAnchor (3,1,NoteMark)) [Para [Str "Footnote", Space, Str "two"]]
          , Space, Str "world"
-         , Note (NoteAnchor (3,2)) [Para [Str "Footnote", Space, Str "three"]]
+         , Note (NoteAnchor (3,2,NoteMark)) [Para [Str "Footnote", Space, Str "three"]]
          , Str "."]
   , Para [ Str "Hello"
-         , Note (NoteAnchor (3,3)) [Para [Str "Footnote", Space, Str "four"]]
+         , Note (NoteAnchor (3,3,NoteMark)) [Para [Str "Footnote", Space, Str "four"]]
          , Str "."]]
 
 
