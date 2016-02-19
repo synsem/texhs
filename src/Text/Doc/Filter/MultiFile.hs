@@ -14,9 +14,11 @@
 
 module Text.Doc.Filter.MultiFile
  ( -- * Types
-   ContentFile(..)
+   MultiFileDoc(..)
+ , ContentFile(..)
  , FileMap
    -- * Document split
+ , toMultiFileDoc
  , splitDoc
  , mkAnchorFileMap
    -- * Anchor extraction
@@ -33,6 +35,13 @@ import Text.Doc.Types
 
 -------------------- Types
 
+-- | A 'Doc' document that has been split into multiple physical files.
+data MultiFileDoc = MultiFileDoc Meta FileMap
+  deriving (Eq, Show)
+
+instance HasMeta MultiFileDoc where
+  docMeta (MultiFileDoc meta _) = meta
+
 -- | A ContentFile contains a potentially incomplete section
 -- (in particular, its subsections may be missing)
 -- that is intended to be written into a file on its own.
@@ -46,12 +55,26 @@ type FileMap = Map FileID ContentFile
 
 -------------------- Document split
 
+-- | Convert a document from 'SectionDoc' to 'MultiFileDoc', splitting
+-- it into multiple physical files at the indicated section level.
+toMultiFileDoc :: Level -> SectionDoc -> MultiFileDoc
+toMultiFileDoc splitLevel (SectionDoc meta secs) =
+  let fileMap = splitSections splitLevel secs
+      anchorFileMap = mkAnchorFileMap fileMap
+      newMeta = meta { metaAnchorFileMap = anchorFileMap }
+  in MultiFileDoc newMeta fileMap
+
 -- | Split a document into ContentFiles
 -- at the indicated section level.
 splitDoc :: Level -> SectionDoc -> FileMap
 splitDoc splitLevel (SectionDoc _ content) =
-  M.fromList $ zip [1..] $
-  concatMap (splitSection splitLevel) content
+  splitSections splitLevel content
+
+-- | Split a list of sections into ContentFiles
+-- at the indicated section level.
+splitSections :: Level -> [Section] -> FileMap
+splitSections splitLevel = M.fromList . zip [1..] .
+  concatMap (splitSection splitLevel)
 
 -- | Split a single section into ContentFiles
 -- at the indicated section level.
