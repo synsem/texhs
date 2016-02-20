@@ -16,12 +16,17 @@
 module Text.Doc.Writer.Html
  ( -- * Doc to HTML Conversion
    doc2html
+ , doc2multiHtml
+ , mdoc2htmlPages
+ , mdoc2epubPages
  , sections2html
  , blocks2html
  , inlines2html
  ) where
 
 import Control.Monad.Trans.Reader (Reader, runReader, asks)
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as M
 import Data.Text.Lazy (Text)
 import qualified Data.Text as T
 import Text.Blaze ((!), (!?), string, text, stringValue, textValue)
@@ -34,23 +39,62 @@ import qualified Text.Blaze.XHtml1.Strict.Attributes as A1
 
 import Text.Bib.Writer
 import Text.Doc.Filter.DeriveSection
+import Text.Doc.Filter.MultiFile
 import Text.Doc.Section
 import Text.Doc.Types
 import Text.Doc.Writer.Core
 
 
----------- main: Doc to HTML conversion
+---------- Doc conversion
 
 -- | Convert a 'Doc' document to HTML.
 doc2html :: Doc -> Text
-doc2html = renderHtml . convertDoc . doc2secdoc
+doc2html = renderHtml . convertDoc . prepDoc
+
+-- Prepare a raw 'Doc' document for HTML conversion functions:
+-- Convert to section view, add bibliography and notes sections.
+prepDoc :: Doc -> SectionDoc
+prepDoc = addBibliography . addNotes . doc2secdoc
 
 -- Convert a 'SectionDoc' to HTML Markup.
 convertDoc :: SectionDoc -> Html
-convertDoc rawDoc =
-  let doc = addBibliography (addNotes rawDoc)
-      renderDoc = docTypeHtml <*> (mkHead <+> mkBody doc)
+convertDoc doc =
+  let renderDoc = wrapPage (mkBody doc)
   in runReader renderDoc (docMeta doc)
+
+
+---------- MultiDoc conversion
+
+-- | Convert a 'Doc' document to a set of HTML pages.
+--
+-- This function provides a default way of splitting a
+-- document into multiple files at the chapter level.
+-- Each page includes a document header (see 'mdoc2htmlPages').
+doc2multiHtml :: Doc -> [(FilePath, Text)]
+doc2multiHtml = M.assocs . mdoc2htmlPages . toMultiFileDoc 2 . prepDoc
+
+-- | Convert a 'MultiFileDoc' document to a set of HTML pages.
+--
+-- Each page includes a document header.
+mdoc2htmlPages :: MultiFileDoc -> Map FilePath Text
+mdoc2htmlPages = mdoc2html standaloneWithHeader
+
+-- | Convert a 'MultiFileDoc' document to a set of HTML pages.
+--
+-- The pages do not include a document header.
+mdoc2epubPages :: MultiFileDoc -> Map FilePath Text
+mdoc2epubPages = mdoc2html standalone
+
+-- Convert a 'MultiFileDoc' document to a set of HTML pages,
+-- where each page is wrapped with the provided combinator.
+mdoc2html :: (Reader Meta Html -> Reader Meta Html) -> MultiFileDoc -> Map FilePath Text
+mdoc2html pageWrapper (MultiFileDoc meta fileMap) =
+  let convertPage (ContentFile sec) =
+        convert2html (pageWrapper . section) meta sec
+  in M.mapKeys filenameFromID $ M.map convertPage fileMap
+
+
+---------- Sub-Doc conversion: render parts of documents
 
 -- | Convert 'Section' elements to an HTML fragment.
 sections2html :: Meta -> [Section] -> Text
@@ -73,6 +117,30 @@ inlines2html = convert2html inlines
 convert2html :: (a -> Reader Meta Html) -> Meta -> a -> Text
 convert2html render meta docdata =
   renderHtml (runReader (render docdata) meta)
+
+
+---------- Page level combinators
+
+-- Wrap content in a standalone HTML page
+-- (without a document header).
+standalone :: Reader Meta Html -> Reader Meta Html
+standalone content =
+  wrapPage (H.body <$> wrapMain content)
+
+-- Wrap content in a standalone HTML page
+-- with a default document header.
+standaloneWithHeader :: Reader Meta Html -> Reader Meta Html
+standaloneWithHeader content =
+  wrapPage (H.body <$> header <+> wrapMain content)
+
+-- Wrap content with doctype, @<html>@ root element
+-- and a default document @<head>@. No @<header>@.
+wrapPage :: Reader Meta Html -> Reader Meta Html
+wrapPage content = docTypeHtml <*> (mkHead <+> content)
+
+-- Wrap content in a @<main>@ element.
+wrapMain :: Reader Meta Html -> Reader Meta Html
+wrapMain = (H.main `orDivClass` "main" <*>)
 
 
 ---------- meta
@@ -134,12 +202,13 @@ sectionNumberPrefix _ = memptyR
 
 ---------- content
 
--- Create @<body>@ element.
+-- Create @<body>@ element,
+-- including @<header>@ and @<nav>@ (toc).
 mkBody :: SectionDoc -> Reader Meta Html
-mkBody (SectionDoc _ secs) =
-  H.body <$>
-    (header <+> toc secs <+>
-    (H.main `orDivClass` "main" <*> sections secs))
+mkBody (SectionDoc _ secs) = H.body <$>
+  header <+>
+  toc secs <+>
+  wrapMain (sections secs)
 
 -- Convert 'Section' elements to HTML.
 sections :: [Section] -> Reader Meta Html

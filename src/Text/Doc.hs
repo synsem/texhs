@@ -20,6 +20,7 @@ module Text.Doc
   , tex2docWithBib
     -- * HTML Writer
   , doc2html
+  , doc2multiHtml
     -- * XML Writer
   , doc2xml
   ) where
@@ -28,7 +29,7 @@ import Text.Bib (BibDB)
 import Text.Doc.Types (Doc)
 import Text.Doc.Reader.TeX (tex2doc)
 import Text.Doc.Filter.Bib (docBibFilter)
-import Text.Doc.Writer.Html (doc2html)
+import Text.Doc.Writer.Html (doc2html, doc2multiHtml)
 import Text.Doc.Writer.Xml (doc2xml)
 import Text.TeX.Parser.Types (TeX)
 
