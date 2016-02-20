@@ -20,18 +20,21 @@ module Main where
 #else
 import Control.Applicative ((<$>), (*>))
 #endif
+import Control.Arrow (first)
 import Data.Char (toLower)
 import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy as T
 import qualified Data.Text.Lazy.IO as T
 import System.Console.GetOpt
+import System.FilePath ((</>))
+import System.Directory (createDirectory)
 import System.Environment (getArgs, getProgName)
 import System.IO
 
 import Text.Bib (BibDB, fromBibTeXFile)
 import Text.TeX (readTeXIO)
 import Text.TeX.Lexer (lexTeXIO)
-import Text.Doc (Doc, tex2docWithBib, doc2xml, doc2html)
+import Text.Doc (Doc, tex2docWithBib, doc2xml, doc2html, doc2multiHtml)
 
 
 ---------- options
@@ -39,6 +42,7 @@ import Text.Doc (Doc, tex2docWithBib, doc2xml, doc2html)
 data OutputFormat
   = XML
   | HTML
+  | MultiHTML
   | NativeTokens
   | NativeTeX
   | NativeDoc
@@ -83,7 +87,7 @@ options =
     "bib file"
   , Option ['o'] ["output"]
     (ReqArg (\ f opts -> opts { optOutputFile = Just f }) "FILE")
-    "output file"
+    "output file (or directory for multi-file output)"
   ]
 
 parseOutputFormat :: String -> OutputFormat
@@ -91,6 +95,7 @@ parseOutputFormat xs =
   case map toLower xs of
     "xml" -> XML
     "html" -> HTML
+    "multihtml" -> MultiHTML
     "itok" -> NativeTokens
     "itex" -> NativeTeX
     "idoc" -> NativeDoc
@@ -114,6 +119,9 @@ runConversion opts filename = do
   case optOutputFormat opts of
     HTML -> doc2html <$> parseDoc filename bib >>= output opts
     XML -> doc2xml <$> parseDoc filename bib >>= output opts
+    MultiHTML -> case optOutputFile opts of
+      Nothing -> error "MultiHTML format requires explicit output directory"
+      Just dir -> parseDoc filename bib >>= multifileOutput dir
     NativeTokens -> T.pack . show <$>
       (readFile filename >>= lexTeXIO filename) >>= output opts
     NativeTeX -> T.pack . show <$>
@@ -138,6 +146,11 @@ parseDoc filename bib =
 
 output :: Options -> Text -> IO ()
 output opts = maybe T.putStrLn T.writeFile (optOutputFile opts)
+
+multifileOutput :: FilePath -> Doc -> IO ()
+multifileOutput dir doc =
+  createDirectory dir *>
+  mapM_ (uncurry T.writeFile . first (dir </>)) (doc2multiHtml doc)
 
 
 ---------- helper
