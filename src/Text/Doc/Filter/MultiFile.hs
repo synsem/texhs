@@ -29,6 +29,7 @@ module Text.Doc.Filter.MultiFile
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 
+import Text.Doc.Filter.DeriveSection (NavList, mkNavList)
 import Text.Doc.Section
 import Text.Doc.Types
 
@@ -36,11 +37,11 @@ import Text.Doc.Types
 -------------------- Types
 
 -- | A 'Doc' document that has been split into multiple physical files.
-data MultiFileDoc = MultiFileDoc Meta FileMap
+data MultiFileDoc = MultiFileDoc Meta NavList FileMap
   deriving (Eq, Show)
 
 instance HasMeta MultiFileDoc where
-  docMeta (MultiFileDoc meta _) = meta
+  docMeta (MultiFileDoc meta _ _) = meta
 
 -- | A ContentFile contains a potentially incomplete section
 -- (in particular, its subsections may be missing)
@@ -62,7 +63,7 @@ toMultiFileDoc splitLevel (SectionDoc meta secs) =
   let fileMap = splitSections splitLevel secs
       anchorFileMap = mkAnchorFileMap fileMap
       newMeta = meta { metaAnchorFileMap = anchorFileMap }
-  in MultiFileDoc newMeta fileMap
+  in MultiFileDoc newMeta (mkNavList secs) fileMap
 
 -- | Split a document into ContentFiles
 -- at the indicated section level.

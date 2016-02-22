@@ -88,7 +88,7 @@ mdoc2epubPages = mdoc2html standalone
 -- Convert a 'MultiFileDoc' document to a set of HTML pages,
 -- where each page is wrapped with the provided combinator.
 mdoc2html :: (Reader Meta Html -> Reader Meta Html) -> MultiFileDoc -> Map FilePath Text
-mdoc2html pageWrapper (MultiFileDoc meta fileMap) =
+mdoc2html pageWrapper (MultiFileDoc meta _ fileMap) =
   let convertPage (ContentFile sec) =
         convert2html (pageWrapper . section) meta sec
   in M.mapKeys filenameFromID $ M.map convertPage fileMap
