@@ -20,6 +20,7 @@ module Text.Doc.Writer.Core
  , attr
  , (<!>)
  , withXmlDeclaration
+ , withXhtml11Doctype
    -- * Lifted monoid functions
  , (<+>)
  , ($<>)
@@ -33,6 +34,7 @@ module Text.Doc.Writer.Core
 import Control.Applicative
 import Data.Monoid
 import Data.Text (Text)
+import qualified Data.Text as T
 import Text.Blaze (Markup, Attribute, AttributeValue, textTag, (!), preEscapedText)
 import Text.Blaze.Internal (Attributable, customLeaf, customParent, attribute)
 
@@ -61,6 +63,14 @@ infixl 5 <!>
 withXmlDeclaration :: Markup -> Markup
 withXmlDeclaration =
   (preEscapedText "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" <>)
+
+-- | Prefix XHTML 1.1 doctype declaration.
+withXhtml11Doctype :: Markup -> Markup
+withXhtml11Doctype = (preEscapedText xhtml11Doctype <>)
+  where
+    xhtml11Doctype = T.unlines
+      [ "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\""
+      , "    \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">" ]
 
 
 ---------- Lifted monoid functions

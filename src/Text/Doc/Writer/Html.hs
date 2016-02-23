@@ -391,11 +391,17 @@ style Sup = H.sup
 
 -- Document type declaration for the configured HTML version.
 --
--- Inserts doctype declaration and the @<html>@ element.
+-- Insert doctype declaration and the @\<html\>@ element.
 docTypeHtml :: Reader Meta (Html -> Html)
 docTypeHtml =
-  elFallback H.docTypeHtml H1.docTypeHtml <!>
+  elFallback H.docTypeHtml docTypeXhtml11 <!>
   attr "xmlns" "http://www.w3.org/1999/xhtml"
+
+-- Insert doctype declaration for XHTML 1.1
+-- and the @\<html\>@ element.
+docTypeXhtml11 :: Html -> Html
+docTypeXhtml11 =
+  withXmlDeclaration . withXhtml11Doctype . H1.html
 
 -- Insert @<meta>@ element for @charset@ property.
 elMetaCharset :: Reader Meta Html
