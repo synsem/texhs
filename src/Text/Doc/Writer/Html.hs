@@ -14,14 +14,19 @@
 ----------------------------------------------------------------------
 
 module Text.Doc.Writer.Html
- ( -- * Doc to HTML Conversion
+ ( -- * Conversion to HTML
+   -- ** Documents
    doc2html
  , doc2multiHtml
  , mdoc2htmlPages
  , mdoc2epubPages
+   -- ** Document elements
  , sections2html
  , blocks2html
  , inlines2html
+   -- ** Special pages
+ , htmlTitlePage
+ , htmlNavPage
  ) where
 
 import Control.Monad.Trans.Reader (Reader, runReader, asks)
@@ -119,6 +124,23 @@ convert2html render meta docdata =
   renderHtml (runReader (render docdata) meta)
 
 
+---------- Create special pages
+
+-- | Create an HTML title page for a document.
+--
+-- The page body consists only of a @\<header\>@ element.
+htmlTitlePage :: HasMeta d => d -> Text
+htmlTitlePage doc = renderHtml $
+  runReader (wrapPage (H.body <$> header)) (docMeta doc)
+
+-- | Create an HTML table of contents page for a multi-file document.
+--
+-- The page body consists only of a @\<nav\>@ element. No @\<header\>@.
+htmlNavPage :: MultiFileDoc -> Text
+htmlNavPage (MultiFileDoc meta nav _) =
+  convert2html (standalone . toc) meta nav
+
+
 ---------- Page level combinators
 
 -- Wrap content in a standalone HTML page
@@ -172,12 +194,12 @@ header = do
 ----- toc
 
 -- Create a table of contents.
-toc :: [Section] -> Reader Meta Html
-toc secs =
-  let items = mkNavList secs
-  in unlessR (null items)
-     (H.nav `orDivClass` "nav" <!> A.id "toc" <*>
-       (H.ul <$> foldMapR navitem items))
+toc :: NavList -> Reader Meta Html
+toc items =
+  unlessR (null items)
+    (H.nav `orDivClass` "nav" <!> A.id "toc" <*>
+      (heading 2 "Contents" $<>
+      (H.ul <$> foldMapR navitem items)))
 
 -- Create a toc entry for a single section (and its subsections).
 navitem :: NavListItem -> Reader Meta Html
@@ -207,7 +229,7 @@ sectionNumberPrefix _ = memptyR
 mkBody :: SectionDoc -> Reader Meta Html
 mkBody (SectionDoc _ secs) = H.body <$>
   header <+>
-  toc secs <+>
+  toc (mkNavList secs) <+>
   wrapMain (sections secs)
 
 -- Convert 'Section' elements to HTML.
