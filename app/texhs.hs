@@ -21,6 +21,7 @@ module Main where
 import Control.Applicative ((<$>), (*>))
 #endif
 import Control.Arrow (first)
+import qualified Data.ByteString.Lazy as B
 import Data.Char (toLower)
 import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy as T
@@ -34,7 +35,8 @@ import System.IO
 import Text.Bib (BibDB, fromBibTeXFile)
 import Text.TeX (readTeXIO)
 import Text.TeX.Lexer (lexTeXIO)
-import Text.Doc (Doc, tex2docWithBib, doc2xml, doc2html, doc2multiHtml)
+import Text.Doc ( Doc, tex2docWithBib, doc2multiHtml
+                , doc2xml, doc2html, doc2epub)
 
 
 ---------- options
@@ -42,6 +44,7 @@ import Text.Doc (Doc, tex2docWithBib, doc2xml, doc2html, doc2multiHtml)
 data OutputFormat
   = XML
   | HTML
+  | EPUB
   | MultiHTML
   | NativeTokens
   | NativeTeX
@@ -81,7 +84,7 @@ options =
     "verbose output on stderr"
   , Option ['t'] ["target"]
     (ReqArg (\ f opts -> opts { optOutputFormat = parseOutputFormat f }) "FMT")
-    "output format (xml, html)"
+    "output format (xml, html, epub)"
   , Option ['b'] ["bibfile"]
     (ReqArg (\ f opts -> opts { optBibFile = Just f }) "FILE")
     "bib file"
@@ -95,6 +98,7 @@ parseOutputFormat xs =
   case map toLower xs of
     "xml" -> XML
     "html" -> HTML
+    "epub" -> EPUB
     "multihtml" -> MultiHTML
     "itok" -> NativeTokens
     "itex" -> NativeTeX
@@ -117,8 +121,11 @@ runConversion :: Options -> String -> IO ()
 runConversion opts filename = do
   bib <- maybe (return Nothing) parseBib (optBibFile opts)
   case optOutputFormat opts of
-    HTML -> doc2html <$> parseDoc filename bib >>= output opts
     XML -> doc2xml <$> parseDoc filename bib >>= output opts
+    HTML -> doc2html <$> parseDoc filename bib >>= output opts
+    EPUB -> case optOutputFile opts of
+      Nothing -> error "EPUB format requires explicit output file"
+      Just path -> parseDoc filename bib >>= doc2epub >>= B.writeFile path
     MultiHTML -> case optOutputFile opts of
       Nothing -> error "MultiHTML format requires explicit output directory"
       Just dir -> parseDoc filename bib >>= multifileOutput dir
