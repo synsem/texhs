@@ -68,7 +68,7 @@ testsDoc = testGroup "documents"
               , "<p>hello <em>world</em></p>"
               , "</section></main></body></html>"]
   , testCase "simple document: XHTML1 version" $
-    doc2html (toXhtml1 docExample01)
+    doc2html (setHtmlVersion XHTML1 docExample01)
     @?=
     LT.concat [ doctypeXhtml1
               , "<html xmlns=\"http://www.w3.org/1999/xhtml\"><head>"
@@ -139,7 +139,7 @@ testsDoc = testGroup "documents"
               , "<p><a class=\"note-backref\" href=\"#note-3-3\">^</a></p></li>"
               , "</ol></section></section></main></body></html>"]
   , testCase "document with chapters and footnotes: XHTML1 version" $
-    doc2html (toXhtml1 docExample02)
+    doc2html (setHtmlVersion XHTML1 docExample02)
     @?=
     LT.concat [ doctypeXhtml1
               , "<html xmlns=\"http://www.w3.org/1999/xhtml\"><head>"
@@ -397,15 +397,6 @@ testsInlines = testGroup "inlines"
     @?=
     "<a id=\"note-1-2\" class=\"note-ref\" href=\"#notetext-1-2\"><sup>1.2</sup></a>"
   ]
-
-
--------------------- helper
-
-updateMeta :: (Meta -> Meta) -> Doc -> Doc
-updateMeta f (Doc meta body) = Doc (f meta) body
-
-toXhtml1 :: Doc -> Doc
-toXhtml1 = updateMeta (\m -> m { metaWriterHtmlVersion = XHTML1 })
 
 
 -------------------- example documents

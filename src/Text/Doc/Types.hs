@@ -67,6 +67,7 @@ module Text.Doc.Types
   , filenameFromID
     -- ** Writer options
   , HtmlVersion(..)
+  , setHtmlVersion
     -- * Content types
     -- ** Blocks
   , Content
@@ -388,6 +389,12 @@ filenameFromID = printf "section-%03d.xhtml"
 -- | HTML version to be used by HTML Writer.
 data HtmlVersion = XHTML5 | XHTML1
   deriving (Eq, Show)
+
+-- | Configure HTML version.
+setHtmlVersion :: HtmlVersion -> Doc -> Doc
+setHtmlVersion version (Doc meta body) =
+  let newMeta = meta { metaWriterHtmlVersion = version }
+  in Doc newMeta body
 
 
 ---------- Citations
