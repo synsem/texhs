@@ -18,6 +18,8 @@ module Text.Doc
     -- * TeX Reader
   , tex2doc
   , tex2docWithBib
+    -- * EPUB Writer
+  , doc2epub
     -- * HTML Writer
   , doc2html
   , doc2multiHtml
@@ -29,6 +31,7 @@ import Text.Bib (BibDB)
 import Text.Doc.Types (Doc)
 import Text.Doc.Reader.TeX (tex2doc)
 import Text.Doc.Filter.Bib (docBibFilter)
+import Text.Doc.Writer.Epub (doc2epub)
 import Text.Doc.Writer.Html (doc2html, doc2multiHtml)
 import Text.Doc.Writer.Xml (doc2xml)
 import Text.TeX.Parser.Types (TeX)
