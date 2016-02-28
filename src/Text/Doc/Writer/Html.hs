@@ -318,20 +318,22 @@ itemlistitem (ListItem anchor xs) =
 notelistitem :: ListItem -> Reader Meta Html
 notelistitem (ListItem anchor fntext) =
   H.li ! A.id (textValue (internalAnchorID anchor)) <$>
-    blocks fntext <+> backreference anchor
+    blocks (appendBackreference anchor fntext)
 
--- Create a backreference to an anchor.
+-- Append an anchor backreference to a list of blocks.
 --
 -- For example, insert a backreference into a footnote text
 -- in order to refer back to the corresponding footnote mark.
-backreference :: InternalAnchor -> Reader Meta Html
-backreference anchor = do
-  let backrefText = "^"
-  db <- asks metaAnchorFileMap
-  let target = internalAnchorTarget db (internalAnchorSwitch anchor)
-  return $ H.p $ H.a ! A.class_ "note-backref" !
-     A.href (textValue target) $
-     backrefText
+appendBackreference :: InternalAnchor -> [Block] -> [Block]
+appendBackreference anchor fntext =
+  let target = internalAnchorSwitch anchor
+      backrefText :: [Inline]
+      backrefText = [Str "\x21A9"] -- LEFTWARDS ARROW WITH HOOK
+      backref :: [Inline]
+      backref = mkInternalLink backrefText target "" "note-backref"
+  in case last fntext of
+       Para xs -> init fntext ++ [Para (xs ++ (Space : backref))]
+       _ -> fntext ++ [Para backref]
 
 -- Create a single entry in the bibliography.
 biblistitem :: CiteEntry -> Reader Meta Html

@@ -128,15 +128,15 @@ testsDoc = testGroup "documents"
                 -- footnotes
               , "<section id=\"sec-back-unnumbered-1\"><h2>Notes</h2>"
               , "<section id=\"sec-back-unnumbered-2\"><h3>Chapter 1</h3>"
-              , "<ol class=\"notes\"><li id=\"notetext-1-1\"><p>Footnote one</p>"
-              , "<p><a class=\"note-backref\" href=\"#note-1-1\">^</a></p></li></ol></section>"
+              , "<ol class=\"notes\"><li id=\"notetext-1-1\"><p>Footnote one "
+              , "<a href=\"#note-1-1\" class=\"note-backref\">\x21A9</a></p></li></ol></section>"
               , "<section id=\"sec-back-unnumbered-3\"><h3>Chapter 3</h3>"
-              , "<ol class=\"notes\"><li id=\"notetext-3-1\"><p>Footnote two</p>"
-              , "<p><a class=\"note-backref\" href=\"#note-3-1\">^</a></p></li>"
-              , "<li id=\"notetext-3-2\"><p>Footnote three</p>"
-              , "<p><a class=\"note-backref\" href=\"#note-3-2\">^</a></p></li>"
-              , "<li id=\"notetext-3-3\"><p>Footnote four</p>"
-              , "<p><a class=\"note-backref\" href=\"#note-3-3\">^</a></p></li>"
+              , "<ol class=\"notes\"><li id=\"notetext-3-1\"><p>Footnote two "
+              , "<a href=\"#note-3-1\" class=\"note-backref\">\x21A9</a></p></li>"
+              , "<li id=\"notetext-3-2\"><p>Footnote three "
+              , "<a href=\"#note-3-2\" class=\"note-backref\">\x21A9</a></p></li>"
+              , "<li id=\"notetext-3-3\"><p>Footnote four "
+              , "<a href=\"#note-3-3\" class=\"note-backref\">\x21A9</a></p></li>"
               , "</ol></section></section></main></body></html>"]
   , testCase "document with chapters and footnotes: XHTML1 version" $
     doc2html (setHtmlVersion XHTML1 docExample02)
@@ -181,15 +181,15 @@ testsDoc = testGroup "documents"
                 -- footnotes
               , "<div class=\"section\" id=\"sec-back-unnumbered-1\"><h2>Notes</h2>"
               , "<div class=\"section\" id=\"sec-back-unnumbered-2\"><h3>Chapter 1</h3>"
-              , "<ol class=\"notes\"><li id=\"notetext-1-1\"><p>Footnote one</p>"
-              , "<p><a class=\"note-backref\" href=\"#note-1-1\">^</a></p></li></ol></div>"
+              , "<ol class=\"notes\"><li id=\"notetext-1-1\"><p>Footnote one "
+              , "<a href=\"#note-1-1\" class=\"note-backref\">\x21A9</a></p></li></ol></div>"
               , "<div class=\"section\" id=\"sec-back-unnumbered-3\"><h3>Chapter 3</h3>"
-              , "<ol class=\"notes\"><li id=\"notetext-3-1\"><p>Footnote two</p>"
-              , "<p><a class=\"note-backref\" href=\"#note-3-1\">^</a></p></li>"
-              , "<li id=\"notetext-3-2\"><p>Footnote three</p>"
-              , "<p><a class=\"note-backref\" href=\"#note-3-2\">^</a></p></li>"
-              , "<li id=\"notetext-3-3\"><p>Footnote four</p>"
-              , "<p><a class=\"note-backref\" href=\"#note-3-3\">^</a></p></li>"
+              , "<ol class=\"notes\"><li id=\"notetext-3-1\"><p>Footnote two "
+              , "<a href=\"#note-3-1\" class=\"note-backref\">\x21A9</a></p></li>"
+              , "<li id=\"notetext-3-2\"><p>Footnote three "
+              , "<a href=\"#note-3-2\" class=\"note-backref\">\x21A9</a></p></li>"
+              , "<li id=\"notetext-3-3\"><p>Footnote four "
+              , "<a href=\"#note-3-3\" class=\"note-backref\">\x21A9</a></p></li>"
               , "</ol></div></div></div></body></html>"]
   ]
 
@@ -268,8 +268,8 @@ testsBlocks = testGroup "blocks"
       [ ListItem (NoteAnchor (2,4,NoteText)) [Para [Str "hello"]]]]
     @?=
     LT.append
-      "<ol class=\"notes\"><li id=\"notetext-2-4\"><p>hello</p>"
-      "<p><a class=\"note-backref\" href=\"#note-2-4\">^</a></p></li></ol>"
+      "<ol class=\"notes\"><li id=\"notetext-2-4\"><p>hello "
+      "<a href=\"#note-2-4\" class=\"note-backref\">\x21A9</a></p></li></ol>"
   , testCase "simple bib list" $
     blocks2html defaultMeta [BibList [ CiteEntry (BibAnchor 24)
       [[Str "Somebody"]] [Str "1999"] [Str "Full", Space, Str "entry."]]]
