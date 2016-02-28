@@ -338,6 +338,20 @@ testsFormatBib = testGroup "bibliography formatting"
     [ Str "Last1", Str ",", Space, Str "First1", Str ",", Space
     , Str "First2", Space, Str "Last2", Space, Str "&", Space
     , Str "First3", Space, Str "Last3"]
+  , testCase "do not add period after name list if it already ends with period" $
+    fmtCiteFull Nothing bibEntry09
+    @?=
+    [ Str "Last", Str ",", Space, Str "N.", Space, Str "N.", Space
+    , Str "1999", Str ".", Space
+    , FontStyle Emph [Str "Title", Space, Str "nine"], Str "."]
+  , testCase "full book reference with location and publisher" $
+    fmtCiteFull Nothing bibEntry10
+    @?=
+    [ Str "Last", Str ",", Space, Str "First", Str ".", Space
+    , Str "1999", Str ".", Space
+    , FontStyle Emph [Str "Title", Space, Str "ten"], Str ".", Space
+    , Str "Some", Space, Str "place", Str ":", Space
+    , Str "Some", Space, Str "publisher", Str "." ]
   ]
 
 
@@ -521,6 +535,23 @@ citeEntry08 n extrayear =
                   , Str "."]
      }
 
+-- entry where only initials are provided as first names of author
+bibEntry09 :: BibEntry
+bibEntry09 = BibEntry "book" $ M.fromList
+  [ ("author", AgentList [ Agent [Str "N.", Space, Str "N."] [] [Str "Last"] [] ])
+  , ("year", LiteralField [Str "1999"])
+  , ("title", LiteralField [Str "Title", Space, Str "nine"])
+  ]
+
+-- book entry with location and publisher
+bibEntry10 :: BibEntry
+bibEntry10 = BibEntry "book" $ M.fromList
+  [ ("author", AgentList [ Agent [Str "First"] [] [Str "Last"] [] ])
+  , ("year", LiteralField [Str "1999"])
+  , ("title", LiteralField [Str "Title", Space, Str "ten"])
+  , ("location", LiteralList [[Str "Some", Space, Str "place"]])
+  , ("publisher", LiteralList [[Str "Some", Space, Str "publisher"]])
+  ]
 
 
 -------------------- helper

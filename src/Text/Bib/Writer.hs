@@ -325,35 +325,28 @@ fmtCiteFull u e@(BibEntry btype _) = case btype of
 -- Format a @book@ entry.
 fmtBibBook :: CiteUnique -> BibEntry -> [Inline]
 fmtBibBook u e =
-  fmtSepBy
+  fmtEndByDot $ fmtSepByDot
     (fmtBibFieldAuthors e)
-    [Str ".", Space]
     (fmtBibBookAfterAgents u e)
-  `fmtEndBy` [Str "."]
 
 -- Format a @collection@ entry.
 fmtBibCollection :: CiteUnique -> BibEntry -> [Inline]
 fmtBibCollection u e =
-  fmtSepBy
+  fmtEndByDot $ fmtSepByDot
     (fmtBibFieldEditors e)
-    [Str ".", Space]
     (fmtBibBookAfterAgents u e)
-  `fmtEndBy` [Str "."]
 
 -- Format a @thesis@ entry.
 --
 -- Takes an optional default thesis @type@ as first argument.
 fmtBibThesis :: Maybe [Inline] -> CiteUnique -> BibEntry -> [Inline]
 fmtBibThesis thesisType u e =
-  fmtSepBy
-    (fmtSepBy
+  fmtEndByDot $ fmtSepByDot
+    (fmtSepByDot
       (fmtBibFieldAuthors e)
-      [Str ".", Space]
-      (fmtSepBy
+      (fmtSepByDot
         (fmtCiteYear u e)
-        [Str ".", Space]
         (fmtEmph (fmtBibLiteral "title" e))))
-    [Str ".", Space]
     (fmtSepBy
       (fmtBibFieldLocation e)
       [Str ":", Space]
@@ -363,15 +356,13 @@ fmtBibThesis thesisType u e =
         (fromMaybe [Str "dissertation"]
           -- @type@ field overrides entry type
           (getBibLiteral "type" e <|> thesisType))))
-  `fmtEndBy` [Str "."]
 
 -- Format an @article@ entry.
 fmtBibArticle :: CiteUnique -> BibEntry -> [Inline]
 fmtBibArticle u e =
-  fmtSepBy
+  fmtEndByDot $ fmtSepByDot
     (fmtBibAYT u e)
-    [Str ".", Space]
-    (fmtSepBy
+    (fmtSepByDot
       (fmtSepBy
         (fmtEmph (fmtBibFieldJournaltitle e))
         [Space]
@@ -379,19 +370,16 @@ fmtBibArticle u e =
           (fmtBibLiteral "volume" e)
           []
           (fmtWrap [Str "("] (fmtBibFieldNumber e) [Str ")"])))
-      [Str ".", Space]
       (fmtBibLiteral "pages" e))
-  `fmtEndBy` [Str "."]
 
 -- Format an @incollection@ entry.
 fmtBibInCollection :: CiteUnique -> BibEntry -> [Inline]
 fmtBibInCollection u e =
-  fmtSepBy
+  fmtEndByDot $ fmtSepByDot
     (fmtBibAYT u e)
-    [Str ".", Space]
     (fmtWrap
       [Str "In", Space]
-      (fmtSepBy
+      (fmtSepByDot
         (fmtSepBy
           (fmtBibFieldEditorsInner e)
           [Str ",", Space]
@@ -399,13 +387,11 @@ fmtBibInCollection u e =
             (fmtEmph $ fmtBibLiteral "booktitle" e)
             [Str ",", Space]
             (fmtBibLiteral "pages" e)))
-        [Str ".", Space]
         (fmtSepBy
           (fmtBibFieldLocation e)
           [Str ":", Space]
           (fmtBibList "publisher" e)))
       [])
-  `fmtEndBy` [Str "."]
 
 -- Format a @misc@ entry. Also used as fallback entry type.
 fmtBibMisc :: CiteUnique -> BibEntry -> [Inline]
@@ -413,11 +399,10 @@ fmtBibMisc u e =
   let ag = if M.member "author" (bibFields e)
            then fmtBibFieldAuthors e
            else fmtBibFieldEditors e
-  in fmtSepBy ag [Str ".", Space]
-       (fmtSepBy (fmtCiteYear u e) [Str ".", Space]
-         (fmtSepBy (fmtBibLiteral "title" e) [Str ".", Space]
+  in fmtEndByDot $ fmtSepByDot ag
+       (fmtSepByDot (fmtCiteYear u e)
+         (fmtSepByDot (fmtBibLiteral "title" e)
            (fmtBibLiteral "howpublished" e)))
-     `fmtEndBy` [Str "."]
 
 
 ---------- shared multi-field blocks
@@ -425,12 +410,10 @@ fmtBibMisc u e =
 -- Common format for @book@ and @collection@ after agent part.
 fmtBibBookAfterAgents :: CiteUnique -> BibEntry -> [Inline]
 fmtBibBookAfterAgents u e =
-  fmtSepBy
+  fmtSepByDot
     (fmtCiteYear u e)
-    [Str ".", Space]
-    (fmtSepBy
+    (fmtSepByDot
       (fmtEmph (fmtBibLiteral "title" e))
-      [Str ".", Space]
       (fmtSepBy
         (fmtBibFieldLocation e)
         [Str ":", Space]
@@ -440,12 +423,10 @@ fmtBibBookAfterAgents u e =
 -- (e.g. @article@, @incollection@). The @title@ part is not emphasized.
 fmtBibAYT :: CiteUnique -> BibEntry -> [Inline]
 fmtBibAYT u e =
-  fmtSepBy
+  fmtSepByDot
     (fmtBibFieldAuthors e)
-    [Str ".", Space]
-    (fmtSepBy
+    (fmtSepByDot
       (fmtCiteYear u e)
-      [Str ".", Space]
       (fmtBibLiteral "title" e))
 
 

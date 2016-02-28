@@ -101,6 +101,8 @@ module Text.Doc.Types
   , mkExternalLink
   , mkInternalLink
   , fmtEmph
+  , fmtSepByDot
+  , fmtEndByDot
   , fmtSepBy
   , fmtSepEndBy
   , fmtEndBy
@@ -849,11 +851,36 @@ fmtSepBy [] _ right = right
 fmtSepBy left _ [] = left
 fmtSepBy left@(_:_) sep right@(_:_) = left ++ sep ++ right
 
+-- | Separate two inlines by a period and a space.
+--
+-- If either part is null the other is returned.
+-- If the left part ends with a period, only a space is inserted.
+--
+-- Syntax: @fmtSepByDot left right@.
+fmtSepByDot :: [Inline] -> [Inline] -> [Inline]
+fmtSepByDot left@(_:_) right
+  | endsWithChar '.' (last left) = fmtSepBy left [Space] right
+  | otherwise = fmtSepBy left [Str ".", Space] right
+fmtSepByDot [] right = right
+
+-- Test whether the inline ends with a certain character.
+endsWithChar :: Char -> Inline -> Bool
+endsWithChar c (Str (xs@(_:_))) = c == last xs
+endsWithChar _ _ = False
+
 -- | Add suffix iff content is not null.
 --
 -- Syntax: @fmtEndBy content suffix@.
 fmtEndBy :: [a] -> [a] -> [a]
 fmtEndBy = fmtWrap []
+
+-- | Append a period if content is not null and
+-- does not already end with a period.
+fmtEndByDot :: [Inline] -> [Inline]
+fmtEndByDot [] = []
+fmtEndByDot xs@(_:_)
+  | endsWithChar '.' (last xs) = xs
+  | otherwise = xs ++ [Str "."]
 
 -- | Add prefix and suffix iff content is not null.
 --
