@@ -316,8 +316,10 @@ figure = inGrp "figure" $ do
     [ void (cmd "centering")
     , grpUnwrap "center"]))
   imgloc <- lexemeBlock (literalTextArg "includegraphics")
+  mediaID <- metaMediaCurrent <$> getMeta
+  modifyMeta (registerMedia imgloc)
   imgdesc <- lexemeBlock (inlineCmd "caption")
-  return (Figure anchor imgloc imgdesc)
+  return (Figure anchor mediaID imgdesc)
 
 -- Register figure as the current anchor
 -- (e.g. for subsequent @label@ assignments).

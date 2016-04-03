@@ -61,6 +61,11 @@ module Text.Doc.Types
   , internalAnchorSwitch
   , registerAnchorLabel
   , extractAnchor
+    -- ** Media
+  , MediaID
+  , MediaMap
+  , registerMedia
+  , lookupMedia
     -- ** Multifile
   , FileID
   , AnchorFileMap
@@ -144,6 +149,8 @@ data Meta = Meta
   , metaAnchorMap :: Map Label InternalAnchor
   , metaAnchorFileMap :: AnchorFileMap
   , metaNoteMap :: Map (Int, Int) [Block]
+  , metaMediaCurrent :: Int
+  , metaMediaMap :: MediaMap
   , metaPhantomSectionCount :: Int
   , metaBookRegion :: BookRegion
   , metaSectionCurrent :: SectionNumber
@@ -168,6 +175,8 @@ defaultMeta = Meta
   , metaAnchorMap = M.empty
   , metaAnchorFileMap = M.empty
   , metaNoteMap = M.empty
+  , metaMediaCurrent = 0
+  , metaMediaMap = M.empty
   , metaPhantomSectionCount = 0
   , metaBookRegion = Frontmatter
   , metaSectionCurrent = sectionNumberReset
@@ -363,6 +372,32 @@ extractAnchor db label protoAnchor =
   let undefinedAnchor = ExternalResource [Str "???"] "" "" ""
   in fromMaybe undefinedAnchor $ protoAnchor <|>
      (InternalResourceAuto <$> M.lookup label db)
+
+
+---------- Media references
+
+-- | A MediaID is a unique identifier of a referenced media file.
+type MediaID = Int
+
+-- | A mapping from identifiers to filepaths
+-- of referenced media files.
+type MediaMap = Map MediaID Location
+
+-- | Register a new media file.
+--
+-- Assign and increment current media ID.
+registerMedia :: Location -> Meta -> Meta
+registerMedia filePath meta =
+  let mediaID = metaMediaCurrent meta
+      newMap = M.insert mediaID filePath (metaMediaMap meta)
+  in meta { metaMediaCurrent = 1 + mediaID
+          , metaMediaMap = newMap }
+
+-- | Lookup the filepath of a media file by its ID.
+--
+-- Return empty filepath for non-existing IDs.
+lookupMedia :: MediaID -> MediaMap -> Location
+lookupMedia mediaID db = fromMaybe "" (M.lookup mediaID db)
 
 
 ---------- Multifile support
@@ -653,7 +688,7 @@ data Block
   | AnchorList AnchorListType [ListItem]
   | BibList [CiteEntry]
   | QuotationBlock [Block]
-  | Figure InternalAnchor Location [Inline]
+  | Figure InternalAnchor MediaID [Inline]
   | Table InternalAnchor [Inline] [TableRow]
   | SimpleTable [TableRow]
   deriving (Eq, Show)

@@ -193,10 +193,11 @@ block (BibList citeEntries) =
   foldMapR biblistitem citeEntries
 block (QuotationBlock xs) =
   el "quote" <$> blocks xs
-block (Figure anchor imgloc imgdesc) =
+block (Figure anchor mediaid imgdesc) = do
+  imgloc <- asks (lookupMedia mediaid . metaMediaMap)
   el "figure" ! attr "xml:id" (textValue (internalAnchorID anchor)) <$>
-  leaf "graphic" ! attr "url" (textValue imgloc) $<>
-  (el "head" <$> inlines imgdesc)
+    leaf "graphic" ! attr "url" (textValue imgloc) $<>
+    (el "head" <$> inlines imgdesc)
 block (Table anchor tdesc tdata) =
   el "table" ! attr "xml:id" (textValue (internalAnchorID anchor)) <$>
   (el "head" <$> inlines tdesc) <+>

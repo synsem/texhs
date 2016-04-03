@@ -276,15 +276,16 @@ block (BibList citeEntries) =
   H.ol ! A.class_ "biblist" <$>
   foldMapR biblistitem citeEntries
 block (QuotationBlock xs) = H.blockquote <$> blocks xs
-block (Figure anchor imgloc imgdesc) =
+block (Figure anchor mediaid imgdesc) = do
+  imgloc <- asks (lookupMedia mediaid . metaMediaMap)
   H.figure `orDivClass` "figure" <!>
-  A.id (textValue (internalAnchorID anchor)) <*>
-    (H.img ! A.src (textValue imgloc) $<>
-    (elFigcaption <*>
-       ((text "Figure " $<>
-         inlines (internalAnchorDescription anchor)) <+>
-        (text ": " $<>
-         inlines imgdesc))))
+    A.id (textValue (internalAnchorID anchor)) <*>
+      (H.img ! A.src (textValue imgloc) $<>
+      (elFigcaption <*>
+         ((text "Figure " $<>
+           inlines (internalAnchorDescription anchor)) <+>
+          (text ": " $<>
+           inlines imgdesc))))
 block (Table anchor tdesc tdata) =
   H.table ! A.id (textValue (internalAnchorID anchor)) <$>
     ((H.caption <$>

@@ -638,41 +638,59 @@ testsFigures = testGroup "figures"
       [ Command "includegraphics" [OblArg [Plain "file.png"]]
       , Command "caption" [OblArg [Plain "description"]]]]
     @?=
-    Right [Figure (FigureAnchor (0,1)) "file.png" [Str "description"]]
+    Right [Figure (FigureAnchor (0,1)) 0 [Str "description"]]
   , testCase "figure with centering and whitespace" $
     runParser (blocks <* eof) [Group "figure" []
       [ White, Command "centering" []
       , Command "includegraphics" [OblArg [Plain "file.png"]]
       , Par, Command "caption" [OblArg [Plain "description"]]]]
     @?=
-    Right [Figure (FigureAnchor (0,1)) "file.png" [Str "description"]]
+    Right [Figure (FigureAnchor (0,1)) 0 [Str "description"]]
   , testCase "figure with center group" $
     runParser (blocks <* eof) [Group "figure" [] [Group "center" []
       [ Command "includegraphics" [OblArg [Plain "file.png"]]
       , Par, Command "caption" [OblArg [Plain "description"]]]]]
     @?=
-    Right [Figure (FigureAnchor (0,1)) "file.png" [Str "description"]]
+    Right [Figure (FigureAnchor (0,1)) 0 [Str "description"]]
   , testCase "figure with smaller center group" $
     runParser (blocks <* eof) [Group "figure" []
       [ Group "center" []
         [ Command "includegraphics" [OblArg [Plain "file.png"]]]
       , Command "caption" [OblArg [Plain "description"]]]]
     @?=
-    Right [Figure (FigureAnchor (0,1)) "file.png" [Str "description"]]
+    Right [Figure (FigureAnchor (0,1)) 0 [Str "description"]]
   , testCase "figure with label after caption" $
     runParser (blocks <* eof) [Group "figure" []
       [ Command "includegraphics" [OblArg [Plain "file.png"]]
       , Command "caption" [OblArg [Plain "description"]]
       , Command "label" [OblArg [Plain "figlabel"]]]]
     @?=
-    Right [Figure (FigureAnchor (0,1)) "file.png" [Str "description"]]
+    Right [Figure (FigureAnchor (0,1)) 0 [Str "description"]]
   , testCase "figure with label before caption" $
     runParser (blocks <* eof) [Group "figure" []
       [ Command "includegraphics" [OblArg [Plain "file.png"]]
       , Command "label" [OblArg [Plain "figlabel"]]
       , Command "caption" [OblArg [Plain "description"]]]]
     @?=
-    Right [Figure (FigureAnchor (0,1)) "file.png" [Str "description"]]
+    Right [Figure (FigureAnchor (0,1)) 0 [Str "description"]]
+  , testCase "image filepath is stored in media map" $
+    either (error . show) (M.lookup 0 . metaMediaMap . snd)
+      (runParserWithState (blocks <* eof) [Group "figure" []
+        [ Command "includegraphics" [OblArg [Plain "file.png"]]
+        , Command "caption" [OblArg [Plain "description"]]]])
+    @?=
+    Just "file.png"
+  , testCase "includegraphics increments media counter" $
+    either (error . show) (metaMediaCurrent . snd)
+      (runParserWithState (blocks <* eof)
+        [ Group "figure" []
+          [ Command "includegraphics" [OblArg [Plain "file0.png"]]
+          , Command "caption" [OblArg [Plain "image 0"]]]
+        , Group "figure" []
+          [ Command "includegraphics" [OblArg [Plain "file1.png"]]
+          , Command "caption" [OblArg [Plain "image 1"]]]])
+    @?=
+    2
   , testCase "anchor map is updated with figure label" $
     either (error . show) (M.lookup "figlabel" . metaAnchorMap . snd)
       (runParserWithState (blocks <* eof) [Group "figure" []

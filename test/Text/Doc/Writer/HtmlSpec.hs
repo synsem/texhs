@@ -280,13 +280,17 @@ testsBlocks = testGroup "blocks"
     @?=
     "<blockquote><p>one</p></blockquote>"
   , testCase "simple figure" $
-    blocks2html defaultMeta [Figure (FigureAnchor (2,1)) "image.png" [Str "description"]]
+    blocks2html
+      defaultMeta { metaMediaMap = M.fromList [(0, "image.png")] }
+      [Figure (FigureAnchor (2,1)) 0 [Str "description"]]
     @?=
     LT.append "<figure id=\"figure-2-1\"><img src=\"image.png\" />"
               "<figcaption>Figure 2.1: description</figcaption></figure>"
   , testCase "simple figure: XHTML1 version" $
-    blocks2html (defaultMeta { metaWriterHtmlVersion = XHTML1 })
-    [Figure (FigureAnchor (2,1)) "image.png" [Str "description"]]
+    blocks2html
+      (defaultMeta { metaWriterHtmlVersion = XHTML1
+                   , metaMediaMap = M.fromList [(0, "image.png")] })
+      [Figure (FigureAnchor (2,1)) 0 [Str "description"]]
     @?=
     LT.append "<div class=\"figure\" id=\"figure-2-1\"><img src=\"image.png\" />"
               "<p class=\"caption\">Figure 2.1: description</p></div>"

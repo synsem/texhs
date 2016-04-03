@@ -17,6 +17,7 @@ module Text.Doc.Writer.XmlSpec
 import Test.Framework (Test, testGroup)
 import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit ((@?=))
+import qualified Data.Map.Strict as M
 import qualified Data.Text.Lazy as LT
 
 import Text.Doc.Types
@@ -183,7 +184,9 @@ testsBlocks = testGroup "blocks"
     @?=
     "<quote><p>one</p></quote>"
   , testCase "simple figure" $
-    blocks2xml defaultMeta [Figure (FigureAnchor (2,1)) "image.png" [Str "description"]]
+    blocks2xml
+      defaultMeta { metaMediaMap = M.fromList [(0, "image.png")] }
+      [Figure (FigureAnchor (2,1)) 0 [Str "description"]]
     @?=
     LT.append "<figure xml:id=\"figure-2-1\"><graphic url=\"image.png\" />"
               "<head>description</head></figure>"
