@@ -21,6 +21,7 @@ module Main where
 import Control.Applicative ((<$>), (*>))
 #endif
 import Control.Arrow (first)
+import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as B
 import Data.Char (toLower)
 import Data.Text.Lazy (Text)
@@ -37,6 +38,7 @@ import Text.TeX (readTeXIO)
 import Text.TeX.Lexer (lexTeXIO)
 import Text.Doc ( Doc, tex2docWithBib, doc2multiHtml
                 , doc2xml, doc2html, doc2epub)
+import Text.Doc.Types (setCoverImage)
 
 
 ---------- options
@@ -59,6 +61,7 @@ data Options = Options
   , optOutputFormat :: OutputFormat
   , optOutputFile   :: Maybe FilePath
   , optBibFile      :: Maybe FilePath
+  , optCover        :: Maybe FilePath
   } deriving Show
 
 defaultOptions :: Options
@@ -69,6 +72,7 @@ defaultOptions = Options
   , optOutputFormat = HTML
   , optOutputFile   = Nothing
   , optBibFile      = Nothing
+  , optCover        = Nothing
   }
 
 options :: [OptDescr (Options -> Options)]
@@ -88,6 +92,9 @@ options =
   , Option ['b'] ["bibfile"]
     (ReqArg (\ f opts -> opts { optBibFile = Just f }) "FILE")
     "bib file"
+  , Option [] ["cover"]
+    (ReqArg (\ f opts -> opts { optCover = Just f }) "FILE")
+    "cover image"
   , Option ['o'] ["output"]
     (ReqArg (\ f opts -> opts { optOutputFile = Just f }) "FILE")
     "output file (or directory for multi-file output)"
@@ -125,7 +132,7 @@ runConversion opts filename = do
     HTML -> doc2html <$> parseDoc filename bib >>= output opts
     EPUB -> case optOutputFile opts of
       Nothing -> error "EPUB format requires explicit output file"
-      Just path -> parseDoc filename bib >>= doc2epub >>= B.writeFile path
+      Just path -> parseDoc filename bib >>= mkEpub opts >>= B.writeFile path
     MultiHTML -> case optOutputFile opts of
       Nothing -> error "MultiHTML format requires explicit output directory"
       Just dir -> parseDoc filename bib >>= multifileOutput dir
@@ -150,6 +157,9 @@ parseDoc :: FilePath -> Maybe BibDB -> IO Doc
 parseDoc filename bib =
   tex2docWithBib bib filename <$>
   (readTeXIO filename =<< readFile filename)
+
+mkEpub :: Options -> Doc -> IO ByteString
+mkEpub opts = doc2epub . maybe id setCoverImage (optCover opts)
 
 output :: Options -> Text -> IO ()
 output opts = maybe T.putStrLn T.writeFile (optOutputFile opts)
