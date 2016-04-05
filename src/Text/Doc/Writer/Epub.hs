@@ -23,11 +23,12 @@ import Codec.Archive.Zip ( Archive, Entry, toEntry, addEntryToArchive
 import Control.Monad (msum)
 import Data.Bits (clearBit, setBit)
 import Data.ByteString.Lazy (ByteString)
+import qualified Data.ByteString.Lazy as BL
 import Data.Char (isAlpha, isAlphaNum, isAscii)
 import Data.List (intercalate)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
-import Data.Maybe (fromMaybe)
+import Data.Maybe (catMaybes, fromMaybe)
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
@@ -38,6 +39,7 @@ import Data.Time.Format ( defaultTimeLocale, iso8601DateFormat
                         , formatTime, parseTimeM)
 import Data.Word (Word64)
 import System.FilePath (takeExtension)
+import System.IO.Error (tryIOError)
 import System.Random (randomIO)
 import Text.Blaze (Markup, (!), string, text, stringValue, textValue)
 import Text.Blaze.Renderer.Text (renderMarkup)
@@ -58,8 +60,9 @@ doc2epub :: Doc -> IO ByteString
 doc2epub doc = do
   let mdoc = prepDoc doc
   epubMeta <- mkEpubMeta mdoc
+  (ndoc, epubMedia) <- extractMedia mdoc
   timestamp <- getEpochTime
-  return $ writeEpub timestamp (mkEpub mdoc epubMeta)
+  return $ writeEpub timestamp (mkEpub ndoc epubMeta epubMedia)
 
 -- Convert a raw document to a multi-file document
 -- with auto-generated notes and bibliography sections.
@@ -68,11 +71,11 @@ prepDoc = toMultiFileDoc 3 . addBibliography . addNotes .
   doc2secdoc . setHtmlVersion XHTML1
 
 -- Create a structured representation of an EPUB document.
-mkEpub :: MultiFileDoc -> EpubMeta -> Epub
-mkEpub mdoc epubMeta =
+mkEpub :: MultiFileDoc -> EpubMeta -> EpubMedia -> Epub
+mkEpub mdoc epubMeta epubMedia =
   let epubData = mkEpubData mdoc epubMeta
-      epubCont = mkEpubContainer epubMeta epubData
-  in (epubCont, epubData)
+      epubCont = mkEpubContainer epubMeta epubData epubMedia
+  in (epubCont, epubData, epubMedia)
 
 -- Serialize an EPUB document into its binary form.
 writeEpub :: EpochTime -> Epub -> ByteString
@@ -121,11 +124,11 @@ mkEpubData doc epubMeta = EpubData
 -- Generate EPUB container files.
 --
 -- Step 3 of 3 in the EPUB creation pipeline.
-mkEpubContainer :: EpubMeta -> EpubData -> EpubContainer
-mkEpubContainer epubMeta epubData =
+mkEpubContainer :: EpubMeta -> EpubData -> EpubMedia -> EpubContainer
+mkEpubContainer epubMeta epubData epubMedia =
   let opfPath = "content.opf"
   in EpubContainer
-       { epubOPF = (opfPath, renderMarkup (mkOPF epubMeta epubData))
+       { epubOPF = (opfPath, renderMarkup (mkOPF epubMeta epubData epubMedia))
        , epubContainerXml = ( "META-INF/container.xml"
                             , renderMarkup (mkContainerXml opfPath))
        , epubMimetype = ("mimetype", "application/epub+zip")
@@ -150,7 +153,7 @@ toFile = fmap TL.encodeUtf8
 ---------- EPUB documents
 
 -- | A structured representation of a complete EPUB document.
-type Epub = (EpubContainer, EpubData)
+type Epub = (EpubContainer, EpubData, EpubMedia)
 
 -- | EPUB top-level packaging files.
 data EpubContainer = EpubContainer
@@ -162,7 +165,7 @@ data EpubContainer = EpubContainer
   , epubMimetype :: TextFile
   } deriving (Eq, Show)
 
--- | EPUB data files.
+-- | EPUB textual data files.
 --
 -- This includes all content documents
 -- as well as title and navigation pages.
@@ -172,6 +175,11 @@ data EpubData = EpubData
   , epubBody :: [TextFile]
   , epubNCX :: TextFile
   } deriving (Eq, Show)
+
+-- | EPUB media files.
+--
+-- This includes all referenced image files.
+type EpubMedia = [File]
 
 -- | EPUB document meta information.
 data EpubMeta = EpubMeta
@@ -185,26 +193,72 @@ data EpubMeta = EpubMeta
   } deriving (Eq, Show)
 
 -- Extract all filepaths of EPUB data documents.
+--
+-- Note: This does not include the filepaths of
+-- referenced media files (see @EpubMedia@).
 getEpubDataPaths :: EpubData -> [FilePath]
 getEpubDataPaths (EpubData title nav body ncx) =
   map fst (ncx : title : nav : body)
+
+-- Extract all filepaths of EPUB data documents
+-- and included media files.
+--
+-- Note: This does not include the filepaths of
+-- EPUB container files (see @EpubContainer@).
+getEpubPaths :: EpubData -> EpubMedia -> [FilePath]
+getEpubPaths epubData epubMedia =
+  getEpubDataPaths epubData ++ map fst epubMedia
 
 -- Create a list of all files contained in an EPUB document.
 --
 -- Note: The order of these files corresponds to their order in the
 -- ZIP Archive, so the @mimetype@ file must come first.
 getEpubFiles :: Epub -> [File]
-getEpubFiles (ec, ed) = map toFile $
-  epubMimetype ec :
-  epubContainerXml ec :
-  epubOPF ec :
-  epubNCX ed :
-  epubTitlePage ed :
-  epubNavPage ed :
-  epubBody ed
+getEpubFiles (ec, ed, em) =
+  map toFile
+    ( epubMimetype ec :
+      epubContainerXml ec :
+      epubOPF ec :
+      epubNCX ed :
+      epubTitlePage ed :
+      epubNavPage ed :
+      epubBody ed
+    ) ++ em
 
 
 -------------------- IO functions
+
+---------- IO: media files
+
+-- Extract and rename media files.
+extractMedia :: MultiFileDoc -> IO (MultiFileDoc, EpubMedia)
+extractMedia (MultiFileDoc meta nav body) = do
+  let mediaMap = metaMediaMap meta
+      mediaDblPathMap = M.mapWithKey renameMediaFile mediaMap
+      newMediaMap = M.map snd mediaDblPathMap
+      newMeta = meta { metaMediaMap = newMediaMap }
+  epubMedia <- mkMediaFileMap (M.elems mediaDblPathMap)
+  return (MultiFileDoc newMeta nav body, epubMedia)
+
+-- Try to read all referenced media files
+-- and collect successful results.
+mkMediaFileMap :: [(Location, Location)] -> IO [File]
+mkMediaFileMap paths = catMaybes <$> mapM readMediaFile paths
+
+-- Try to read a single media file.
+readMediaFile :: (Location, Location) -> IO (Maybe File)
+readMediaFile (loc, newloc) =
+  either (const Nothing) (\bs -> Just (T.unpack newloc, bs)) <$>
+    tryIOError (BL.readFile (T.unpack loc))
+
+-- Generate a name of a media file based on its
+-- MediaID and its original file extension.
+-- Return the original and the new filepath as a pair.
+renameMediaFile :: MediaID -> Location -> (Location, Location)
+renameMediaFile i loc =
+  let ext = takeExtension (T.unpack loc)
+  in (loc, T.pack (printf "figures/image-%03d%s" i ext))
+
 
 ---------- IO: date and time
 
@@ -275,8 +329,8 @@ mkContainerXml opfPath = withXmlDeclaration $
 ---------- Generate package document (OPF)
 
 -- | The package document (OPF).
-mkOPF :: EpubMeta -> EpubData -> Markup
-mkOPF epubMeta epubData = withXmlDeclaration $
+mkOPF :: EpubMeta -> EpubData -> EpubMedia -> Markup
+mkOPF epubMeta epubData epubMedia = withXmlDeclaration $
   el "package" !
     attr "version" "2.0" !
     attr "xmlns" "http://www.idpf.org/2007/opf" !
@@ -290,10 +344,12 @@ mkOPF epubMeta epubData = withXmlDeclaration $
         attr "id" "BookId" !
         attr "opf:scheme" "UUID" $
         text (epubMetaUUID epubMeta)
-      mapM_ ((el "dc:creator" ! attr "opf:role" "aut") . text) (epubMetaAuthors epubMeta)
+      mapM_ ((el "dc:creator" ! attr "opf:role" "aut") . text)
+        (epubMetaAuthors epubMeta)
       el "dc:date" (text (epubMetaDate epubMeta))
     el "manifest" $
-      mapM_ (opfItem2xml . mkOpfItem) (getEpubDataPaths epubData)
+      mapM_ (opfItem2xml . mkOpfItem)
+        (getEpubPaths epubData epubMedia)
     let idref = stringValue . mkNCName . fst
     el "spine" ! attr "toc" (idref (epubNCX epubData)) $ do
       leaf "itemref" !
@@ -302,7 +358,8 @@ mkOPF epubMeta epubData = withXmlDeclaration $
       leaf "itemref" !
         attr "idref" (idref (epubNavPage epubData)) !
         attr "linear" "no"
-      mapM_ (\i -> leaf "itemref" ! attr "idref" (idref i)) (epubBody epubData)
+      mapM_ (\i -> leaf "itemref" ! attr "idref" (idref i))
+        (epubBody epubData)
 
 -- Representation of an @\<item\>@ entry in the OPF manifest
 -- in the form: @(id-value, href-value, media-type)@.
