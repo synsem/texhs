@@ -66,6 +66,7 @@ module Text.Doc.Types
   , MediaMap
   , registerMedia
   , lookupMedia
+  , setCoverImage
     -- ** Multifile
   , FileID
   , AnchorFileMap
@@ -142,6 +143,7 @@ data Meta = Meta
   , metaSubTitle :: [Inline]
   , metaAuthors :: [[Inline]]
   , metaDate :: [Inline]
+  , metaCover :: Maybe FilePath
   , metaCiteDB :: CiteDB
   , metaCiteMap :: CiteMap
   , metaCiteCount :: Int
@@ -168,6 +170,7 @@ defaultMeta = Meta
   , metaSubTitle = []
   , metaAuthors = []
   , metaDate = []
+  , metaCover = Nothing
   , metaCiteDB = M.empty
   , metaCiteMap = M.empty
   , metaCiteCount = 0
@@ -398,6 +401,12 @@ registerMedia filePath meta =
 -- Return empty filepath for non-existing IDs.
 lookupMedia :: MediaID -> MediaMap -> Location
 lookupMedia mediaID db = fromMaybe "" (M.lookup mediaID db)
+
+-- | Set cover image for the document.
+setCoverImage :: FilePath -> Doc -> Doc
+setCoverImage path (Doc meta body) =
+  let newMeta = meta { metaCover = Just path }
+  in Doc newMeta body
 
 
 ---------- Multifile support
