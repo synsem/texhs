@@ -16,6 +16,14 @@
 module Text.Doc.Writer.Epub
  ( -- * Doc to EPUB Conversion
    doc2epub
+   -- * Types
+ , Epub
+ , EpubContainer(..)
+ , EpubData(..)
+ , EpubMedia(..)
+ , EpubMeta(..)
+ , File
+ , TextFile
  ) where
 
 import Codec.Archive.Zip ( Archive, Entry, toEntry, addEntryToArchive
@@ -179,7 +187,10 @@ data EpubData = EpubData
 -- | EPUB media files.
 --
 -- This includes all referenced image files.
-type EpubMedia = [File]
+data EpubMedia = EpubMedia
+  { epubMediaCover :: Maybe File
+  , epubMediaFigures :: [File]
+  } deriving (Eq, Show)
 
 -- | EPUB document meta information.
 data EpubMeta = EpubMeta
@@ -192,22 +203,8 @@ data EpubMeta = EpubMeta
   , epubMetaAnchorDB :: AnchorFileMap
   } deriving (Eq, Show)
 
--- Extract all filepaths of EPUB data documents.
---
--- Note: This does not include the filepaths of
--- referenced media files (see @EpubMedia@).
-getEpubDataPaths :: EpubData -> [FilePath]
-getEpubDataPaths (EpubData title nav body ncx) =
-  map fst (ncx : title : nav : body)
 
--- Extract all filepaths of EPUB data documents
--- and included media files.
---
--- Note: This does not include the filepaths of
--- EPUB container files (see @EpubContainer@).
-getEpubPaths :: EpubData -> EpubMedia -> [FilePath]
-getEpubPaths epubData epubMedia =
-  getEpubDataPaths epubData ++ map fst epubMedia
+---------- Extract files
 
 -- Create a list of all files contained in an EPUB document.
 --
@@ -216,14 +213,51 @@ getEpubPaths epubData epubMedia =
 getEpubFiles :: Epub -> [File]
 getEpubFiles (ec, ed, em) =
   map toFile
-    ( epubMimetype ec :
-      epubContainerXml ec :
-      epubOPF ec :
-      epubNCX ed :
-      epubTitlePage ed :
-      epubNavPage ed :
-      epubBody ed
-    ) ++ em
+    ( getEpubContainerFiles ec ++
+      getEpubDataFiles ed) ++
+  getEpubMediaFiles em
+
+-- Extract all EPUB textual data files.
+--
+-- Note: The order of these files corresponds to their order in the
+-- ZIP Archive, so the @mimetype@ file must come first.
+getEpubContainerFiles :: EpubContainer -> [TextFile]
+getEpubContainerFiles (EpubContainer opf cont mime) =
+  [mime,cont,opf]
+
+-- Extract all EPUB textual data files.
+getEpubDataFiles :: EpubData -> [TextFile]
+getEpubDataFiles (EpubData title nav body ncx) =
+  ncx : title : nav : body
+
+-- Extract all EPUB media files.
+getEpubMediaFiles :: EpubMedia -> [File]
+getEpubMediaFiles (EpubMedia cover figures) =
+  maybe id (:) cover figures
+
+
+---------- Extract filepaths
+
+-- Extract all filepaths of EPUB data documents
+-- and included media files.
+--
+-- Note: This does not include the filepaths of
+-- EPUB container files (see @EpubContainer@).
+getEpubPaths :: EpubData -> EpubMedia -> [FilePath]
+getEpubPaths epubData epubMedia =
+  getEpubDataPaths epubData ++
+  getEpubMediaPaths epubMedia
+
+-- Extract all filepaths of EPUB data documents.
+--
+-- Note: This does not include the filepaths of
+-- referenced media files (see @EpubMedia@).
+getEpubDataPaths :: EpubData -> [FilePath]
+getEpubDataPaths = map fst . getEpubDataFiles
+
+-- Extract all filepaths of EPUB media files.
+getEpubMediaPaths :: EpubMedia -> [FilePath]
+getEpubMediaPaths = map fst . getEpubMediaFiles
 
 
 -------------------- IO functions
@@ -233,12 +267,14 @@ getEpubFiles (ec, ed, em) =
 -- Extract and rename media files.
 extractMedia :: MultiFileDoc -> IO (MultiFileDoc, EpubMedia)
 extractMedia (MultiFileDoc meta nav body) = do
-  let mediaMap = metaMediaMap meta
+  let coverPath = metaCover meta
+      mediaMap = metaMediaMap meta
       mediaDblPathMap = M.mapWithKey renameMediaFile mediaMap
       newMediaMap = M.map snd mediaDblPathMap
       newMeta = meta { metaMediaMap = newMediaMap }
-  epubMedia <- mkMediaFileMap (M.elems mediaDblPathMap)
-  return (MultiFileDoc newMeta nav body, epubMedia)
+  figures <- mkMediaFileMap (M.elems mediaDblPathMap)
+  cover <- readCoverImage coverPath
+  return (MultiFileDoc newMeta nav body, EpubMedia cover figures)
 
 -- Try to read all referenced media files
 -- and collect successful results.
@@ -250,6 +286,13 @@ readMediaFile :: (Location, Location) -> IO (Maybe File)
 readMediaFile (loc, newloc) =
   either (const Nothing) (\bs -> Just (T.unpack newloc, bs)) <$>
     tryIOError (BL.readFile (T.unpack loc))
+
+-- Try to read the cover image.
+readCoverImage :: Maybe FilePath -> IO (Maybe File)
+readCoverImage Nothing = return Nothing
+readCoverImage (Just coverPath) =
+  let ext = takeExtension coverPath
+  in readMediaFile (T.pack coverPath, T.pack (printf "figures/cover%s" ext))
 
 -- Generate a name of a media file based on its
 -- MediaID and its original file extension.
@@ -330,7 +373,8 @@ mkContainerXml opfPath = withXmlDeclaration $
 
 -- | The package document (OPF).
 mkOPF :: EpubMeta -> EpubData -> EpubMedia -> Markup
-mkOPF epubMeta epubData epubMedia = withXmlDeclaration $
+mkOPF epubMeta epubData epubMedia = withXmlDeclaration $ do
+  let idref = stringValue . mkNCName . fst
   el "package" !
     attr "version" "2.0" !
     attr "xmlns" "http://www.idpf.org/2007/opf" !
@@ -347,10 +391,14 @@ mkOPF epubMeta epubData epubMedia = withXmlDeclaration $
       mapM_ ((el "dc:creator" ! attr "opf:role" "aut") . text)
         (epubMetaAuthors epubMeta)
       el "dc:date" (text (epubMetaDate epubMeta))
+      case epubMediaCover epubMedia of
+        Nothing -> mempty
+        Just cover -> leaf "meta" !
+          attr "name" "cover" !
+          attr "content" (idref cover)
     el "manifest" $
       mapM_ (opfItem2xml . mkOpfItem)
         (getEpubPaths epubData epubMedia)
-    let idref = stringValue . mkNCName . fst
     el "spine" ! attr "toc" (idref (epubNCX epubData)) $ do
       leaf "itemref" !
         attr "idref" (idref (epubTitlePage epubData)) !
