@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 ----------------------------------------------------------------------
 -- |
@@ -21,6 +22,10 @@ module Text.Doc.Writer.Xml
  , inlines2xml
  ) where
 
+#if MIN_VERSION_base(4,8,0)
+#else
+import Control.Applicative
+#endif
 import Control.Monad.Trans.Reader (Reader, runReader, asks)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)

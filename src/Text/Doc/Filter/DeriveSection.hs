@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 ----------------------------------------------------------------------
 -- |
 -- Module      :  Text.Doc.Filter.DeriveSection
@@ -27,6 +28,10 @@ module Text.Doc.Filter.DeriveSection
  ) where
 
 
+#if MIN_VERSION_base(4,8,0)
+#else
+import Control.Applicative
+#endif
 import Control.Arrow (first)
 import Control.Monad.Trans.State.Strict (State, runState, modify, gets)
 import Data.List (nub, sort)

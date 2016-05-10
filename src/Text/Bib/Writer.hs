@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 ----------------------------------------------------------------------
 -- |
@@ -33,6 +34,10 @@ module Text.Bib.Writer
   , fmtBibFieldAuthors
   ) where
 
+#if MIN_VERSION_base(4,8,0)
+#else
+import Data.Monoid (mempty)
+#endif
 import Control.Applicative
 import Control.Monad (msum)
 import Data.Function (on)

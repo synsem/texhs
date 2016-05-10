@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 ----------------------------------------------------------------------
 -- |
@@ -29,6 +30,10 @@ module Text.Doc.Writer.Html
  , htmlNavPage
  ) where
 
+#if MIN_VERSION_base(4,8,0)
+#else
+import Control.Applicative
+#endif
 import Control.Monad.Trans.Reader (Reader, runReader, asks)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M

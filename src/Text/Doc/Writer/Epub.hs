@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 ----------------------------------------------------------------------
 -- |
@@ -26,6 +27,11 @@ module Text.Doc.Writer.Epub
  , TextFile
  ) where
 
+#if MIN_VERSION_base(4,8,0)
+#else
+import Control.Applicative
+import Data.Monoid (mempty)
+#endif
 import Codec.Archive.Zip ( Archive, Entry, toEntry, addEntryToArchive
                          , emptyArchive, fromArchive)
 import Control.Monad (msum)
