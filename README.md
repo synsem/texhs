@@ -30,6 +30,14 @@ of an input document at three layers:
 `texhs` is in active development but can already be used to produce
 XML, HTML and EPUB versions of conforming documents.
 
+An example document that has been converted using `texhs` from LaTeX to
+[XML](http://langsci.github.io/XMLBooks/cfls/1/enfield.xml),
+[HTML](http://langsci.github.io/XMLBooks/cfls/1/enfield.html), and
+[EPUB](http://langsci.github.io/XMLBooks/cfls/1/enfield.epub)
+is the linguistic monograph
+*Natural Causes of Language* by N.J. Enfield,
+published by [Language Science Press](http://langsci-press.org/catalog/book/48).
+
 However, at this stage its knowledge of TeX internals and LaTeX
 commands is still limited, thus it will fail for many valid LaTeX
 documents. In addition, the default Doc parser enforces a strict
