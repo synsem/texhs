@@ -1,9 +1,7 @@
 name:                texhs
 version:             0.1.0.0
-synopsis:            TeX and LaTeX Parser
-description:         texhs is a Haskell library for parsing TeX and LaTeX documents
-                     with support for category code management and the main macro
-                     systems of TeX, LaTeX2e and LaTeX3 (xparse).
+synopsis:            LaTeX Parser
+description:         A Haskell library for parsing LaTeX documents.
 homepage:            https://github.com/synsem/texhs
 license:             GPL-3
 license-file:        LICENSE
