@@ -378,6 +378,10 @@ registerTable = do
 inline :: Parser Inline
 inline = space <|> inlineWord
 
+-- inline with embedded Newlines allowed.
+inlineNL :: Parser Inline
+inlineNL = newline <|> inline
+
 -- Parse a non-space inline element.
 inlineWord :: Parser Inline
 inlineWord = choice
@@ -394,13 +398,20 @@ inlines = concat <$> many (choice
   , inGrp "" inlines
   , [] <$ skipInterlevel ])
 
+-- inlines with embedded Newlines allowed.
+inlinesNL :: Parser [Inline]
+inlinesNL = concat <$> many (choice
+  [ count 1 inlineNL
+  , inGrp "" inlinesNL
+  , [] <$ skipInterlevel ])
+
 -- | Parse a non-empty list of inline elements.
 --
 -- Anonymous groups are flattened.
 someInlines :: Parser [Inline]
 someInlines = choice
-  [ (:) <$> inline <*> inlines
-  , (++) <$> inGrp "" someInlines <*> inlines ]
+  [ (:) <$> inline <*> inlinesNL
+  , (++) <$> inGrp "" someInlines <*> inlinesNL ]
 
 -- Parse content of a math group.
 inlinesMath :: Parser [Inline]
@@ -429,6 +440,10 @@ literalTextArg name = inCmd name literalText
 -- | Parse whitespace.
 space :: Parser Inline
 space = Space <$ lexeme (satisfy isWhite)
+
+-- Parse newline as space.
+newline :: Parser Inline
+newline = Space <$ lexeme (satisfy isNewline)
 
 -- Parse math group (to unicode representation).
 math :: Parser Inline

@@ -137,6 +137,19 @@ testsBlocks = testGroup "block elements"
     @?=
     Right [ Para [Str "one", Space, Str "two", Space, Str "three"]
           , Para [Str "four"]]
+  , testCase "treat hard newlines within paragraph as space" $
+    runParser (blocks <* eof)
+      [ Plain "one", White, Plain "two", Newline ]
+    @?=
+    Right [ Para [Str "one", Space, Str "two", Space]]
+  , testCase "ignore double newlines at end of paragraph" $
+    runParser (blocks <* eof)
+      [ Plain "one", White, Plain "two", Newline, Newline
+      , Par
+      , Plain "three" ]
+    @?=
+    Right [ Para [Str "one", Space, Str "two", Space, Space]
+          , Para [Str "three"]]
   ]
 
 testsInlines :: Test
