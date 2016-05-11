@@ -287,7 +287,7 @@ withItemSubList p = pushItemSubList *> p <* popItemSubList
 -- with an optional trailing @glt@ or @trans@ line.
 igt :: Parser Block
 igt = do
-  let linerange = [2..8] -- allowed number of aligned lines in an igt block
+  let linerange = [1..8] -- allowed number of aligned lines in an igt block
   numlines <- choice (map (\n ->
     n <$ lexemeBlock (cmd ('g' : replicate n 'l'))) linerange)
   alignedlines <- count numlines glossline

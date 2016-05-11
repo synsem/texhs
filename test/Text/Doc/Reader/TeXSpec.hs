@@ -573,6 +573,22 @@ testsInterlinear = testGroup "interlinear glossed text"
     @?=
     Right (SimpleTable [ [SingleCell [Str "one"], SingleCell [Str "one"]]
                        , [SingleCell [Str "two"], SingleCell [Str "two"]]])
+  , testCase "allow single igt line" $
+    runParser block
+      [ Command "gl" []
+      , Plain "one", Newline]
+    @?=
+    Right (SimpleTable [[SingleCell [Str "one"]]])
+  , testCase "allow single igt line with translation" $
+    runParser block
+      [ Command "gl" []
+      , Plain "one", Newline
+      , Command "glt" []
+      , Plain "two"
+      ]
+    @?=
+    Right (SimpleTable [ [SingleCell [Str "one"]]
+                       , [MultiCell 1 [Str "two"]]])
   , testCase "two lines with translation line" $
     runParser block
       [ Command "gll" []
