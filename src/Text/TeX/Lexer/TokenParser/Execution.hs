@@ -484,9 +484,22 @@ endEnvironment = do
           DefinedGroup name' [] []
         prependTokens (endCode ++ endEnv)
         return []
-    _ -> do
-      modifyState (popGroup (NamedGroup (stripBraces name)))
-      return endEnv
+    _ -> -- stack group is not a defined group
+      if getGroupName grp == stripBraces name
+      then do
+        modifyState (popGroup (NamedGroup (stripBraces name)))
+        return endEnv
+      else do
+        -- There is a mismatch between the stream group and the stack group.
+        -- This may happen if the start code and end code portions of a
+        -- newenvironment definition span named groups themselves.
+        -- We attempt to find the stream group as a defined group in the
+        -- full lexer stack and inject its end code into the stream.
+        let definedGroup = DefinedGroup (stripBraces name) [] []
+        endCode <- getGroupEndCode definedGroup <$> getState
+        modifyState (clearGroup definedGroup)
+        prependTokens (endCode ++ endEnv)
+        return []
 
 -- Parse the name of a LaTeX environment, including group delimiters.
 --
