@@ -23,12 +23,17 @@ of an input document at three layers:
 - **Document Model**:
   The Doc parsing module provides an internal document model
   as an abstract syntax tree
-  after expansion of all remaining TeX macros.
+  after expansion and evaluation of all remaining macros.
 
 ## Development Status
 
-`texhs` is in active development but can already be used to produce
-XML, HTML and EPUB versions of conforming documents.
+`texhs` is in active development and can already be used to produce
+(TEI-based) XML, HTML (XHTML5, XHTML1) and EPUB versions of conforming
+documents. However, there is no official release yet and
+at this stage the list of supported TeX internals and LaTeX commands
+is still somewhat limited, thus `texhs` will fail on many valid LaTeX
+documents. In addition, the default Doc parser enforces a strict
+document model by design. This helps to guarantee quality output.
 
 An example document that has been converted using `texhs` from LaTeX to
 [XML](http://langsci.github.io/XMLBooks/cfls/1/enfield.xml),
@@ -37,12 +42,6 @@ An example document that has been converted using `texhs` from LaTeX to
 is the linguistic monograph
 *Natural Causes of Language* by N.J. Enfield,
 published by [Language Science Press](http://langsci-press.org/catalog/book/48).
-
-However, at this stage its knowledge of TeX internals and LaTeX
-commands is still limited, thus it will fail for many valid LaTeX
-documents. In addition, the default Doc parser enforces a strict
-document model by design in order to guarantee quality output:
-non-conforming documents are rejected.
 
 ## Setup Instructions
 
@@ -72,6 +71,7 @@ Run the test suite:
 ```
 $ cabal install --only-dependencies --enable-tests
 $ cabal configure --enable-tests
+$ cabal build
 $ cabal test
 ```
 
@@ -115,7 +115,7 @@ source document, evaluating lexer-level commands, into an abstract
 syntax tree:
 
 ```
-tex source --(tex-lexer)--> tokens --(tex-parser)--> TeX AST
+TeX Source --(tex-lexer)--> Tokens --(tex-parser)--> TeX AST
 ```
 
 The lexer is currently implemented as a monad transformer on top of
@@ -151,8 +151,4 @@ supported TeX commands. The TeX parser needs to know their syntax
 (number and structure of arguments) and the Doc parser needs to
 know their semantics in order to map them to appropriate elements
 in the document model. The relevant information is stored in a
-manually curated TeX command database. While the syntactic argument
-structure of a macro could be automatically extracted from its
-definition, it is not possible to determine its semantics.
-Also note that it is impossible to reliably determine the arguments
-of a TeX macro without looking up its current definition.
+manually curated TeX command database.

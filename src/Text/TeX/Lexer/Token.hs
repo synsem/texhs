@@ -16,6 +16,7 @@ module Text.TeX.Lexer.Token
   ( -- * TeX token types
     Token(..)
   , Group(..)
+  , getGroupName
     -- * Utility functions
     -- ** Token predicates
   , isTeXChar
@@ -95,6 +96,13 @@ instance Eq Group where
   NamedGroup n == NamedGroup m = n == m
   DefinedGroup n _ _ == DefinedGroup m _ _ = n == m
   _ == _ = False
+
+-- | Extract the name of a group.
+getGroupName :: Group -> [Token]
+getGroupName AnonymousGroup = []
+getGroupName NativeGroup = []
+getGroupName (NamedGroup name) = name
+getGroupName (DefinedGroup name _ _) = name
 
 -------------------- Token predicates
 

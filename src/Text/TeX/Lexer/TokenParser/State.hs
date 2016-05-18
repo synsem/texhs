@@ -33,6 +33,8 @@ module Text.TeX.Lexer.TokenParser.State
   , popGroup
   , getGroup
   , setGroup
+  , clearGroup
+  , getGroupEndCode
     -- ** User macros
     -- Generic
 --  , lookupMacro
@@ -56,6 +58,7 @@ import Text.TeX.Lexer.Macro
 import Text.TeX.Lexer.Token
 
 import Control.Monad (guard)
+import Data.List (find)
 
 ---------- Types
 
@@ -143,6 +146,24 @@ getGroup _ = error "invalid lexer state"
 setGroup :: Group -> LexerState -> ThrowsError LexerState
 setGroup g (LexerState (l:ls)) = Right $ LexerState (l {localGroup = g} :ls)
 setGroup _ _ = throwE "invalid lexer state"
+
+-- | Clear the code portions stored in a DefinedGroup.
+clearGroup :: Group -> LexerState -> ThrowsError LexerState
+clearGroup g@DefinedGroup{} (LexerState ls) =
+  let (xs,ys) = break ((== g) . localGroup) ls
+  in case ys of
+    [] -> throwE $ "invalid group nesting: " ++ show g
+    (z:zs) ->
+      let DefinedGroup name _ _ = localGroup z
+      in Right $ LexerState (xs ++ z { localGroup = DefinedGroup name [] []} :zs)
+clearGroup _ _ = throwE "invalid call to clearGroup: expecting DefinedGroup"
+
+-- | Retrieve the end code portion stored in a DefinedGroup.
+getGroupEndCode :: Group -> LexerState -> [Token]
+getGroupEndCode g (LexerState ls) =
+  case find (== g) (map localGroup ls) of
+    Just (DefinedGroup _ _ endCode) -> endCode
+    _ -> []
 
 -- Get string representation of the expected end delimiter for the
 -- current group. Only used for error messages.
@@ -237,15 +258,15 @@ registerMacro :: Macro k a => MacroDefinitionMode -> (k, a) ->
 registerMacro mode m@(k,_) st
   | macroIsDefined k st = case mode of
     MacroDeclare -> registerGlobalMacro m st
-    MacroNew -> throwE $
-      "macro already defined" ++ getMacroName m
+    MacroNew -> -- warning: macro already defined
+      registerGlobalMacro m st
     MacroRenew -> registerGlobalMacro m st
     MacroProvide -> Right st
   | otherwise = case mode of
     MacroDeclare -> registerGlobalMacro m st
     MacroNew -> registerGlobalMacro m st
-    MacroRenew -> throwE $
-      "cannot redefine undefined macro: " ++ getMacroName m
+    MacroRenew -> -- warning: requested redefinition of undefined macro
+      registerGlobalMacro m st
     MacroProvide -> registerGlobalMacro m st
 
 -- | Register a global macro command definition.

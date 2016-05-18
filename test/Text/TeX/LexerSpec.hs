@@ -882,6 +882,20 @@ testsMacroEnvsLaTeX2e = testGroup "LaTeX2e environment definitions"
       ,"\\begin{a}B\\end{a}"])
     @?=
     [TeXChar '(' Other, TeXChar 'B' Letter, TeXChar ')' Other]
+  , testCase "allow subenvironments" $
+    lexTeX ""
+      ("\\newenvironment{abc}{\\begin{a}\\begin{b}\\begin{c}}" ++
+       "{\\end{c}\\end{b}\\end{a}}" ++
+       "\\begin{abc}d\\end{abc}")
+    @?=
+    mkEnv "a" (mkEnv "b" (mkEnv "c" [mkLetter 'd']))
+  , testCase "allow subenvironments with arguments" $
+    lexTeX ""
+      ("\\newenvironment{ab}[1]{\\begin{a}#1\\begin{b}}" ++
+       "{\\end{b}\\end{a}#1}" ++
+       "\\begin{ab}cd\\end{ab}")
+    @?=
+    (mkEnv "a" (mkLetter 'c':mkEnv "b" [mkLetter 'd']) ++ [mkLetter 'c'])
   ]
 
 testsCatcode :: Test
