@@ -258,15 +258,15 @@ registerMacro :: Macro k a => MacroDefinitionMode -> (k, a) ->
 registerMacro mode m@(k,_) st
   | macroIsDefined k st = case mode of
     MacroDeclare -> registerGlobalMacro m st
-    MacroNew -> throwE $
-      "macro already defined" ++ getMacroName m
+    MacroNew -> -- warning: macro already defined
+      registerGlobalMacro m st
     MacroRenew -> registerGlobalMacro m st
     MacroProvide -> Right st
   | otherwise = case mode of
     MacroDeclare -> registerGlobalMacro m st
     MacroNew -> registerGlobalMacro m st
-    MacroRenew -> throwE $
-      "cannot redefine undefined macro: " ++ getMacroName m
+    MacroRenew -> -- warning: requested redefinition of undefined macro
+      registerGlobalMacro m st
     MacroProvide -> registerGlobalMacro m st
 
 -- | Register a global macro command definition.
