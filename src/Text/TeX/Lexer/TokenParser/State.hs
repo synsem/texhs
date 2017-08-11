@@ -190,17 +190,14 @@ addCatcode _ _ = throwE "invalid lexer state"
 
 -- Generalize over macro commands and environments.
 class (Eq k) => Macro k a | k -> a where
-  getMacroName :: (k, a) -> String
   getLocalMacros :: Scope -> [(k, a)]
   addLocalMacro :: (k, a) -> Scope -> Scope
 
 instance Macro MacroCmdKey MacroCmd where
-  getMacroName = fst . macroCmdName . snd
   getLocalMacros = localMacroCmds
   addLocalMacro m ls = ls {localMacroCmds = m : localMacroCmds ls}
 
 instance Macro MacroEnvKey MacroEnv where
-  getMacroName = show . macroEnvName . snd
   getLocalMacros = localMacroEnvs
   addLocalMacro m ls = ls {localMacroEnvs = m : localMacroEnvs ls}
 
