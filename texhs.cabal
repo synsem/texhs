@@ -6,8 +6,8 @@ homepage:            https://github.com/synsem/texhs
 license:             GPL-3
 license-file:        LICENSE
 author:              Mathias Schenner
-maintainer:          mathias.schenner@langsci-press.org
-copyright:           2015-2016 Mathias Schenner,
+maintainer:          mschenner.dev@gmail.com
+copyright:           2015-2017 Mathias Schenner,
                      2015-2016 Language Science Press.
 category:            Text
 build-type:          Simple

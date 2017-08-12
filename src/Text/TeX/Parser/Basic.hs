@@ -2,11 +2,11 @@
 ----------------------------------------------------------------------
 -- |
 -- Module      :  Text.TeX.Parser.Basic
--- Copyright   :  2015-2016 Mathias Schenner,
+-- Copyright   :  2015-2017 Mathias Schenner,
 --                2015-2016 Language Science Press.
 -- License     :  GPL-3
 --
--- Maintainer  :  mathias.schenner@langsci-press.org
+-- Maintainer  :  mschenner.dev@gmail.com
 -- Stability   :  experimental
 -- Portability :  GHC
 --
